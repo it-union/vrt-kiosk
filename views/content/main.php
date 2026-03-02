@@ -17,10 +17,17 @@ declare(strict_types=1);
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .listFilter { margin-bottom: 8px; }
+        #contentTypeFilter { font-size: 13px; }
         .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 6px; }
         .item { padding: 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
+        .item.itemInactive { opacity: 0.72; }
+        .listItemRow { display: flex; align-items: center; gap: 8px; }
+        .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
+        .statusBadge.statusActive { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
+        .statusBadge.statusInactive { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
         .status { margin-left: auto; align-self: center; display: none; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 12px; line-height: 1.2; }
         .status.show { display: inline-flex; }
         .status.success { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
@@ -1510,12 +1517,24 @@ function renderList() {
   el.list.innerHTML = '';
   for (const row of state.list) {
     const d = document.createElement('div');
-    d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '');
+    const isActive = Number(row.is_active || 0) === 1;
+    d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive');
     const t = String(row.type || 'image');
-    const label = t === 'html' ? 'HTML' : (t === 'video' ? 'Видео' : (t === 'ppt' ? 'Презентация' : 'Изображение'));
     const labelMapSafe = { image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
     const safeLabel = labelMapSafe[t] || 'Изображение';
-    d.textContent = `[${safeLabel}] ${row.title} (ID ${row.id})`;
+    const wrap = document.createElement('div');
+    wrap.className = 'listItemRow';
+    const text = document.createElement('div');
+    text.className = 'listItemText';
+    const fullLabel = `[${safeLabel}] ${row.title} (ID ${row.id})`;
+    text.textContent = fullLabel;
+    text.title = fullLabel;
+    const badge = document.createElement('span');
+    badge.className = 'statusBadge ' + (isActive ? 'statusActive' : 'statusInactive');
+    badge.textContent = isActive ? 'Активный' : 'Неактивный';
+    wrap.appendChild(text);
+    wrap.appendChild(badge);
+    d.appendChild(wrap);
     d.onclick = () => loadById(row.id);
     el.list.appendChild(d);
   }

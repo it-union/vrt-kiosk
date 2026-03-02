@@ -53,6 +53,15 @@ declare(strict_types=1);
         .item { padding: 7px 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
+        .item.itemDraft { border-left: 4px solid #d97706; }
+        .item.itemWork { border-left: 4px solid #15803d; }
+        .item.itemArchive { border-left: 4px solid #64748b; opacity: 0.78; }
+        .listItemRow { display: flex; align-items: center; gap: 8px; }
+        .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
+        .statusBadge.statusDraft { color: #92400e; background: #fef3c7; border-color: #fcd34d; }
+        .statusBadge.statusWork { color: #166534; background: #dcfce7; border-color: #86efac; }
+        .statusBadge.statusArchive { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
         .hiddenFile { display: none !important; }
         .meta label, .editor label { margin: 6px 0; font-size: 13px; }
         input, select, textarea, button { font: inherit; }
@@ -651,8 +660,22 @@ function renderTemplateList() {
     const normalized = rawStatus === 'active' ? 'work' : (rawStatus === 'archived' ? 'archive' : rawStatus);
     const statusLabel = normalized === 'draft' ? 'черновик' : (normalized === 'work' ? 'рабочий' : (normalized === 'archive' ? 'архив' : normalized));
     const d = document.createElement('div');
-    d.className = 'item' + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '');
-    d.textContent = `${tpl.name} [${statusLabel}] v${tpl.version}`;
+    const statusClass = normalized === 'work' ? 'itemWork' : (normalized === 'archive' ? 'itemArchive' : 'itemDraft');
+    const badgeClass = normalized === 'work' ? 'statusWork' : (normalized === 'archive' ? 'statusArchive' : 'statusDraft');
+    d.className = 'item ' + statusClass + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '');
+    const wrap = document.createElement('div');
+    wrap.className = 'listItemRow';
+    const text = document.createElement('div');
+    text.className = 'listItemText';
+    const fullLabel = `${tpl.name} v${tpl.version}`;
+    text.textContent = fullLabel;
+    text.title = fullLabel;
+    const badge = document.createElement('span');
+    badge.className = 'statusBadge ' + badgeClass;
+    badge.textContent = statusLabel;
+    wrap.appendChild(text);
+    wrap.appendChild(badge);
+    d.appendChild(wrap);
     d.onclick = () => loadTemplate(tpl.id);
     el.templateList.appendChild(d);
   }
