@@ -168,6 +168,7 @@ declare(strict_types=1);
                     <label>Высота, px <input id="pImageHeight" type="number" min="1" step="1"></label>
                 </div>
                 <label>Масштаб, % <input id="pImageScale" type="number" min="1" max="500" step="1" value="100"></label>
+                <label>Поворот, ° <input id="pImageRotate" type="number" min="-360" max="360" step="1" value="0"></label>
                 <label>Режи изображения
                     <select id="pImageFluidMode">
                         <option value="fixed">фиксированный разер</option>
@@ -381,6 +382,7 @@ const el = {
   pImageWidth: document.getElementById('pImageWidth'),
   pImageHeight: document.getElementById('pImageHeight'),
   pImageScale: document.getElementById('pImageScale'),
+  pImageRotate: document.getElementById('pImageRotate'),
   pImageFluidMode: document.getElementById('pImageFluidMode'),
   pImagePosition: document.getElementById('pImagePosition'),
   pVideoWidth: document.getElementById('pVideoWidth'),
@@ -552,12 +554,14 @@ function buildImageDataJson() {
   const widthPx = Number(el.pImageWidth.value || 0);
   const heightPx = Number(el.pImageHeight.value || 0);
   const scalePct = Number(el.pImageScale.value || 100);
+  const rotateDeg = Math.max(-360, Math.min(360, Number(el.pImageRotate.value || 0)));
   const fluid = el.pImageFluidMode && el.pImageFluidMode.value === 'fluid';
   return {
     image: {
       width_px: widthPx > 0 ? widthPx : null,
       height_px: heightPx > 0 ? heightPx : null,
       scale_pct: scalePct > 0 ? scalePct : 100,
+      rotate_deg: Number.isFinite(rotateDeg) ? rotateDeg : 0,
       fluid: fluid,
       mode: fluid ? 'fluid' : 'fixed',
       position: el.pImagePosition.value || 'center'
@@ -965,6 +969,7 @@ function syncPreview() {
   const data = buildImageDataJson();
   const widthPx = Number(data.image.width_px || 0);
   const heightPx = Number(data.image.height_px || 0);
+  const rotateDeg = Math.max(-360, Math.min(360, Number(data.image.rotate_deg || 0)));
   const fluid = !!data.image.fluid;
   const position = String(data.image.position || 'center');
   const map = {
@@ -993,6 +998,8 @@ function syncPreview() {
     el.previewImg.style.maxWidth = '100%';
     el.previewImg.style.maxHeight = '100%';
   }
+  el.previewImg.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
+  el.previewImg.style.transformOrigin = 'center center';
 }
 function loadImageNaturalSize(url) {
   return new Promise((resolve) => {
@@ -1157,6 +1164,7 @@ function nowDraft() {
   el.pImageWidth.value = '';
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
+  el.pImageRotate.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1351,6 +1359,7 @@ function resetEditor() {
   el.pImageWidth.value = '';
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
+  el.pImageRotate.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1539,6 +1548,7 @@ async function loadById(id) {
     el.pImageWidth.value = image.width_px ? String(Number(image.width_px || 0)) : '';
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
     el.pImageScale.value = image.scale_pct ? String(Number(image.scale_pct || 100)) : '100';
+    el.pImageRotate.value = String(Math.max(-360, Math.min(360, Number(image.rotate_deg || 0))));
     el.pImageFluidMode.value = (image.fluid === true || String(image.mode || '') === 'fluid') ? 'fluid' : 'fixed';
     el.pImagePosition.value = String(image.position || 'center');
     el.pVideoWidth.value = video.width_px ? String(Number(video.width_px || 0)) : '';
@@ -1880,6 +1890,7 @@ el.uploadFile.addEventListener('change', async () => {
 el.pImageWidth.addEventListener('input', () => { syncScaleFromDimensions(); syncDataJson(); syncPreview(); });
 el.pImageHeight.addEventListener('input', () => { syncScaleFromDimensions(); syncDataJson(); syncPreview(); });
 el.pImageScale.addEventListener('input', () => { applyScaleToDimensions(); syncDataJson(); syncPreview(); });
+el.pImageRotate.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pVideoWidth.addEventListener('input', () => { syncVideoScaleFromDimensions(); syncDataJson(); syncPreview(); });

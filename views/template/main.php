@@ -543,6 +543,7 @@ function renderBlockContentPreview(blockEl, block) {
     const [justify, align] = resolveMediaPosition(p.position);
     const widthPx = Math.max(0, Number(p.width_px || 0));
     const heightPx = Math.max(0, Number(p.height_px || 0));
+    const rotateDeg = Math.max(-360, Math.min(360, Number(p.rotate_deg || 0)));
     const fluid = p.fluid === true;
     wrap.style.justifyContent = justify;
     wrap.style.alignItems = align;
@@ -557,6 +558,8 @@ function renderBlockContentPreview(blockEl, block) {
       img.style.width = widthPx > 0 ? (widthPx + 'px') : 'auto';
       img.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
     }
+    img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
+    img.style.transformOrigin = 'center center';
     wrap.appendChild(img);
     blockEl.appendChild(wrap);
     return;
@@ -726,6 +729,28 @@ function renderCanvas() {
 }
 
 function currentBlock() { return state.selectedBlockIndex < 0 || state.selectedBlockIndex >= state.blocks.length ? null : state.blocks[state.selectedBlockIndex]; }
+function setFieldVisibility(node, visible) {
+  if (!node) return;
+  node.style.display = visible ? '' : 'none';
+}
+function syncScreenBackgroundFieldVisibility() {
+  const mode = String(el.screenBgMode?.value || 'color');
+  const showColor = mode === 'color';
+  const showImage = mode === 'image';
+  setFieldVisibility(el.screenBgColor ? el.screenBgColor.closest('label') : null, showColor);
+  setFieldVisibility(el.screenBgImage ? el.screenBgImage.closest('.urlRow') : null, showImage);
+  setFieldVisibility(el.screenBgSize ? el.screenBgSize.closest('.row') : null, showImage);
+  setFieldVisibility(el.screenBgPosition ? el.screenBgPosition.closest('label') : null, showImage);
+}
+function syncBlockBackgroundFieldVisibility() {
+  const mode = String(el.bBgMode?.value || 'color');
+  const showColor = mode === 'color';
+  const showImage = mode === 'image';
+  setFieldVisibility(el.bBgColor ? el.bBgColor.closest('label') : null, showColor);
+  setFieldVisibility(el.bBgImage ? el.bBgImage.closest('.urlRow') : null, showImage);
+  setFieldVisibility(el.bBgSize ? el.bBgSize.closest('.row') : null, showImage);
+  setFieldVisibility(el.bBgPosition ? el.bBgPosition.closest('label') : null, showImage);
+}
 function fillTemplateMeta(tpl) {
   const rawStatus = String(tpl?.status || 'draft');
   const normalized = rawStatus === 'active' ? 'work' : (rawStatus === 'archived' ? 'archive' : rawStatus);
@@ -740,6 +765,7 @@ function fillTemplateMeta(tpl) {
   el.screenBgSize.value = state.screen_style.size;
   el.screenBgPosition.value = state.screen_style.position;
   el.screenBgRepeat.value = state.screen_style.repeat;
+  syncScreenBackgroundFieldVisibility();
 }
 
 function fillBlockEditor() {
@@ -754,6 +780,7 @@ function fillBlockEditor() {
     el.bBgSize.value = emptyBg.background_size;
     el.bBgPosition.value = emptyBg.background_position;
     el.bBgRepeat.value = emptyBg.background_repeat;
+    syncBlockBackgroundFieldVisibility();
     renderContentOptionsForBlock(null);
     return;
   }
@@ -768,6 +795,7 @@ function fillBlockEditor() {
   el.bBgSize.value = bg.background_size;
   el.bBgPosition.value = bg.background_position;
   el.bBgRepeat.value = bg.background_repeat;
+  syncBlockBackgroundFieldVisibility();
 }
 
 function updateBlockFromEditor() {
@@ -1186,7 +1214,7 @@ function newTemplate() {
     content_mode: 'dynamic_current',
     content_type: 'image',
     content_id: null,
-    background_mode: 'color',
+    background_mode: 'none',
     background_color: '#ffffff',
     background_image: '',
     background_size: 'cover',
@@ -1215,6 +1243,7 @@ function resetTemplateEditor() {
   el.screenBgSize.value = state.screen_style.size;
   el.screenBgPosition.value = state.screen_style.position;
   el.screenBgRepeat.value = state.screen_style.repeat;
+  syncScreenBackgroundFieldVisibility();
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
   fillBlockEditor();
   renderTemplateList();
@@ -1309,7 +1338,7 @@ document.getElementById('addBlockBtn').onclick = () => {
     content_mode: 'dynamic_current',
     content_type: 'image',
     content_id: null,
-    background_mode: 'color',
+    background_mode: 'none',
     background_color: '#ffffff',
     background_image: '',
     background_size: 'cover',
@@ -1348,6 +1377,10 @@ document.getElementById('deleteConfirmBtn').onclick = async () => {
   n.addEventListener('input', updateBlockFromEditor);
   n.addEventListener('change', updateBlockFromEditor);
 });
+if (el.bBgMode) {
+  el.bBgMode.addEventListener('input', syncBlockBackgroundFieldVisibility);
+  el.bBgMode.addEventListener('change', syncBlockBackgroundFieldVisibility);
+}
 if (el.globalShowContentPreview) {
   el.globalShowContentPreview.addEventListener('change', () => {
     state.globalShowContentPreview = !!el.globalShowContentPreview.checked;
@@ -1370,6 +1403,10 @@ if (el.globalShowContentPreview) {
   n.addEventListener('input', onChange);
   n.addEventListener('change', onChange);
 });
+if (el.screenBgMode) {
+  el.screenBgMode.addEventListener('input', syncScreenBackgroundFieldVisibility);
+  el.screenBgMode.addEventListener('change', syncScreenBackgroundFieldVisibility);
+}
 if (el.screenBgPickBtn) el.screenBgPickBtn.onclick = () => { loadBgGalleryAndOpen('screenBgImage'); };
 if (el.bBgPickBtn) el.bBgPickBtn.onclick = () => { loadBgGalleryAndOpen('bBgImage'); };
 document.getElementById('closeLibraryBtn').onclick = closeBgGalleryModal;

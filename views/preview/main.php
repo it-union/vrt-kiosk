@@ -390,6 +390,7 @@ async function renderBlock(blockRaw, contentMap) {
             const [justify, align] = resolvePosition(p.position);
             const widthPx = Math.max(1, Number(p.width_px || 0));
             const heightPx = Math.max(1, Number(p.height_px || 0));
+            const rotateDeg = Math.max(-360, Math.min(360, Number(p.rotate_deg || 0)));
             const fluid = p.fluid === true;
             el.style.display = 'flex';
             el.style.justifyContent = justify;
@@ -404,6 +405,8 @@ async function renderBlock(blockRaw, contentMap) {
                 img.style.width = widthPx > 0 ? (widthPx + 'px') : 'auto';
                 img.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
             }
+            img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
+            img.style.transformOrigin = 'center center';
             img.alt = title;
             el.appendChild(img);
         } else {
