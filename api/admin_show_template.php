@@ -13,28 +13,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 $screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : 0;
-$contentId = isset($_POST['content_id']) ? (int)$_POST['content_id'] : 0;
-$duration = isset($_POST['duration_minutes']) ? (int)$_POST['duration_minutes'] : 10;
+$templateId = isset($_POST['template_id']) ? (int)$_POST['template_id'] : 0;
 
-if ($screenId <= 0 || $contentId <= 0) {
-    jsonResponse(['ok' => false, 'error' => 'Нужны screen_id и content_id'], 400);
+if ($screenId <= 0 || $templateId <= 0) {
+    jsonResponse(['ok' => false, 'error' => 'Нужны screen_id и template_id'], 400);
 }
-
-$duration = max(1, min(1440, $duration));
-
 $pdo = dbMysql();
 
 try {
     $pdo->beginTransaction();
-    $commandId = showNow($pdo, $screenId, $contentId, $duration);
+    $commandId = showTemplateNow($pdo, $screenId, $templateId);
     $pdo->commit();
 
     jsonResponse([
         'ok' => true,
         'data' => [
             'screen_id' => $screenId,
+            'template_id' => $templateId,
             'command_id' => $commandId,
-            'duration_minutes' => $duration,
         ],
     ]);
 } catch (RuntimeException $e) {
@@ -42,15 +38,15 @@ try {
         $pdo->rollBack();
     }
 
-    if ($e->getMessage() === 'content_not_found') {
-        jsonResponse(['ok' => false, 'error' => 'Контент не найден или неактивен'], 404);
+    if ($e->getMessage() === 'template_not_found') {
+        jsonResponse(['ok' => false, 'error' => 'Рабочий шаблон не найден'], 404);
     }
 
-    jsonResponse(['ok' => false, 'error' => 'Не удалось создать ручную команду'], 500);
+    jsonResponse(['ok' => false, 'error' => 'Не удалось включить ручной показ шаблона'], 500);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
-    jsonResponse(['ok' => false, 'error' => 'Не удалось создать ручную команду'], 500);
+    jsonResponse(['ok' => false, 'error' => 'Не удалось включить ручной показ шаблона'], 500);
 }

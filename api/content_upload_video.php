@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../core/helpers.php';
+require_once __DIR__ . '/../core/auth.php';
+
+requireTemplateApiAuth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);

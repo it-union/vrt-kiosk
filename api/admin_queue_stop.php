@@ -21,14 +21,12 @@ $pdo = dbMysql();
 
 try {
     $pdo->beginTransaction();
-    clearNow($pdo, $screenId);
+    stopQueue($pdo, $screenId);
     $pdo->commit();
-
-    jsonResponse(['ok' => true, 'data' => ['screen_id' => $screenId]]);
+    jsonResponse(['ok' => true, 'data' => ['screen_id' => $screenId, 'source' => 'fallback']]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-
-    jsonResponse(['ok' => false, 'error' => 'Не удалось снять ручной режим'], 500);
+    jsonResponse(['ok' => false, 'error' => 'Не удалось остановить очередь показа'], 500);
 }

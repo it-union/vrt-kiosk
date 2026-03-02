@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../core/helpers.php';
+require_once __DIR__ . '/../core/auth.php';
+
+requireTemplateApiAuth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
@@ -51,4 +54,3 @@ usort($items, static function (array $a, array $b): int {
 });
 
 jsonResponse(['ok' => true, 'data' => $items]);
-

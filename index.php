@@ -12,13 +12,12 @@ if ($route === null) {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     $path = is_string($path) ? trim($path, '/') : '';
 
-    if ($path === '' || $path === 'index.php') {
-        $route = 'kiosk';
-    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content'], true)) {
-        $route = $path;
-    } elseif (isset($_GET['route'])) {
-        // Backward compatibility
+    if (isset($_GET['route'])) {
         $route = strtolower(trim((string)$_GET['route']));
+    } elseif ($path === '' || $path === 'index.php') {
+        $route = 'promo';
+    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue'], true)) {
+        $route = $path;
     } else {
         http_response_code(404);
         echo 'Маршрут не найден';
@@ -26,7 +25,7 @@ if ($route === null) {
     }
 }
 
-$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content'];
+$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue'];
 if (!in_array($route, $allowedRoutes, true)) {
     http_response_code(404);
     echo 'Маршрут не найден';
@@ -35,8 +34,34 @@ if (!in_array($route, $allowedRoutes, true)) {
 
 switch ($route) {
     case 'admin':
-        requireAdminAuth();
-        require __DIR__ . '/controllers/admin.php';
+        if (authIsLoggedIn()) {
+            requireAdminAuth();
+            require __DIR__ . '/controllers/admin.php';
+        } else {
+            require __DIR__ . '/controllers/login.php';
+        }
+        break;
+
+    case 'queue':
+        requirePanelAuth();
+        require __DIR__ . '/controllers/queue.php';
+        break;
+
+    case 'promo':
+        require __DIR__ . '/controllers/promo.php';
+        break;
+
+    case 'login':
+        authRedirect('/admin/');
+        break;
+
+    case 'logout':
+        require __DIR__ . '/controllers/logout.php';
+        break;
+
+    case 'users':
+        requireAdministratorRole();
+        require __DIR__ . '/controllers/users.php';
         break;
 
     case 'template':

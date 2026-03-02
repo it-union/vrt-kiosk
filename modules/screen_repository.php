@@ -3,8 +3,16 @@ declare(strict_types=1);
 
 function screenFindActiveManual(PDO $pdo, int $screenId): ?array
 {
-    $sql = "SELECT sc.screen_id, sc.id AS command_id, sc.template_id, sc.content_id, sc.ends_at, ci.type, ci.title, ci.body, ci.media_url, ci.data_json FROM screen_commands sc LEFT JOIN content_items ci ON ci.id = sc.content_id WHERE sc.screen_id = :screen_id AND sc.is_active = 1 AND sc.command_type = 'show_content' AND sc.starts_at <= NOW() AND (sc.ends_at IS NULL OR sc.ends_at > NOW()) ORDER BY sc.starts_at DESC, sc.id DESC LIMIT 1";
+    $sql = "SELECT sc.screen_id, sc.id AS command_id, sc.template_id, sc.content_id, sc.ends_at, sc.command_type, ci.type, ci.title, ci.body, ci.media_url, ci.data_json FROM screen_commands sc LEFT JOIN content_items ci ON ci.id = sc.content_id WHERE sc.screen_id = :screen_id AND sc.is_active = 1 AND sc.command_type IN ('show_content', 'show_template') AND sc.starts_at <= NOW() AND (sc.ends_at IS NULL OR sc.ends_at > NOW()) ORDER BY sc.starts_at DESC, sc.id DESC LIMIT 1";
     $stmt = $pdo->prepare($sql);
+    $stmt->execute(['screen_id' => $screenId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+function screenGetState(PDO $pdo, int $screenId): ?array
+{
+    $stmt = $pdo->prepare("SELECT screen_id, source, rule_id, command_id, template_id, content_id, applied_at, expires_at, updated_at FROM screen_state WHERE screen_id = :screen_id LIMIT 1");
     $stmt->execute(['screen_id' => $screenId]);
     $row = $stmt->fetch();
     return $row ?: null;
@@ -26,9 +34,16 @@ function screenContentExists(PDO $pdo, int $contentId): bool
     return (bool)$stmt->fetch();
 }
 
+function screenTemplateExists(PDO $pdo, int $templateId): bool
+{
+    $stmt = $pdo->prepare("SELECT id FROM templates WHERE id = :id AND status = 'work' LIMIT 1");
+    $stmt->execute(['id' => $templateId]);
+    return (bool)$stmt->fetch();
+}
+
 function screenDeactivateManualCommands(PDO $pdo, int $screenId): void
 {
-    $stmt = $pdo->prepare("UPDATE screen_commands SET is_active = 0 WHERE screen_id = :screen_id AND command_type = 'show_content' AND is_active = 1");
+    $stmt = $pdo->prepare("UPDATE screen_commands SET is_active = 0 WHERE screen_id = :screen_id AND command_type IN ('show_content', 'show_template') AND is_active = 1");
     $stmt->execute(['screen_id' => $screenId]);
 }
 
@@ -38,6 +53,25 @@ function screenCreateManualCommand(PDO $pdo, int $screenId, int $contentId, int 
     $stmt->bindValue(':screen_id', $screenId, PDO::PARAM_INT);
     $stmt->bindValue(':content_id', $contentId, PDO::PARAM_INT);
     $stmt->bindValue(':minutes', $durationMinutes, PDO::PARAM_INT);
+    $stmt->execute();
+    return (int)$pdo->lastInsertId();
+}
+
+function screenCreateManualTemplateCommand(PDO $pdo, int $screenId, int $templateId, int $durationMinutes): int
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_commands (screen_id, command_type, template_id, starts_at, ends_at, is_active, created_at) VALUES (:screen_id, 'show_template', :template_id, NOW(), DATE_ADD(NOW(), INTERVAL :minutes MINUTE), 1, NOW())");
+    $stmt->bindValue(':screen_id', $screenId, PDO::PARAM_INT);
+    $stmt->bindValue(':template_id', $templateId, PDO::PARAM_INT);
+    $stmt->bindValue(':minutes', $durationMinutes, PDO::PARAM_INT);
+    $stmt->execute();
+    return (int)$pdo->lastInsertId();
+}
+
+function screenCreatePersistentManualTemplateCommand(PDO $pdo, int $screenId, int $templateId): int
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_commands (screen_id, command_type, template_id, starts_at, ends_at, is_active, created_at) VALUES (:screen_id, 'show_template', :template_id, NOW(), NULL, 1, NOW())");
+    $stmt->bindValue(':screen_id', $screenId, PDO::PARAM_INT);
+    $stmt->bindValue(':template_id', $templateId, PDO::PARAM_INT);
     $stmt->execute();
     return (int)$pdo->lastInsertId();
 }
@@ -52,8 +86,39 @@ function screenUpsertManualState(PDO $pdo, int $screenId, int $commandId, int $c
     $stmt->execute();
 }
 
+function screenUpsertManualTemplateState(PDO $pdo, int $screenId, int $commandId, int $templateId, int $durationMinutes): void
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_state (screen_id, source, command_id, template_id, applied_at, expires_at, updated_at) VALUES (:screen_id, 'manual', :command_id, :template_id, NOW(), DATE_ADD(NOW(), INTERVAL :minutes MINUTE), NOW()) ON DUPLICATE KEY UPDATE source='manual', command_id=VALUES(command_id), template_id=VALUES(template_id), content_id=NULL, applied_at=VALUES(applied_at), expires_at=VALUES(expires_at), updated_at=NOW()");
+    $stmt->bindValue(':screen_id', $screenId, PDO::PARAM_INT);
+    $stmt->bindValue(':command_id', $commandId, PDO::PARAM_INT);
+    $stmt->bindValue(':template_id', $templateId, PDO::PARAM_INT);
+    $stmt->bindValue(':minutes', $durationMinutes, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function screenUpsertPersistentManualTemplateState(PDO $pdo, int $screenId, int $commandId, int $templateId): void
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_state (screen_id, source, command_id, template_id, content_id, applied_at, expires_at, updated_at) VALUES (:screen_id, 'manual', :command_id, :template_id, NULL, NOW(), NULL, NOW()) ON DUPLICATE KEY UPDATE source='manual', command_id=VALUES(command_id), template_id=VALUES(template_id), content_id=NULL, applied_at=VALUES(applied_at), expires_at=NULL, updated_at=NOW()");
+    $stmt->bindValue(':screen_id', $screenId, PDO::PARAM_INT);
+    $stmt->bindValue(':command_id', $commandId, PDO::PARAM_INT);
+    $stmt->bindValue(':template_id', $templateId, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
 function screenClearManualState(PDO $pdo, int $screenId): void
 {
     $stmt = $pdo->prepare("UPDATE screen_state SET source='schedule', command_id=NULL, expires_at=NULL, updated_at=NOW() WHERE screen_id = :screen_id");
+    $stmt->execute(['screen_id' => $screenId]);
+}
+
+function screenStartQueueState(PDO $pdo, int $screenId): void
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_state (screen_id, source, rule_id, command_id, template_id, content_id, applied_at, expires_at, updated_at) VALUES (:screen_id, 'schedule', NULL, NULL, NULL, NULL, NOW(), NULL, NOW()) ON DUPLICATE KEY UPDATE source='schedule', rule_id=NULL, command_id=NULL, template_id=NULL, content_id=NULL, expires_at=NULL, updated_at=NOW()");
+    $stmt->execute(['screen_id' => $screenId]);
+}
+
+function screenStopQueueState(PDO $pdo, int $screenId): void
+{
+    $stmt = $pdo->prepare("INSERT INTO screen_state (screen_id, source, rule_id, command_id, template_id, content_id, applied_at, expires_at, updated_at) VALUES (:screen_id, 'fallback', NULL, NULL, NULL, NULL, NOW(), NULL, NOW()) ON DUPLICATE KEY UPDATE source='fallback', rule_id=NULL, command_id=NULL, template_id=NULL, content_id=NULL, expires_at=NULL, updated_at=NOW()");
     $stmt->execute(['screen_id' => $screenId]);
 }

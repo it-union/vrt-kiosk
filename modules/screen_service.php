@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/screen_repository.php';
 require_once __DIR__ . '/template_repository.php';
 require_once __DIR__ . '/content_repository.php';
+require_once __DIR__ . '/queue_repository.php';
 
 function defaultScreenStyle(): array
 {
@@ -123,21 +124,6 @@ function resolveTemplateForScreen(PDO $pdo, array $sourceRow): ?array
         }
     }
 
-    $work = templateGetByStatus($pdo, 'work');
-    if ($work !== null) {
-        $work['blocks'] = templateGetBlocks($pdo, (int)$work['id']);
-        $work['blocks'] = hydrateTemplateBlocks($work);
-        return $work;
-    }
-
-    // Backward compatibility for old records
-    $legacyActive = templateGetByStatus($pdo, 'active');
-    if ($legacyActive !== null) {
-        $legacyActive['blocks'] = templateGetBlocks($pdo, (int)$legacyActive['id']);
-        $legacyActive['blocks'] = hydrateTemplateBlocks($legacyActive);
-        return $legacyActive;
-    }
-
     return null;
 }
 
@@ -195,11 +181,116 @@ function buildRenderedBlocks(PDO $pdo, array $templateBlocks, ?array $currentCon
     return $rendered;
 }
 
+function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
+{
+    $queue = queueGetActive($pdo);
+    if ($queue === null) {
+        return null;
+    }
+
+    $items = queueGetItems($pdo, (int)$queue['id']);
+    if (count($items) === 0) {
+        return [
+            'id' => 0,
+            'name' => 'Пустая очередь',
+            'status' => 'work',
+            'version' => 1,
+            'layout_json' => '',
+            'blocks' => [[
+                'id' => 0,
+                'block_key' => 'queue_empty',
+                'x_pct' => 0,
+                'y_pct' => 0,
+                'w_pct' => 100,
+                'h_pct' => 100,
+                'z_index' => 1,
+                'content_mode' => 'dynamic_current',
+                'content_id' => null,
+                'content_type' => 'html',
+                'style_json' => null,
+                'sort_order' => 1,
+            ]],
+            '_queue_empty' => true,
+        ];
+    }
+
+    $startedAt = time();
+    if (is_array($stateRow) && !empty($stateRow['applied_at'])) {
+        $parsed = strtotime((string)$stateRow['applied_at']);
+        if ($parsed !== false) {
+            $startedAt = $parsed;
+        }
+    }
+
+    $totalDuration = 0;
+    foreach ($items as $item) {
+        $totalDuration += max(1, (int)($item['duration_sec'] ?? 1));
+    }
+    if ($totalDuration <= 0) {
+        $totalDuration = count($items);
+    }
+
+    $elapsed = max(0, time() - $startedAt);
+    $cursor = $elapsed % $totalDuration;
+    $selected = $items[0];
+    foreach ($items as $item) {
+        $duration = max(1, (int)($item['duration_sec'] ?? 1));
+        if ($cursor < $duration) {
+            $selected = $item;
+            break;
+        }
+        $cursor -= $duration;
+    }
+
+    $templateId = (int)($selected['template_id'] ?? 0);
+    if ($templateId <= 0) {
+        return null;
+    }
+
+    $tpl = templateGet($pdo, $templateId);
+    if ($tpl === null) {
+        return null;
+    }
+    $tpl['blocks'] = templateGetBlocks($pdo, $templateId);
+    $tpl['blocks'] = hydrateTemplateBlocks($tpl);
+    return $tpl;
+}
+
 function getScreenPayload(PDO $pdo, int $screenId): array
 {
     $source = 'fallback';
     $sourceRow = [];
     $currentContent = null;
+    $stateRow = screenGetState($pdo, $screenId);
+
+    if (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'fallback') {
+        return [
+            'screen_id' => $screenId,
+            'source' => 'fallback',
+            'template' => null,
+            'screen_style' => defaultScreenStyle(),
+            'blocks' => [[
+                'id' => 0,
+                'key' => 'stopped',
+                'x_pct' => 0,
+                'y_pct' => 0,
+                'w_pct' => 100,
+                'h_pct' => 100,
+                'z_index' => 1,
+                'content_mode' => 'dynamic_current',
+                'content_type' => 'html',
+                'content' => [
+                    'id' => null,
+                    'type' => 'html',
+                    'title' => 'Очередь показа остановлена',
+                    'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">Очередь показа остановлена</div>',
+                    'media_url' => null,
+                    'data_json' => null,
+                ],
+                'style' => null,
+            ]],
+        ];
+    }
 
     $manual = screenFindActiveManual($pdo, $screenId);
     if ($manual !== null) {
@@ -230,10 +321,17 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                     'data_json' => $rule['data_json'] ?? null,
                 ];
             }
+        } elseif (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'schedule') {
+            $source = 'schedule';
+            $sourceRow = $stateRow;
         }
     }
 
     $template = resolveTemplateForScreen($pdo, $sourceRow);
+    if ($template === null && $source === 'schedule') {
+        $template = resolveQueueTemplateForScreen($pdo, $stateRow);
+    }
+
     if ($template === null) {
         return [
             'screen_id' => $screenId,
@@ -254,7 +352,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                     'id' => $currentContent['id'] ?? null,
                     'type' => $currentContent['type'] ?? null,
                     'title' => $currentContent['title'] ?? 'Нет активного шаблона',
-                    'body' => $currentContent['body'] ?? 'Создайте и активируйте шаблон в /template/.',
+                    'body' => $currentContent['body'] ?? 'Создайте и активируйте шаблон или заполните активную очередь показа.',
                     'media_url' => $currentContent['media_url'] ?? null,
                     'data_json' => null,
                 ],
@@ -263,17 +361,40 @@ function getScreenPayload(PDO $pdo, int $screenId): array
         ];
     }
 
+    $blocks = $template['_queue_empty'] ?? false
+        ? [[
+            'id' => 0,
+            'key' => 'queue_empty',
+            'x_pct' => 0,
+            'y_pct' => 0,
+            'w_pct' => 100,
+            'h_pct' => 100,
+            'z_index' => 1,
+            'content_mode' => 'dynamic_current',
+            'content_type' => 'html',
+            'content' => [
+                'id' => null,
+                'type' => 'html',
+                'title' => 'Активная очередь пуста',
+                'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">Активная очередь пуста</div>',
+                'media_url' => null,
+                'data_json' => null,
+            ],
+            'style' => null,
+        ]]
+        : buildRenderedBlocks($pdo, $template['blocks'], $currentContent);
+
     return [
         'screen_id' => $screenId,
         'source' => $source,
         'screen_style' => extractScreenStyleFromLayout((string)($template['layout_json'] ?? '')),
         'template' => [
-            'id' => (int)$template['id'],
-            'name' => (string)$template['name'],
-            'status' => (string)$template['status'],
-            'version' => (int)$template['version'],
+            'id' => (int)($template['id'] ?? 0),
+            'name' => (string)($template['name'] ?? ''),
+            'status' => (string)($template['status'] ?? 'work'),
+            'version' => (int)($template['version'] ?? 1),
         ],
-        'blocks' => buildRenderedBlocks($pdo, $template['blocks'], $currentContent),
+        'blocks' => $blocks,
     ];
 }
 
@@ -287,6 +408,30 @@ function showNow(PDO $pdo, int $screenId, int $contentId, int $durationMinutes):
     $commandId = screenCreateManualCommand($pdo, $screenId, $contentId, $durationMinutes);
     screenUpsertManualState($pdo, $screenId, $commandId, $contentId, $durationMinutes);
     return $commandId;
+}
+
+function showTemplateNow(PDO $pdo, int $screenId, int $templateId): int
+{
+    if (!screenTemplateExists($pdo, $templateId)) {
+        throw new RuntimeException('template_not_found');
+    }
+
+    screenDeactivateManualCommands($pdo, $screenId);
+    $commandId = screenCreatePersistentManualTemplateCommand($pdo, $screenId, $templateId);
+    screenUpsertPersistentManualTemplateState($pdo, $screenId, $commandId, $templateId);
+    return $commandId;
+}
+
+function startQueue(PDO $pdo, int $screenId): void
+{
+    screenDeactivateManualCommands($pdo, $screenId);
+    screenStartQueueState($pdo, $screenId);
+}
+
+function stopQueue(PDO $pdo, int $screenId): void
+{
+    screenDeactivateManualCommands($pdo, $screenId);
+    screenStopQueueState($pdo, $screenId);
 }
 
 function clearNow(PDO $pdo, int $screenId): void
