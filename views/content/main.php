@@ -27,6 +27,20 @@ declare(strict_types=1);
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
         .row { display: flex; gap: 8px; }
         .row > * { flex: 1; }
+        .inspectorPanel #editorControls { display: flex; flex-direction: column; gap: 8px; }
+        .inspectorPanel #editorControls label { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; align-items: center; margin: 8px 0 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+        .inspectorPanel #editorControls label input,
+        .inspectorPanel #editorControls label select,
+        .inspectorPanel #editorControls label textarea { grid-column: 2; }
+        .inspectorPanel #editorControls .row { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 8px 0 0; }
+        .inspectorPanel #editorControls .row > label { margin: 0; }
+        .inspectorPanel #editorControls > input[type="hidden"] { display: none; }
+        .inspectorPanel #imageControls,
+        .inspectorPanel #videoControls,
+        .inspectorPanel #pptControls { display: flex; flex-direction: column; gap: 8px; }
+        .inspectorPanel #imageControls > button,
+        .inspectorPanel #videoControls > button,
+        .inspectorPanel #pptControls > button { width: calc(100% - 150px); margin-left: 150px; }
         .hiddenFile { display: none !important; }
         .uploadTwoCols { display: grid; grid-template-columns: 1fr 180px; gap: 8px; align-items: end; }
         .uploadTwoCols .urlCol { min-width: 0; }
@@ -280,7 +294,6 @@ declare(strict_types=1);
         <h3 id="newTypeTitle">Выбор типа контента</h3>
         <div class="typeGrid" id="typeGrid">
             <button type="button" class="typeBtn active" data-type="image">Изображение</button>
-            <button type="button" class="typeBtn disabled" data-type="text" disabled>Текст</button>
             <button type="button" class="typeBtn" data-type="html">HTML</button>
             <button type="button" class="typeBtn" data-type="video">Видео</button>
             <button type="button" class="typeBtn" data-type="ppt">Презентация</button>

@@ -21,15 +21,16 @@ declare(strict_types=1);
         .fold[open] > summary::after { content: '\25BE'; }
         .fold[open] > summary { border-bottom-color: #e0e3e8; }
         .foldBody { padding: 6px 10px 10px; }
-        .foldBody label { margin: 8px 0 0; }
-        .foldBody .row { margin: 8px 0 0; }
+        .foldBody label { margin: 8px 0 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+        .foldBody label input, .foldBody label select, .foldBody label textarea { grid-column: 2; }
+        .foldBody .row { margin: 8px 0 0; display: grid; grid-template-columns: 1fr; gap: 8px; }
         .foldBody .row > label { margin: 0; }
-        .urlRow { display: grid; grid-template-columns: 1fr 120px; gap: 8px; align-items: end; }
-        .urlRow > label { margin: 0; }
-        .urlCol { min-width: 0; }
-        .urlLabel { margin: 0 0 4px 0; font-size: 13px; line-height: 1.2; }
+        .urlRow { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; align-items: start; margin: 8px 0 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+        .urlRow::before { content: ''; }
+        .urlCol { min-width: 0; grid-column: 2; display: none; }
+        .urlLabel { display: none; }
         .urlRow input { height: 36px; }
-        .urlPickBtn { width: 100%; height: 36px; min-height: 36px; max-height: 36px; box-sizing: border-box; margin: 0; padding: 0 12px; font-size: 13px; font-weight: 400; line-height: 1; display: inline-flex; align-items: center; justify-content: center; align-self: end; white-space: nowrap; }
+        .urlPickBtn { grid-column: 2; justify-self: start; width: 120px; height: 36px; min-height: 36px; max-height: 36px; box-sizing: border-box; margin: 0; padding: 0 12px; font-size: 13px; font-weight: 400; line-height: 1; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
         .libraryHead { display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 8px; }
         .libraryBtn { min-width: 38px; width: 38px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
         .libraryUploadBtn { width: 140px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
@@ -53,7 +54,7 @@ declare(strict_types=1);
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
         .hiddenFile { display: none !important; }
-        .meta label, .editor label { display: block; margin: 6px 0; font-size: 13px; }
+        .meta label, .editor label { margin: 6px 0; font-size: 13px; }
         input, select, textarea, button { font: inherit; }
         input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 6px; }
         button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 6px; cursor: pointer; }
@@ -729,6 +730,9 @@ function renderCanvas() {
 }
 
 function currentBlock() { return state.selectedBlockIndex < 0 || state.selectedBlockIndex >= state.blocks.length ? null : state.blocks[state.selectedBlockIndex]; }
+function roundPct(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
 function setFieldVisibility(node, visible) {
   if (!node) return;
   node.style.display = visible ? '' : 'none';
@@ -801,10 +805,10 @@ function fillBlockEditor() {
 function updateBlockFromEditor() {
   const b = currentBlock(); if (!b) return;
   ensureBlockKey(b, state.selectedBlockIndex);
-  b.x_pct = clamp(Number(el.bX.value || 0), 0, 100);
-  b.y_pct = clamp(Number(el.bY.value || 0), 0, 100);
-  b.w_pct = clamp(Number(el.bW.value || 1), 1, 100);
-  b.h_pct = clamp(Number(el.bH.value || 1), 1, 100);
+  b.x_pct = roundPct(clamp(Number(el.bX.value || 0), 0, 100));
+  b.y_pct = roundPct(clamp(Number(el.bY.value || 0), 0, 100));
+  b.w_pct = roundPct(clamp(Number(el.bW.value || 1), 1, 100));
+  b.h_pct = roundPct(clamp(Number(el.bH.value || 1), 1, 100));
   b.z_index = Math.max(1, Number(el.bZ.value || 1));
   b.content_mode = el.bMode.value;
   b.content_type = el.bType.value;
@@ -815,8 +819,8 @@ function updateBlockFromEditor() {
   b.background_size = el.bBgSize.value || 'cover';
   b.background_position = el.bBgPosition.value || 'center center';
   b.background_repeat = el.bBgRepeat.value || 'no-repeat';
-  if (b.x_pct + b.w_pct > 100) b.w_pct = 100 - b.x_pct;
-  if (b.y_pct + b.h_pct > 100) b.h_pct = 100 - b.y_pct;
+  if (b.x_pct + b.w_pct > 100) b.w_pct = roundPct(100 - b.x_pct);
+  if (b.y_pct + b.h_pct > 100) b.h_pct = roundPct(100 - b.y_pct);
   renderCanvas();
 }
 
@@ -883,7 +887,7 @@ function onPointerMove(event) {
     const x = clamp(pointer.startX + dxPct, 0, 100 - pointer.startW);
     const y = clamp(pointer.startY + dyPct, 0, 100 - pointer.startH);
     const snapped = snapMove(x, y, pointer.startW, pointer.startH, pointer.index, tX, tY);
-    b.x_pct = snapped.x; b.y_pct = snapped.y;
+    b.x_pct = roundPct(snapped.x); b.y_pct = roundPct(snapped.y);
   }
 
   if (pointer.mode === 'resize') {
@@ -893,7 +897,7 @@ function onPointerMove(event) {
     if (dir.includes('w')) { const right = pointer.startX + pointer.startW; x = clamp(pointer.startX + dxPct, 0, right - 1); w = clamp(right - x, 1, 100 - x); }
     if (dir.includes('n')) { const bottom = pointer.startY + pointer.startH; y = clamp(pointer.startY + dyPct, 0, bottom - 1); h = clamp(bottom - y, 1, 100 - y); }
     const snapped = snapResize({ x, y, w, h }, pointer.index, dir, tX, tY);
-    b.x_pct = snapped.x; b.y_pct = snapped.y; b.w_pct = snapped.w; b.h_pct = snapped.h;
+    b.x_pct = roundPct(snapped.x); b.y_pct = roundPct(snapped.y); b.w_pct = roundPct(snapped.w); b.h_pct = roundPct(snapped.h);
   }
 
   fillBlockEditor(); renderCanvas();
