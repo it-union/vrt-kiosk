@@ -8,7 +8,7 @@ declare(strict_types=1);
     <title><?= h($pageTitle ?? 'Управление аккаунтами') ?></title>
     <style>
         :root {
-            --bg: #edf2f7;
+            --bg: #111827;
             --panel: #ffffff;
             --line: #d6dde6;
             --text: #1f2937;
@@ -23,29 +23,33 @@ declare(strict_types=1);
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background: var(--bg);
+            background: linear-gradient(180deg, #334155 0%, #475569 100%);
             color: var(--text);
             font-family: Tahoma, sans-serif;
         }
         .page {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 22px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .topbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
             margin-bottom: 20px;
         }
         .topbar h1 {
-            margin: 0 0 4px;
-            font-size: 30px;
+            margin: 0 0 6px;
+            font-size: 32px;
+            color: #fff;
         }
         .topbar p {
             margin: 0;
-            color: var(--muted);
+            color: #cbd5e1;
         }
         .linkbar {
             display: flex;
@@ -67,10 +71,17 @@ declare(strict_types=1);
             font: inherit;
             cursor: pointer;
         }
+        .linkbar a {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #fff;
+        }
         .layout {
             display: grid;
             grid-template-columns: minmax(420px, 1.3fr) minmax(360px, 0.9fr);
             gap: 20px;
+            flex: 1;
+            min-height: 0;
         }
         .panel {
             background: var(--panel);
@@ -182,6 +193,14 @@ declare(strict_types=1);
             justify-content: flex-end;
             gap: 10px;
             padding-top: 16px;
+        }
+        @media (min-width: 761px) {
+            html, body {
+                overflow: hidden;
+            }
+            .page {
+                height: 100vh;
+            }
         }
     </style>
 </head>

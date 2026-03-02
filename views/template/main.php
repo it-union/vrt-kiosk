@@ -8,8 +8,14 @@ declare(strict_types=1);
     <title><?= h($pageTitle) ?></title>
     <style>
         html, body { height: 100%; }
-        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: Tahoma, sans-serif; background: #f5f6f8; color: #1a1a1a; }
-        .wrap { flex: 1; display: grid; grid-template-columns: 280px 1fr 380px; gap: 12px; padding: 12px; min-height: 0; }
+        body { margin: 0; min-height: 100vh; font-family: Tahoma, sans-serif; background: linear-gradient(180deg, #334155 0%, #475569 100%); color: #1a1a1a; }
+        .page { max-width: 1600px; margin: 0 auto; padding: 22px; min-height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+        .topbar h1 { margin: 0 0 6px; font-size: 32px; color: #fff; }
+        .topbar p { margin: 0; color: #cbd5e1; font-size: 13px; }
+        .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #1d5fbf; background: #1d5fbf; color: #fff; text-decoration: none; cursor: pointer; }
+        .wrap { flex: 1; display: grid; grid-template-columns: 280px 1fr 380px; gap: 12px; min-height: 0; }
         .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 10px; }
         .wrap .panel { display: flex; flex-direction: column; min-height: 0; }
         .editor { overflow: hidden; }
@@ -102,7 +108,8 @@ declare(strict_types=1);
         .status.show { display: inline-flex; }
         .status.success { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
-        .pageFooter { margin: 0 12px 12px; color: #5a6472; font-size: 12px; border-top: 1px solid #e3e7ed; padding-top: 10px; flex: 0 0 auto; }
+        .pageFooter { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
+        @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
         .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 50; }
         .modalBack.open { display: flex; }
         .modal { width: min(420px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 12px; }
@@ -111,6 +118,18 @@ declare(strict_types=1);
     </style>
 </head>
 <body>
+<div class="page">
+<div class="topbar">
+    <div>
+        <h1>Шаблонизатор</h1>
+        <p>Создание и настройка рабочих шаблонов для показа в киоске.</p>
+    </div>
+    <div class="topbarActions">
+        <a class="actionLink" href="/admin/">Панель</a>
+        <a class="actionLink" href="/content/">Контент</a>
+        <a class="actionLink" href="/logout/">Выйти</a>
+    </div>
+</div>
 <div class="wrap">
     <section class="panel">
         <h2>Список шаблонов</h2>
@@ -120,7 +139,6 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="duplicateTemplateBtn" type="button" title="Дублировать шаблон" aria-label="Дублировать шаблон">&#x29C9;</button>
             <button class="iconBtn secondary" id="previewTemplateBtn" type="button" title="Предпросмотр шаблона" aria-label="Предпросмотр шаблона">&#x1F441;</button>
             <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&#x1F5D1;</button>
-            <button class="iconBtn secondary" id="openContentBtn" type="button" title="Редактор контента" aria-label="Редактор контента">&#x1F4DD;</button>
         </div>
         <div id="templateList" class="list"></div>
     </section>
@@ -284,6 +302,7 @@ declare(strict_types=1);
     </section>
 </div>
 <div class="pageFooter">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></div>
+</div>
 
 <div class="modalBack" id="deleteModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
@@ -1341,7 +1360,6 @@ document.getElementById('duplicateTemplateBtn').onclick = () => {
   if (id <= 0) { setStatus('Сначала выберите шаблон', true); return; }
   openDuplicateTemplateModal();
 };
-document.getElementById('openContentBtn').onclick = () => { window.location.href = '/content/'; };
 document.getElementById('previewTemplateBtn').onclick = () => {
   const id = Number(state.currentTemplateId || 0);
   if (id <= 0) { setStatus('Сначала выберите или сохраните шаблон', true); return; }
@@ -1488,10 +1506,6 @@ el.bType.addEventListener('change', () => {
 
 (async function boot() {
   const listToolbar = document.getElementById('reloadListBtn')?.closest('.toolbar');
-  const openContentBtn = document.getElementById('openContentBtn');
-  if (listToolbar && openContentBtn) {
-    listToolbar.insertBefore(openContentBtn, listToolbar.firstChild);
-  }
   const stageToolbar = document.getElementById('saveTemplateBtn')?.closest('.toolbar');
   const stagePanel = document.getElementById('canvas')?.closest('.panel');
   if (stageToolbar) stageToolbar.classList.add('stageToolbar');

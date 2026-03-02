@@ -8,7 +8,7 @@ declare(strict_types=1);
     <title><?= h($pageTitle ?? 'Вход в систему') ?></title>
     <style>
         :root {
-            --bg: #eef2f6;
+            --bg: #111827;
             --panel: #ffffff;
             --line: #d7dde6;
             --text: #1f2937;
@@ -27,7 +27,7 @@ declare(strict_types=1);
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: linear-gradient(180deg, #f5f7fa 0%, #e7edf4 100%);
+            background: linear-gradient(180deg, #334155 0%, #475569 100%);
             color: var(--text);
             font-family: Tahoma, sans-serif;
         }

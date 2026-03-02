@@ -21,7 +21,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         * { box-sizing: border-box; }
         body {
             margin: 0;
-            background: linear-gradient(180deg, #f4f7fb 0%, #eaf0f7 100%);
+            background: linear-gradient(180deg, #334155 0%, #475569 100%);
             color: var(--text);
             font-family: Tahoma, sans-serif;
         }
@@ -29,6 +29,9 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             max-width: 1600px;
             margin: 0 auto;
             padding: 22px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .topbar {
             display: flex;
@@ -40,39 +43,39 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         .topbar h1 {
             margin: 0 0 6px;
             font-size: 32px;
+            color: #fff;
         }
         .topbar p {
             margin: 0;
-            color: var(--muted);
+            color: #cbd5e1;
         }
-        .userbox {
+        .topbarActions {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            background: rgba(255,255,255,0.82);
+            gap: 10px;
+            flex-wrap: wrap;
         }
-        .userbox strong {
-            display: block;
-            font-size: 14px;
-        }
-        .userbox span {
-            display: block;
-            color: var(--muted);
+        .topbarUser {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            color: #cbd5e1;
             font-size: 12px;
         }
-        .logout {
+        .topbarUser strong {
+            color: #fff;
+            font-size: 14px;
+        }
+        .actionLink {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-height: 38px;
-            padding: 0 14px;
-            border-radius: 10px;
-            border: 1px solid #b8c3cf;
-            background: #fff;
-            color: var(--text);
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 6px;
+            border: 1px solid #1d5fbf;
+            background: #1d5fbf;
+            color: #fff;
             text-decoration: none;
         }
         .navRow {
@@ -119,6 +122,12 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             background: #0f6cbd;
             color: #fff;
         }
+        .btn.isActive,
+        .btnGhost.isActive {
+            border-color: #86efac;
+            background: #dcfce7;
+            color: #166534;
+        }
         .btn:disabled,
         .btnGhost:disabled {
             opacity: 0.6;
@@ -133,6 +142,8 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             display: grid;
             grid-template-columns: minmax(320px, 460px) minmax(0, 1fr);
             gap: 18px;
+            flex: 1;
+            min-height: 0;
         }
         .panel {
             border: 1px solid var(--line);
@@ -365,7 +376,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .pageFooter {
             margin-top: 18px;
-            color: #5a6472;
+            color: #fff;
             font-size: 12px;
             border-top: 1px solid #dfe5ee;
             padding-top: 10px;
@@ -373,6 +384,14 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         @media (max-width: 1250px) {
             .layout {
                 grid-template-columns: 1fr;
+            }
+        }
+        @media (min-width: 761px) {
+            html, body {
+                overflow: hidden;
+            }
+            .page {
+                height: 100vh;
             }
         }
         @media (max-width: 760px) {
@@ -414,12 +433,12 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             <h1>Панель администратора</h1>
             <p>Единая точка входа для управления киоском, шаблонами и пользователями.</p>
         </div>
-        <div class="userbox">
-            <div>
+        <div class="topbarActions">
+            <div class="topbarUser">
                 <strong><?= h($userName) ?></strong>
                 <span><?= h($roleName) ?></span>
             </div>
-            <a class="logout" href="/logout/">Выйти</a>
+            <a class="actionLink" href="/logout/">Выйти</a>
         </div>
     </div>
 
@@ -436,7 +455,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             <span class="btnGhost disabled">Аккаунты</span>
         <?php endif; ?>
 
-        <a class="btnGhost" href="/queue/">Очередь</a>
+        <a class="btn" href="/queue/">Настройка очереди</a>
         <div class="navNote">Навигация по основным разделам панели.</div>
     </div>
 
@@ -450,7 +469,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             </div>
             <div class="panelBody">
                 <div class="queueActions">
-                    <button id="queueStartBtn" class="btn" type="button">Старт</button>
+                    <button id="queueStartBtn" class="btnGhost" type="button">Старт</button>
                     <button id="queueStopBtn" class="btnGhost" type="button">Стоп</button>
                     <button id="queueManualBtn" class="btnGhost" type="button">Ручной</button>
                 </div>
@@ -565,6 +584,12 @@ function setScreenStatus(message, isError) {
     screenStatus.className = 'status show ' + (isError ? 'error' : 'success');
 }
 
+function setModeButtons(source) {
+    if (queueStartBtn) queueStartBtn.classList.toggle('isActive', source === 'schedule');
+    if (queueStopBtn) queueStopBtn.classList.toggle('isActive', source === 'fallback');
+    if (queueManualBtn) queueManualBtn.classList.toggle('isActive', source === 'manual');
+}
+
 function markCurrentQueueTemplate(templateId, source) {
     activeQueueListItems.forEach((node) => {
         const nodeTemplateId = Number(node.dataset.templateId || 0);
@@ -598,6 +623,7 @@ async function refreshScreenStatus() {
         const source = String(payload?.data?.source || '');
         const templateId = Number(payload?.data?.template?.id || 0);
         markCurrentQueueTemplate(templateId, source);
+        setModeButtons(source);
         if (source === 'schedule') {
             setScreenStatus('Очередь работает', false);
         } else if (source === 'fallback') {
@@ -609,6 +635,7 @@ async function refreshScreenStatus() {
         }
     } catch (error) {
         markCurrentQueueTemplate(0, '');
+        setModeButtons('');
         setScreenStatus('Нет связи с экраном', true);
     }
 }

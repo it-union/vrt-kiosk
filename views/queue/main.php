@@ -12,13 +12,13 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
     <title><?= h($pageTitle ?? 'Очередь показа') ?></title>
     <style>
         html, body { height: 100%; }
-        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: Tahoma, sans-serif; background: #f5f6f8; color: #1a1a1a; }
-        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #e3e7ed; background: #fff; }
-        .topbar h1 { margin: 0 0 4px; font-size: 28px; }
-        .topbar p { margin: 0; color: #5a6472; font-size: 13px; }
+        body { margin: 0; min-height: 100vh; font-family: Tahoma, sans-serif; background: linear-gradient(180deg, #334155 0%, #475569 100%); color: #1a1a1a; }
+        .page { max-width: 1600px; margin: 0 auto; padding: 22px; min-height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; }
+        .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+        .topbar h1 { margin: 0 0 6px; font-size: 32px; color: #fff; }
+        .topbar p { margin: 0; color: #cbd5e1; font-size: 13px; }
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .userbox { display: flex; flex-direction: column; align-items: flex-end; color: #5a6472; font-size: 12px; }
-        .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 12px; padding: 12px; }
+        .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 12px; }
         .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .panelSub { margin: -2px 0 10px; color: #5a6472; font-size: 12px; }
@@ -56,34 +56,33 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
         button, a.actionLink, input, select { font: inherit; }
         button, a.actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; text-decoration: none; cursor: pointer; }
+        a.actionLink { background: #1d5fbf; color: #fff; }
         button.primary { background: transparent; color: #1d5fbf; }
         button.danger { border-color: #b91c1c; color: #b91c1c; }
         button.iconBtn { width: 34px; height: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 6px; }
-        .pageFooter { margin: 0 12px 12px; color: #5a6472; font-size: 12px; border-top: 1px solid #e3e7ed; padding-top: 10px; flex: 0 0 auto; }
+        .pageFooter { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
+        @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
         @media (max-width: 1180px) { .wrap { grid-template-columns: 280px 1fr; } .panel.inspectorPanel { grid-column: 1 / -1; } }
         @media (max-width: 920px) { .queueHeaderBar { grid-template-columns: 1fr; } }
         @media (max-width: 760px) { .topbar { flex-direction: column; align-items: flex-start; } .topbarActions { width: 100%; } .wrap { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-<div class="topbar">
-    <div>
-        <h1>Очередь показа</h1>
-        <p>Перетаскивайте рабочие шаблоны в центр и задавайте время показа.</p>
-    </div>
-    <div class="topbarActions">
-        <a class="actionLink" href="/admin/">Панель</a>
-        <a class="actionLink" href="/template/">Шаблонизатор</a>
-        <a class="actionLink" href="/logout/">Выйти</a>
-        <div class="userbox">
-            <strong><?= h($userName) ?></strong>
-            <span><?= h($roleName) ?></span>
+<div class="page">
+    <div class="topbar">
+        <div>
+            <h1>Очередь показа</h1>
+            <p>Перетаскивайте рабочие шаблоны в центр и задавайте время показа.</p>
+        </div>
+        <div class="topbarActions">
+            <a class="actionLink" href="/admin/">Панель</a>
+            <a class="actionLink" href="/template/">Шаблонизатор</a>
+            <a class="actionLink" href="/logout/">Выйти</a>
         </div>
     </div>
-</div>
 
-<div class="wrap">
+    <div class="wrap">
     <section class="panel">
         <h2>Рабочие шаблоны</h2>
         <p class="panelSub">Перетащите шаблон в очередь или дважды кликните по нему.</p>
@@ -160,9 +159,10 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
             </div>
         </div>
     </section>
-</div>
+    </div>
 
-<div class="pageFooter">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></div>
+    <div class="pageFooter">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></div>
+</div>
 
 <script>
 const DEFAULT_DURATION_SEC = 15;

@@ -8,8 +8,8 @@ declare(strict_types=1);
     <title><?= h($pageTitle ?? 'VRT Kiosk') ?></title>
     <style>
         :root {
-            --bg1: #f5f7fb;
-            --bg2: #e8eef6;
+            --bg1: #334155;
+            --bg2: #475569;
             --text: #142033;
             --muted: #5c6b80;
             --line: #d5dde8;

@@ -7,7 +7,7 @@ declare(strict_types=1);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($pageTitle) ?></title>
     <style>
-        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #ffffff; color: #1a1a1a; }
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #334155; color: #1a1a1a; }
         #stage { position: relative; width: 100vw; height: calc(100vh - 32px); }
         .block { position: absolute; box-sizing: border-box; border: 1px solid rgba(26,26,26,0.12); overflow: hidden; padding: 0; }
         @keyframes fadeInBlock { from { opacity: 0; } to { opacity: 1; } }
