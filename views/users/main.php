@@ -122,6 +122,11 @@ declare(strict_types=1);
             width: 100%;
             border-collapse: collapse;
         }
+        .tableWrap {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+        }
         th, td {
             padding: 12px 18px;
             border-bottom: 1px solid #e7edf4;
@@ -229,6 +234,7 @@ declare(strict_types=1);
             <?php if ($infoMessage !== ''): ?>
                 <div class="notice info"><?= h($infoMessage) ?></div>
             <?php endif; ?>
+            <div class="tableWrap">
             <table>
                 <thead>
                 <tr>
@@ -256,6 +262,7 @@ declare(strict_types=1);
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </section>
 
         <section class="panel">

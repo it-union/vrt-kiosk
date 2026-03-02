@@ -72,7 +72,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             justify-content: center;
             min-height: 34px;
             padding: 0 12px;
-            border-radius: 6px;
+            border-radius: 10px;
             border: 1px solid #1d5fbf;
             background: #1d5fbf;
             color: #fff;
@@ -147,7 +147,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .panel {
             border: 1px solid var(--line);
-            border-radius: 18px;
+            border-radius: 16px;
             background: rgba(255,255,255,0.94);
             overflow: hidden;
             box-shadow: 0 12px 26px rgba(31, 41, 55, 0.06);
@@ -186,7 +186,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         .queueListBox {
             margin-top: 14px;
             border: 1px solid var(--line);
-            border-radius: 14px;
+            border-radius: 16px;
             background: #fff;
             overflow: hidden;
         }
@@ -207,6 +207,8 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .queueList {
             display: grid;
+            max-height: 320px;
+            overflow: auto;
         }
         .queueListItem {
             padding: 12px 14px;
@@ -242,7 +244,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             align-self: center;
             display: none;
             padding: 6px 10px;
-            border-radius: 6px;
+            border-radius: 10px;
             border: 1px solid transparent;
             font-size: 12px;
             line-height: 1.2;
@@ -273,7 +275,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             width: min(960px, 100%);
             aspect-ratio: 16/9;
             border: 2px dashed #b7c1cf;
-            border-radius: 8px;
+            border-radius: 16px;
             background: #fff;
             overflow: hidden;
         }
@@ -302,7 +304,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             max-height: min(82vh, 860px);
             background: #fff;
             border: 1px solid var(--line);
-            border-radius: 18px;
+            border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
         }

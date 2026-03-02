@@ -15,16 +15,16 @@ declare(strict_types=1);
         .topbar h1 { margin: 0 0 6px; font-size: 32px; color: #fff; }
         .topbar p { margin: 0; color: #cbd5e1; font-size: 13px; }
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #1d5fbf; background: #1d5fbf; color: #fff; text-decoration: none; cursor: pointer; }
+        .actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d5fbf; background: #1d5fbf; color: #fff; text-decoration: none; cursor: pointer; }
         .wrap { flex: 1; display: grid; grid-template-columns: 320px 1fr 360px; gap: 12px; min-height: 0; }
-        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 10px; }
+        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; }
         .wrap .panel { display: flex; flex-direction: column; min-height: 0; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .listFilter { margin-bottom: 8px; }
         #contentTypeFilter { font-size: 13px; }
-        .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 6px; }
+        .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 10px; }
         .item { padding: 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
@@ -34,7 +34,7 @@ declare(strict_types=1);
         .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .statusBadge.statusActive { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .statusBadge.statusInactive { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
-        .status { margin-left: auto; align-self: center; display: none; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 12px; line-height: 1.2; }
+        .status { margin-left: auto; align-self: center; display: none; padding: 6px 10px; border-radius: 10px; border: 1px solid transparent; font-size: 12px; line-height: 1.2; }
         .status.show { display: inline-flex; }
         .status.success { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
@@ -67,16 +67,16 @@ declare(strict_types=1);
         #openPptLibraryBtn { width: 100%; height: 36px; min-height: 36px; max-height: 36px; box-sizing: border-box; margin: 0; padding: 0 12px; font-size: 13px; font-weight: 400; line-height: 1; display: inline-flex; align-items: center; justify-content: center; align-self: end; white-space: nowrap; }
         label { display: block; margin: 6px 0; font-size: 13px; }
         input, select, textarea, button { font: inherit; }
-        input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 6px; }
-        button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 6px; cursor: pointer; }
-        .preview { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 6px; height: 220px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; }
+        input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
+        button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; }
+        .preview { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 10px; height: 220px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; }
         .preview img, .preview video, .preview iframe { max-width: 100%; max-height: 100%; display: block; }
         .previewHtml { width: 100%; height: 100%; overflow: auto; padding: 12px; box-sizing: border-box; color: #1a1a1a; }
         .previewPanel { overflow: hidden; }
-        .htmlEditorWrap { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; min-height: 0; flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        .htmlEditorWrap { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; min-height: 0; flex: 1; display: none; flex-direction: column; overflow: hidden; }
         #htmlEditorContainer { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
         .htmlEditorToolbar { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
-        .htmlToolBtn { min-width: 34px; height: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #c8ced6; background: #fff; color: #1d5fbf; border-radius: 6px; cursor: pointer; font-size: 12px; line-height: 1; }
+        .htmlToolBtn { min-width: 34px; height: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #c8ced6; background: #fff; color: #1d5fbf; border-radius: 10px; cursor: pointer; font-size: 12px; line-height: 1; }
         .htmlToolBtn:hover { background: #eef5ff; }
         .htmlToolBtn.labelBtn { padding: 0 10px; min-width: auto; }
         .htmlEditorSurface { flex: 1; min-height: 0; overflow: hidden; }
@@ -88,7 +88,7 @@ declare(strict_types=1);
         .previewPanel .preview { margin-top: 0; height: auto; min-height: 0; flex: 1; }
         .libraryHead { display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 8px; }
         .libraryBtn { min-width: 38px; width: 38px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-        .libraryGrid { border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; padding: 8px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; align-content: start; align-items: start; }
+        .libraryGrid { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 8px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; align-content: start; align-items: start; }
         .libraryUploadBtn { width: 140px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
         .libraryDeleteBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; border-color: #b91c1c; color: #b91c1c; }
         .librarySelectBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
@@ -97,7 +97,7 @@ declare(strict_types=1);
         .uploadProgressTrack { flex: 1; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
         .uploadProgressBar { width: 0%; height: 100%; background: #1d5fbf; transition: width .15s linear; }
         .uploadProgressText { min-width: 44px; text-align: right; font-size: 12px; color: #334155; }
-        .libraryItem { border: 1px solid #d8dee8; border-radius: 6px; padding: 6px; cursor: pointer; background: #f8fafc; align-self: start; }
+        .libraryItem { border: 1px solid #d8dee8; border-radius: 10px; padding: 6px; cursor: pointer; background: #f8fafc; align-self: start; }
         .libraryItem.active { border-color: #1d5fbf; box-shadow: 0 0 0 1px #1d5fbf inset; background: #eef5ff; }
         .libraryItem img { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; display: block; background: #e8edf5; }
         .libraryName { margin-top: 4px; font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -105,12 +105,12 @@ declare(strict_types=1);
         @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
         .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 50; }
         .modalBack.open { display: flex; }
-        .modal { width: min(440px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 12px; }
+        .modal { width: min(440px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 12px; }
         #imageLibraryModal .modal { width: 80vw; height: 80vh; max-width: 80vw; max-height: 80vh; display: flex; flex-direction: column; min-height: 0; }
         #imageLibraryModal .libraryGrid { flex: 1; min-height: 0; max-height: none; overflow: auto; }
         .modal h3 { margin: 0 0 10px; font-size: 16px; }
         .typeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        .typeBtn { padding: 10px; border: 1px solid #c9d2de; border-radius: 6px; background: #fff; cursor: pointer; text-align: left; }
+        .typeBtn { padding: 10px; border: 1px solid #c9d2de; border-radius: 10px; background: #fff; cursor: pointer; text-align: left; }
         .typeBtn.active { border-color: #1d5fbf; box-shadow: 0 0 0 1px #1d5fbf inset; }
         .typeBtn.disabled { opacity: .5; cursor: not-allowed; }
     </style>
@@ -1885,7 +1885,6 @@ document.getElementById('deleteContentModal').onclick = (event) => {
 document.getElementById('duplicateContentModal').onclick = (event) => {
   if (event.target && event.target.id === 'duplicateContentModal') closeDuplicateContentModal();
 };
-document.getElementById('toTemplateBtn').onclick = () => { window.location.href = '/template/'; };
 document.getElementById('newTypeCancelBtn').onclick = closeNewTypeModal;
 document.getElementById('newTypeCreateBtn').onclick = () => {
   const run = async () => {

@@ -19,7 +19,7 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
         .topbar p { margin: 0; color: #cbd5e1; font-size: 13px; }
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 12px; }
-        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
+        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .panelSub { margin: -2px 0 10px; color: #5a6472; font-size: 12px; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -27,7 +27,7 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
         .queueHeaderBar { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 10px; margin-bottom: 8px; align-items: start; }
         .queueHeaderBar .toolbar { margin: 0; align-items: center; }
         .queueHeaderBarRight { display: flex; align-items: center; }
-        .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 6px; background: #fff; }
+        .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 10px; background: #fff; }
         .item { padding: 8px 9px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; user-select: none; background: #fff; }
         .item:last-child { border-bottom: 0; }
         .item:hover { background: #f8fafc; }
@@ -41,7 +41,7 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
         .queueDropZone { min-height: 180px; }
         .queueDropZone.isOver { background: #eef5ff; }
         .inspectorEmpty { color: #5a6472; font-size: 13px; line-height: 1.45; }
-        .fold { border: 1px solid #e0e3e8; border-radius: 6px; background: #fff; margin-bottom: 8px; }
+        .fold { border: 1px solid #e0e3e8; border-radius: 10px; background: #fff; margin-bottom: 8px; }
         .fold > summary { cursor: pointer; list-style: none; padding: 8px 10px; font-size: 13px; font-weight: bold; border-bottom: 1px solid transparent; position: relative; padding-right: 26px; background: #f0f0f0; }
         .fold > summary::-webkit-details-marker { display: none; }
         .fold > summary::after { content: '\25B8'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #5a6472; font-size: 12px; }
@@ -50,17 +50,17 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
         .foldBody { padding: 6px 10px 10px; }
         .foldBody label { margin: 8px 0 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
         .foldBody label input, .foldBody label select { grid-column: 2; }
-        .status { align-self: center; display: none; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; font-size: 12px; line-height: 1.2; }
+        .status { align-self: center; display: none; padding: 6px 10px; border-radius: 10px; border: 1px solid transparent; font-size: 12px; line-height: 1.2; }
         .status.show { display: inline-flex; }
         .status.success { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
         button, a.actionLink, input, select { font: inherit; }
-        button, a.actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 6px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; text-decoration: none; cursor: pointer; }
+        button, a.actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; text-decoration: none; cursor: pointer; }
         a.actionLink { background: #1d5fbf; color: #fff; }
         button.primary { background: transparent; color: #1d5fbf; }
         button.danger { border-color: #b91c1c; color: #b91c1c; }
         button.iconBtn { width: 34px; height: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
-        input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 6px; }
+        input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
         .pageFooter { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
         @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
         @media (max-width: 1180px) { .wrap { grid-template-columns: 280px 1fr; } .panel.inspectorPanel { grid-column: 1 / -1; } }

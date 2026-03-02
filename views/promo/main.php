@@ -39,7 +39,7 @@ declare(strict_types=1);
         .panel {
             background: rgba(255,255,255,0.88);
             border: 1px solid var(--line);
-            border-radius: 22px;
+            border-radius: 16px;
             padding: 28px;
             box-shadow: 0 18px 42px rgba(20, 32, 51, 0.10);
         }
@@ -64,7 +64,7 @@ declare(strict_types=1);
         .feature {
             padding: 14px 16px;
             border: 1px solid #e3e9f2;
-            border-radius: 14px;
+            border-radius: 16px;
             background: #fff;
         }
         .feature strong {
@@ -96,7 +96,7 @@ declare(strict_types=1);
             align-items: center;
             justify-content: center;
             min-height: 44px;
-            border-radius: 12px;
+            border-radius: 10px;
             text-decoration: none;
             font: inherit;
         }
