@@ -190,7 +190,7 @@ function applyTimedAppearance(target, animationName, animationMs, delayMs) {
         ? String(animationName || 'none')
         : 'none';
     const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
-    const delay = Math.max(0, Math.min(10000, Number(delayMs || 0)));
+    const delay = Math.max(0, Number(delayMs || 0));
     const map = {
         none: '',
         fade_in: `fadeInBlock ${ms}ms ease ${delay}ms both`,
@@ -242,8 +242,8 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
     const totalItems = Math.max(0, Number(queueState.total_items || 0));
     const show = buildShowAnimation(animationName, animationMs);
     const hide = buildHideAnimation(animationName, animationMs);
-    const onMs = Math.max(0, Math.min(10000, Number(delayOnMs || 0)));
-    const offMs = Math.max(0, Math.min(10000, Number(delayOffMs || 0)));
+    const onMs = Math.max(0, Number(delayOnMs || 0));
+    const offMs = Math.max(0, Number(delayOffMs || 0));
     const elapsedMsRaw = Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000));
     const cycleOffsetMs = slideDurationMs > 0 ? (elapsedMsRaw % slideDurationMs) : 0;
     const showStartMs = onMs;
@@ -467,7 +467,7 @@ function applyImageAnimation(target, imageData) {
         ? String(p.animation || 'none')
         : 'none';
     const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
-    const delayMs = Math.max(0, Math.min(10000, Number((p.delay_on_ms ?? p.delay_ms) || 0)));
+    const delayMs = Math.max(0, Number((p.delay_on_ms ?? p.delay_ms) || 0));
     const map = {
         none: '',
         fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,

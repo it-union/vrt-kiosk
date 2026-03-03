@@ -219,8 +219,8 @@ declare(strict_types=1);
                 </label>
                 <label>Масштаб, % <input id="pHtmlScale" type="number" min="1" max="500" step="1" value="100"></label>
                 <label>Время анимации, мс <input id="pHtmlAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
-                <label>Задержка on, мс <input id="pHtmlDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
-                <label>Задержка off, мс <input id="pHtmlDelayOffMs" type="number" min="0" max="10000" step="50" value="0"></label>
+                <label>Задержка on, мс <input id="pHtmlDelayMs" type="number" min="0" step="50" value="0"></label>
+                <label>Задержка off, мс <input id="pHtmlDelayOffMs" type="number" min="0" step="50" value="0"></label>
             </div>
 
             <div id="imageControls">
@@ -262,8 +262,8 @@ declare(strict_types=1);
                     </select>
                 </label>
                 <label>Время анимации, мс <input id="pImageAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
-                <label>Задержка on, мс <input id="pImageDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
-                <label>Задержка off, мс <input id="pImageDelayOffMs" type="number" min="0" max="10000" step="50" value="0"></label>
+                <label>Задержка on, мс <input id="pImageDelayMs" type="number" min="0" step="50" value="0"></label>
+                <label>Задержка off, мс <input id="pImageDelayOffMs" type="number" min="0" step="50" value="0"></label>
                 <label>Режи изображения
                     <select id="pImageFluidMode">
                         <option value="fixed">фиксированный разер</option>
@@ -685,8 +685,8 @@ function buildImageDataJson() {
     ? String(el.pImageAnim.value || 'none')
     : 'none';
   const animationMs = Math.max(100, Math.min(5000, Number(el.pImageAnimMs.value || 700)));
-  const delayOnMs = Math.max(0, Math.min(10000, Number(el.pImageDelayMs.value || 0)));
-  const delayOffMs = Math.max(0, Math.min(10000, Number(el.pImageDelayOffMs.value || 0)));
+  const delayOnMs = Math.max(0, Number(el.pImageDelayMs.value || 0));
+  const delayOffMs = Math.max(0, Number(el.pImageDelayOffMs.value || 0));
   const fluid = el.pImageFluidMode && el.pImageFluidMode.value === 'fluid';
   return {
     image: {
@@ -766,7 +766,7 @@ function applyImageAnimation(target, imageData) {
     ? String(p.animation || 'none')
     : 'none';
   const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
-  const delayMs = Math.max(0, Math.min(10000, Number((p.delay_on_ms ?? p.delay_ms) || 0)));
+  const delayMs = Math.max(0, Number((p.delay_on_ms ?? p.delay_ms) || 0));
   const map = {
     none: '',
     fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
@@ -781,7 +781,7 @@ function applyTimedAppearance(target, animationName, animationMs, delayMs) {
     ? String(animationName || 'none')
     : 'none';
   const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
-  const delay = Math.max(0, Math.min(10000, Number(delayMs || 0)));
+  const delay = Math.max(0, Number(delayMs || 0));
   const map = {
     none: '',
     fade_in: `fadeInBlock ${ms}ms ease ${delay}ms both`,
@@ -885,8 +885,8 @@ function buildHtmlDataJson() {
     : 'none';
   const scalePct = Math.max(1, Math.min(500, Number(el.pHtmlScale.value || 100)));
   const animationMs = Math.max(100, Math.min(5000, Number(el.pHtmlAnimMs.value || 700)));
-  const delayOnMs = Math.max(0, Math.min(10000, Number(el.pHtmlDelayMs.value || 0)));
-  const delayOffMs = Math.max(0, Math.min(10000, Number(el.pHtmlDelayOffMs.value || 0)));
+  const delayOnMs = Math.max(0, Number(el.pHtmlDelayMs.value || 0));
+  const delayOffMs = Math.max(0, Number(el.pHtmlDelayOffMs.value || 0));
   return {
     html: {
       scale_pct: scalePct,
@@ -1873,8 +1873,8 @@ async function loadById(id) {
       : 'none';
     el.pHtmlScale.value = String(Math.max(1, Math.min(500, Number(html.scale_pct || 100))));
     el.pHtmlAnimMs.value = String(Math.max(100, Math.min(5000, Number(html.animation_ms || 700))));
-    el.pHtmlDelayMs.value = String(Math.max(0, Math.min(10000, Number((html.delay_on_ms ?? html.delay_ms) || 0))));
-    el.pHtmlDelayOffMs.value = String(Math.max(0, Math.min(10000, Number(html.delay_off_ms || 0))));
+    el.pHtmlDelayMs.value = String(Math.max(0, Number((html.delay_on_ms ?? html.delay_ms) || 0)));
+    el.pHtmlDelayOffMs.value = String(Math.max(0, Number(html.delay_off_ms || 0)));
     el.pImageWidth.value = image.width_px ? String(Number(image.width_px || 0)) : '';
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
     el.pImageScale.value = image.scale_pct ? String(Number(image.scale_pct || 100)) : '100';
@@ -1895,8 +1895,8 @@ async function loadById(id) {
       ? String(image.animation || 'none')
       : 'none';
     el.pImageAnimMs.value = String(Math.max(100, Math.min(5000, Number(image.animation_ms || 700))));
-    el.pImageDelayMs.value = String(Math.max(0, Math.min(10000, Number((image.delay_on_ms ?? image.delay_ms) || 0))));
-    el.pImageDelayOffMs.value = String(Math.max(0, Math.min(10000, Number(image.delay_off_ms || 0))));
+    el.pImageDelayMs.value = String(Math.max(0, Number((image.delay_on_ms ?? image.delay_ms) || 0)));
+    el.pImageDelayOffMs.value = String(Math.max(0, Number(image.delay_off_ms || 0)));
     el.pImageFluidMode.value = (image.fluid === true || String(image.mode || '') === 'fluid') ? 'fluid' : 'fixed';
     el.pImagePosition.value = String(image.position || 'center');
     el.pVideoWidth.value = video.width_px ? String(Number(video.width_px || 0)) : '';
