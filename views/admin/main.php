@@ -97,9 +97,20 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         .navIconBtn {
             min-width: 42px;
             width: 42px;
+            min-height: 42px;
+            height: 42px;
+            flex: 0 0 42px;
             padding: 0;
             font-size: 18px;
             line-height: 1;
+        }
+        .navRowRight .navIconBtn {
+            min-width: 42px;
+            width: 42px;
+            min-height: 42px;
+            height: 42px;
+            flex: 0 0 42px;
+            padding: 0;
         }
         .navRow .btnGhost.disabled {
             opacity: 0.7;
@@ -466,13 +477,16 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                 width: 100%;
             }
             .navRow .btn,
-            .navRow .btnGhost,
-            .navRowRight .btn {
+            .navRow .btnGhost {
                 width: 100%;
                 min-width: 0;
             }
             .navIconBtn {
-                width: 100%;
+                width: 42px;
+                min-width: 42px;
+                min-height: 42px;
+                height: 42px;
+                flex: 0 0 42px;
             }
             .queueActions {
                 grid-template-columns: 1fr;
@@ -525,10 +539,9 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         <?php endif; ?>
 
         <a class="btn" href="/queue/">Настройка очереди</a>
-        <div class="navNote">Навигация по основным разделам панели.</div>
         <div class="navRowRight">
-            <a class="btn navIconBtn" href="/kiosk/?device_key=main-kiosk" target="_blank" rel="noopener" title="?????" aria-label="?????">&#128187;</a>
-            <a class="btn navIconBtn" href="/kiosk/?device_key=test-kiosk" target="_blank" rel="noopener" title="???????? ?????" aria-label="???????? ?????">&#129514;</a>
+            <a class="btn navIconBtn" href="/kiosk/" target="_blank" rel="noopener" title="Киоск" aria-label="Киоск">&#128187;</a>
+            <a class="btn navIconBtn" href="/kiosk/test/" target="_blank" rel="noopener" title="Тестовый киоск" aria-label="Тестовый киоск">&#9879;</a>
         </div>
     </div>
 
@@ -573,7 +586,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             </div>
             <div class="mirrorPanelBody">
                 <div class="mirrorFrame">
-                    <iframe id="mirrorFrame" class="mirror" src="/kiosk/?device_key=main-kiosk" title="Экран"></iframe>
+                    <iframe id="mirrorFrame" class="mirror" src="/kiosk/" title="Экран"></iframe>
                 </div>
             </div>
         </div>
@@ -652,7 +665,7 @@ function getPreviewDeviceKey() {
 
 function syncMirrorFrame() {
     if (!mirrorFrame) return;
-    mirrorFrame.src = '/kiosk/?device_key=' + encodeURIComponent(getPreviewDeviceKey());
+    mirrorFrame.src = getPreviewDeviceKey() === 'test-kiosk' ? '/kiosk/test/' : '/kiosk/';
 }
 
 function getPreviewQueueData() {

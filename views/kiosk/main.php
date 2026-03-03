@@ -28,14 +28,20 @@ declare(strict_types=1);
 </head>
 <body>
 <div id="stage"></div>
+<template id="fallbackScreenTemplate">
+    <div style="position:relative;width:100%;height:100%;overflow:hidden;background:#ffffff;">
+        <img src="/uploads/kiosk_fallback/background.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:4vh;">
+            <img src="/uploads/kiosk_fallback/center.png" alt="" style="display:block;max-width:min(78vw,1100px);max-height:70vh;width:auto;height:auto;">
+        </div>
+    </div>
+</template>
 
 <script>
 const stage = document.getElementById('stage');
+const fallbackScreenTemplate = document.getElementById('fallbackScreenTemplate');
 const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' };
-const DEVICE_KEY = (() => {
-    const raw = String(new URLSearchParams(window.location.search).get('device_key') || '').trim().toLowerCase();
-    return raw === 'test-kiosk' ? 'test-kiosk' : 'main-kiosk';
-})();
+const DEVICE_KEY = <?= json_encode((string)($kioskDeviceKey ?? 'main-kiosk'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
@@ -1096,6 +1102,18 @@ function getScreenTransitionContentDelay(style) {
     return transition.ms + (transition.name === 'squares' ? 40 : 30);
 }
 
+function renderFallbackScreen() {
+    if (!fallbackScreenTemplate) {
+        stage.innerHTML = '';
+        return;
+    }
+    stage.innerHTML = '';
+    const node = fallbackScreenTemplate.content.firstElementChild
+        ? fallbackScreenTemplate.content.firstElementChild.cloneNode(true)
+        : document.createElement('div');
+    stage.appendChild(node);
+}
+
 async function buildScreenLayer(blocks, runtime, screenStyle) {
     const layer = document.createElement('div');
     layer.className = 'screenLayer';
@@ -1135,6 +1153,12 @@ async function loadScreen() {
         lastScreenSignature = signature;
 
         clearMediaTimers();
+        if (String(data.source || '') === 'fallback') {
+            applyBackgroundStyle(document.body, { mode: 'none' }, '#ffffff');
+            applyBackgroundStyle(stage, { mode: 'none' }, '#ffffff');
+            renderFallbackScreen();
+            return;
+        }
         applyBackgroundStyle(document.body, screenStyle, '#ffffff');
         applyBackgroundStyle(stage, { mode: 'none' }, '#ffffff');
         const nextLayer = await buildScreenLayer(blocks, runtime, screenStyle);

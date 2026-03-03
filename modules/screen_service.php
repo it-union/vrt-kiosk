@@ -6,6 +6,24 @@ require_once __DIR__ . '/template_repository.php';
 require_once __DIR__ . '/content_repository.php';
 require_once __DIR__ . '/queue_repository.php';
 
+function renderKioskFallbackBody(): string
+{
+    ob_start();
+    require __DIR__ . '/../views/kiosk/fallback.php';
+    return (string)ob_get_clean();
+}
+
+function fallbackScreenStyle(): array
+{
+    $style = defaultScreenStyle();
+    $style['mode'] = 'image';
+    $style['image'] = '/uploads/kiosk_fallback/background.png';
+    $style['size'] = 'cover';
+    $style['position'] = 'center center';
+    $style['repeat'] = 'no-repeat';
+    return $style;
+}
+
 function defaultScreenStyle(): array
 {
     return [
@@ -240,7 +258,7 @@ function resolveQueueTemplateForScreen(PDO $pdo, int $screenId, ?array $stateRow
                 'w_pct' => 100,
                 'h_pct' => 100,
                 'z_index' => 1,
-                'content_mode' => 'dynamic_current',
+                'content_mode' => 'fixed',
                 'content_id' => null,
                 'content_type' => 'html',
                 'style_json' => null,
@@ -363,7 +381,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
             'screen_id' => $screenId,
             'source' => 'fallback',
             'template' => null,
-            'screen_style' => defaultScreenStyle(),
+            'screen_style' => fallbackScreenStyle(),
             'blocks' => [[
                 'id' => 0,
                 'key' => 'stopped',
@@ -373,16 +391,18 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                 'h_pct' => 100,
                 'z_index' => 1,
                 'content_mode' => 'dynamic_current',
-                'content_type' => 'html',
+                'content_type' => 'image',
                 'content' => [
-                    'id' => null,
-                    'type' => 'html',
-                    'title' => 'Очередь показа остановлена',
-                    'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">Очередь показа остановлена</div>',
-                    'media_url' => null,
-                    'data_json' => null,
+                    'id' => -1,
+                    'type' => 'image',
+                    'title' => '',
+                    'body' => '',
+                    'media_url' => '/uploads/kiosk_fallback/center.png',
+                    'data_json' => '{"image":{"position":"center","fluid":false,"width_px":0,"height_px":0}}',
                 ],
-                'style' => null,
+                'style' => [
+                    'background_mode' => 'none',
+                ],
             ]],
         ];
     }
