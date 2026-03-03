@@ -354,11 +354,14 @@ function deferBlockAnimationStart(target, animationName, animationMs, delayMs, r
         starter(target, name, animationMs, delayMs);
         return;
     }
+    const initialDisplay = target.style.display || '';
     target.style.animation = '';
     target.style.opacity = '0';
     target.style.visibility = 'hidden';
+    target.style.display = 'none';
     registerMediaTimer(setTimeout(() => {
         if (!target.isConnected) return;
+        target.style.display = initialDisplay;
         target.style.visibility = '';
         starter(target, name, animationMs, delayMs);
     }, templateDelayMs));
@@ -400,37 +403,45 @@ function buildHideAnimation(animationName, animationMs) {
       return { value: map[name] || '', duration: ms, name };
   }
 function startContentCycle(target, animationName, animationMs, delayOnMs, delayOffMs, runtime) {
-    if (!target || !runtime || runtime.source !== 'schedule') return false;
-    const queueState = runtime.queueState && typeof runtime.queueState === 'object' ? runtime.queueState : null;
-    if (!queueState) return false;
-    const slideDurationMs = Math.max(0, Math.round(Math.max(0, Number(queueState.duration_sec || 0)) * 1000));
-    if (slideDurationMs <= 0) return false;
-
-    const totalItems = Math.max(0, Number(queueState.total_items || 0));
+    if (!target || !runtime) return false;
+    const cycleDurationMs = Math.max(0, Math.round(Math.max(0, Number(runtime.cycleDurationMs || 0))));
+    const cycleOffsetMs = cycleDurationMs > 0
+        ? Math.max(0, Math.min(cycleDurationMs, Math.round(Math.max(0, Number(runtime.cycleOffsetMs || 0))) % cycleDurationMs))
+        : 0;
+    const shouldLoop = runtime.loopCurrentTemplate === true && cycleDurationMs > 0;
     const show = buildShowAnimation(animationName, animationMs);
     const hide = buildHideAnimation(animationName, animationMs);
     const templateDelayMs = getTemplateTransitionDelay(runtime);
     const onMs = Math.max(0, Number(delayOnMs || 0));
     const offMs = Math.max(0, Number(delayOffMs || 0));
-    const elapsedMsRaw = Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000));
-    const cycleOffsetMs = slideDurationMs > 0 ? (elapsedMsRaw % slideDurationMs) : 0;
     const showStartMs = templateDelayMs + onMs;
     const showEndMs = showStartMs + (show.name === 'none' ? 0 : show.duration);
     const hideStartMs = offMs > 0 ? Math.max(showEndMs, templateDelayMs + offMs) : showEndMs;
     const hideEndMs = hideStartMs + (hide.name === 'none' ? 0 : hide.duration);
+    const initialDisplay = target.style.display || '';
+
+    const showDisplayState = () => {
+        target.style.display = initialDisplay;
+    };
+    const hideDisplayState = () => {
+        target.style.display = 'none';
+    };
 
     const resetForCycle = () => {
         target.style.animation = '';
         target.style.opacity = '';
         target.style.visibility = '';
         target.style.pointerEvents = '';
+        showDisplayState();
         if (onMs > 0 || show.name !== 'none') {
             target.style.opacity = '0';
             target.style.visibility = 'hidden';
+            hideDisplayState();
         }
     };
     const runShow = () => {
         if (!target.isConnected) return;
+        showDisplayState();
         target.style.visibility = 'visible';
         target.style.pointerEvents = '';
         if (show.name === 'none') {
@@ -448,21 +459,24 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
             target.style.opacity = '0';
             target.style.visibility = 'hidden';
             target.style.pointerEvents = 'none';
+            hideDisplayState();
             return;
         }
         target.style.animation = 'none';
         void target.offsetWidth;
         target.style.animation = hide.value;
-        setTimeout(() => {
+        registerMediaTimer(setTimeout(() => {
             if (!target.isConnected) return;
             target.style.animation = '';
             target.style.opacity = '0';
             target.style.visibility = 'hidden';
             target.style.pointerEvents = 'none';
-        }, hide.duration);
+            hideDisplayState();
+        }, hide.duration));
     };
     const showFinalState = () => {
         target.style.animation = '';
+        showDisplayState();
         target.style.visibility = 'visible';
         target.style.opacity = '1';
         target.style.pointerEvents = '';
@@ -472,9 +486,24 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
         target.style.opacity = '0';
         target.style.visibility = 'hidden';
         target.style.pointerEvents = 'none';
+        hideDisplayState();
     };
+
+    if (!shouldLoop) {
+        resetForCycle();
+        if (showStartMs > 0) {
+            registerMediaTimer(setTimeout(runShow, showStartMs));
+        } else {
+            runShow();
+        }
+        if (offMs > 0) {
+            registerMediaTimer(setTimeout(runHide, hideStartMs));
+        }
+        return true;
+    }
+
     const scheduleCycle = (offsetMs) => {
-        const safeOffset = Math.max(0, Math.min(slideDurationMs, Number(offsetMs || 0)));
+        const safeOffset = Math.max(0, Math.min(cycleDurationMs, Number(offsetMs || 0)));
         resetForCycle();
         if (safeOffset <= 0) {
             if (showStartMs > 0) {
@@ -482,7 +511,7 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
             } else {
                 runShow();
             }
-            if (offMs > 0 && hideStartMs < slideDurationMs) {
+            if (offMs > 0 && hideStartMs < cycleDurationMs) {
                 registerMediaTimer(setTimeout(runHide, hideStartMs));
             }
             return;
@@ -490,7 +519,7 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
 
         if (safeOffset < showStartMs) {
             registerMediaTimer(setTimeout(runShow, Math.max(0, showStartMs - safeOffset)));
-            if (offMs > 0 && hideStartMs < slideDurationMs) {
+            if (offMs > 0 && hideStartMs < cycleDurationMs) {
                 registerMediaTimer(setTimeout(runHide, Math.max(0, hideStartMs - safeOffset)));
             }
             return;
@@ -498,7 +527,7 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
 
         if (offMs <= 0 || safeOffset < hideStartMs) {
             showFinalState();
-            if (offMs > 0 && hideStartMs < slideDurationMs) {
+            if (offMs > 0 && hideStartMs < cycleDurationMs) {
                 registerMediaTimer(setTimeout(runHide, Math.max(0, hideStartMs - safeOffset)));
             }
             return;
@@ -513,13 +542,11 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
     };
 
     scheduleCycle(cycleOffsetMs);
-    if (totalItems <= 1) {
-        registerMediaTimer(setTimeout(function repeatCycle() {
-            if (!target.isConnected) return;
-            scheduleCycle(0);
-            registerMediaTimer(setTimeout(repeatCycle, slideDurationMs));
-        }, Math.max(0, slideDurationMs - cycleOffsetMs)));
-    }
+    registerMediaTimer(setTimeout(function repeatCycle() {
+        if (!target.isConnected) return;
+        scheduleCycle(0);
+        registerMediaTimer(setTimeout(repeatCycle, cycleDurationMs));
+    }, Math.max(0, cycleDurationMs - cycleOffsetMs)));
     return true;
 }
 
@@ -849,23 +876,18 @@ async function renderBlock(blockRaw, runtime = null) {
             img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
-            if (!startContentCycle(img, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
+            if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
                 deferBlockAnimationStart(
-                    img,
+                    el,
                     motion.animation || 'none',
                     motion.animation_ms || 700,
                     Math.max(0, Number(motion.delay_on_ms || 0)),
                     runtime,
-                    (target, name, ms, delay) => applyImageAnimation(target, {
-                        ...motion,
-                        animation: name,
-                        animation_ms: ms,
-                        delay_on_ms: delay
-                    })
+                    (target, name, ms, delay) => applyTimedAppearance(target, name, ms, delay)
                 );
                 if (!hasOwnAnimation) {
-                    img.style.opacity = '';
-                    img.style.visibility = '';
+                    el.style.opacity = '';
+                    el.style.visibility = '';
                 }
             }
         } else {
@@ -1135,9 +1157,18 @@ async function loadScreen() {
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];
         const screenStyle = normalizeScreenStyle(data.screen_style || DEFAULT_SCREEN_STYLE);
         const transition = buildScreenTransition(screenStyle);
+        const queueState = data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null;
+        const scheduleDurationMs = queueState ? Math.max(0, Math.round(Math.max(0, Number(queueState.duration_sec || 0)) * 1000)) : 0;
+        const scheduleOffsetMs = queueState ? Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000)) : 0;
+        const manualCycleMs = Math.max(0, Math.round(Math.max(0, Number(data.manual_cycle_sec || 0)) * 1000));
         const runtime = {
             source: String(data.source || ''),
-            queueState: data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null,
+            queueState,
+            cycleDurationMs: String(data.source || '') === 'manual' ? manualCycleMs : scheduleDurationMs,
+            cycleOffsetMs: String(data.source || '') === 'schedule' ? scheduleOffsetMs : 0,
+            loopCurrentTemplate:
+                (String(data.source || '') === 'schedule' && scheduleDurationMs > 0 && Math.max(0, Number(queueState?.total_items || 0)) <= 1) ||
+                (String(data.source || '') === 'manual' && manualCycleMs > 0),
             templateDelayMs: getScreenTransitionContentDelay(screenStyle)
         };
         const signature = JSON.stringify({

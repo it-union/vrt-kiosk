@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+const APP_ENV = 'local';
+//const APP_ENV = 'prod';
+
 function projectVersion(): string
 {
     static $version = null;

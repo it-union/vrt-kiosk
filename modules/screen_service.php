@@ -368,12 +368,35 @@ function resolveQueueStateForScreen(PDO $pdo, int $screenId, ?array $stateRow): 
     ];
 }
 
+function resolveManualTemplateDurationSec(PDO $pdo, int $templateId): int
+{
+    if ($templateId <= 0) {
+        return 0;
+    }
+
+    $queue = queueGetActive($pdo);
+    if ($queue === null) {
+        return 0;
+    }
+
+    $items = queueGetItems($pdo, (int)$queue['id']);
+    foreach ($items as $item) {
+        if ((int)($item['template_id'] ?? 0) !== $templateId) {
+            continue;
+        }
+        return max(1, (int)($item['duration_sec'] ?? 0));
+    }
+
+    return 0;
+}
+
 function getScreenPayload(PDO $pdo, int $screenId): array
 {
     $source = 'fallback';
     $sourceRow = [];
     $currentContent = null;
     $queueState = null;
+    $manualCycleSec = 0;
     $stateRow = screenGetState($pdo, $screenId);
 
     if (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'fallback') {
@@ -456,6 +479,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
         return [
             'screen_id' => $screenId,
             'source' => $source,
+            'manual_cycle_sec' => 0,
             'template' => null,
             'screen_style' => defaultScreenStyle(),
             'blocks' => [[
@@ -479,6 +503,10 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                 'style' => null,
             ]],
         ];
+    }
+
+    if ($source === 'manual') {
+        $manualCycleSec = resolveManualTemplateDurationSec($pdo, (int)($template['id'] ?? 0));
     }
 
     $blocks = $template['_queue_empty'] ?? false
@@ -508,6 +536,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
         'screen_id' => $screenId,
         'source' => $source,
         'screen_style' => extractScreenStyleFromLayout((string)($template['layout_json'] ?? '')),
+        'manual_cycle_sec' => $manualCycleSec,
         'template' => [
             'id' => (int)($template['id'] ?? 0),
             'name' => (string)($template['name'] ?? ''),
