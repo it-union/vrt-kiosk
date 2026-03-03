@@ -256,11 +256,82 @@ function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
     return $tpl;
 }
 
+function resolveQueueStateForScreen(PDO $pdo, ?array $stateRow): ?array
+{
+    $queue = queueGetActive($pdo);
+    if ($queue === null) {
+        return null;
+    }
+
+    $items = queueGetItems($pdo, (int)$queue['id']);
+    if (count($items) === 0) {
+        return [
+            'queue_id' => (int)$queue['id'],
+            'queue_name' => (string)($queue['name'] ?? ''),
+            'total_items' => 0,
+            'current_index' => 0,
+            'current_template_id' => 0,
+            'duration_sec' => 0,
+            'elapsed_sec' => 0,
+            'progress_pct' => 0,
+            'server_now_ts' => time(),
+        ];
+    }
+
+    $startedAt = time();
+    if (is_array($stateRow) && !empty($stateRow['applied_at'])) {
+        $parsed = strtotime((string)$stateRow['applied_at']);
+        if ($parsed !== false) {
+            $startedAt = $parsed;
+        }
+    }
+
+    $totalDuration = 0;
+    foreach ($items as $item) {
+        $totalDuration += max(1, (int)($item['duration_sec'] ?? 1));
+    }
+    if ($totalDuration <= 0) {
+        $totalDuration = count($items);
+    }
+
+    $elapsed = max(0, time() - $startedAt);
+    $cursor = $elapsed % $totalDuration;
+    $selected = $items[0];
+    $selectedIndex = 0;
+    $selectedElapsed = 0;
+    foreach ($items as $index => $item) {
+        $duration = max(1, (int)($item['duration_sec'] ?? 1));
+        if ($cursor < $duration) {
+            $selected = $item;
+            $selectedIndex = (int)$index;
+            $selectedElapsed = (int)$cursor;
+            break;
+        }
+        $cursor -= $duration;
+    }
+
+    $durationSec = max(1, (int)($selected['duration_sec'] ?? 1));
+    $progressPct = (int)max(0, min(100, round(($selectedElapsed / $durationSec) * 100)));
+
+    return [
+        'queue_id' => (int)$queue['id'],
+        'queue_name' => (string)($queue['name'] ?? ''),
+        'total_items' => count($items),
+        'current_index' => $selectedIndex,
+        'current_template_id' => (int)($selected['template_id'] ?? 0),
+        'duration_sec' => $durationSec,
+        'elapsed_sec' => $selectedElapsed,
+        'progress_pct' => $progressPct,
+        'server_now_ts' => time(),
+    ];
+}
+
 function getScreenPayload(PDO $pdo, int $screenId): array
 {
     $source = 'fallback';
     $sourceRow = [];
     $currentContent = null;
+    $queueState = null;
     $stateRow = screenGetState($pdo, $screenId);
 
     if (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'fallback') {
@@ -330,6 +401,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
     $template = resolveTemplateForScreen($pdo, $sourceRow);
     if ($template === null && $source === 'schedule') {
         $template = resolveQueueTemplateForScreen($pdo, $stateRow);
+        $queueState = resolveQueueStateForScreen($pdo, $stateRow);
     }
 
     if ($template === null) {
@@ -394,6 +466,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
             'status' => (string)($template['status'] ?? 'work'),
             'version' => (int)($template['version'] ?? 1),
         ],
+        'queue_state' => $queueState,
         'blocks' => $blocks,
     ];
 }

@@ -233,6 +233,19 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             font-size: 12px;
             line-height: 1.35;
         }
+        .queueProgress {
+            margin-top: 8px;
+            height: 6px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            overflow: hidden;
+        }
+        .queueProgressBar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            transition: width 160ms linear;
+        }
         .queueEmpty {
             padding: 14px;
             color: var(--muted);
@@ -493,6 +506,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                                     <p class="queueListMeta">
                                         Позиция: <?= $index + 1 ?> • Время показа: <?= max(1, (int)($queueItem['duration_sec'] ?? 1)) ?> сек
                                     </p>
+                                    <div class="queueProgress"><div class="queueProgressBar"></div></div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
@@ -567,6 +581,9 @@ const manualModalClose = document.getElementById('manualModalClose');
 const showTemplateButtons = Array.from(document.querySelectorAll('.js-show-template'));
 const activeQueueListItems = Array.from(document.querySelectorAll('#activeQueueList .queueListItem'));
 let screenStatusTimer = null;
+let queueProgressTimer = null;
+let currentQueueProgressState = null;
+let currentQueueProgressStartedAtMs = 0;
 
 function setQueueStatus(message, isError) {
     if (!queueStatus) return;
@@ -590,6 +607,45 @@ function setModeButtons(source) {
     if (queueStartBtn) queueStartBtn.classList.toggle('isActive', source === 'schedule');
     if (queueStopBtn) queueStopBtn.classList.toggle('isActive', source === 'fallback');
     if (queueManualBtn) queueManualBtn.classList.toggle('isActive', source === 'manual');
+}
+
+function stopQueueProgressTimer() {
+    if (queueProgressTimer !== null) {
+        window.clearInterval(queueProgressTimer);
+        queueProgressTimer = null;
+    }
+}
+
+function paintQueueProgress() {
+    const state = currentQueueProgressState;
+    activeQueueListItems.forEach((node) => {
+        const bar = node.querySelector('.queueProgressBar');
+        if (!bar) return;
+        const nodeTemplateId = Number(node.dataset.templateId || 0);
+        if (!state || nodeTemplateId !== Number(state.current_template_id || 0)) {
+            bar.style.width = '0%';
+            return;
+        }
+        const durationSec = Math.max(1, Number(state.duration_sec || 1));
+        const elapsedBase = Math.max(0, Number(state.elapsed_sec || 0));
+        const extraElapsed = Math.max(0, (Date.now() - currentQueueProgressStartedAtMs) / 1000);
+        const progress = Math.max(0, Math.min(100, ((elapsedBase + extraElapsed) / durationSec) * 100));
+        bar.style.width = progress + '%';
+    });
+}
+
+function setQueueProgress(queueState, source) {
+    stopQueueProgressTimer();
+    currentQueueProgressState = null;
+    currentQueueProgressStartedAtMs = 0;
+    if (source !== 'schedule' || !queueState || Number(queueState.current_template_id || 0) <= 0) {
+        paintQueueProgress();
+        return;
+    }
+    currentQueueProgressState = queueState;
+    currentQueueProgressStartedAtMs = Date.now();
+    paintQueueProgress();
+    queueProgressTimer = window.setInterval(paintQueueProgress, 200);
 }
 
 function markCurrentQueueTemplate(templateId, source) {
@@ -624,7 +680,9 @@ async function refreshScreenStatus() {
         const payload = await res.json();
         const source = String(payload?.data?.source || '');
         const templateId = Number(payload?.data?.template?.id || 0);
+        const queueState = payload?.data?.queue_state || null;
         markCurrentQueueTemplate(templateId, source);
+        setQueueProgress(queueState, source);
         setModeButtons(source);
         if (source === 'schedule') {
             setScreenStatus('Очередь работает', false);
@@ -637,6 +695,7 @@ async function refreshScreenStatus() {
         }
     } catch (error) {
         markCurrentQueueTemplate(0, '');
+        setQueueProgress(null, '');
         setModeButtons('');
         setScreenStatus('Нет связи с экраном', true);
     }
@@ -740,11 +799,12 @@ showTemplateButtons.forEach((button) => {
 
 refreshScreenStatus();
 screenStatusTimer = window.setInterval(refreshScreenStatus, 5000);
-window.addEventListener('beforeunload', () => {
-    if (screenStatusTimer !== null) {
-        window.clearInterval(screenStatusTimer);
-    }
-});
+  window.addEventListener('beforeunload', () => {
+      if (screenStatusTimer !== null) {
+          window.clearInterval(screenStatusTimer);
+      }
+      stopQueueProgressTimer();
+  });
 </script>
 </body>
 </html>
