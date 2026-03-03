@@ -75,6 +75,7 @@ declare(strict_types=1);
         button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; }
         button.secondary { border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        .toolbarSelect { min-width: 220px; max-width: 320px; }
         .stagePanel .stageToolbar { width: min(960px, 100%); margin-left: auto; margin-right: auto; justify-content: center; align-items: center; }
         .stagePanel .canvasWrap { width: min(960px, 100%); margin-left: auto; margin-right: auto; }
         .stagePanel .stageOptions { width: min(960px, 100%); margin: 8px auto 0; font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px; }
@@ -153,6 +154,7 @@ declare(strict_types=1);
             <button class="iconBtn" id="addBlockBtn" type="button" title="Добавить блок" aria-label="Добавить блок">&#x2795;</button>
             <button class="iconBtn secondary" id="removeBlockBtn" type="button" title="Удалить блок" aria-label="Удалить блок">&#x2796;</button>
             <button class="iconBtn" id="saveTemplateBtn" type="button" title="Сохранить шаблон" aria-label="Сохранить шаблон">&#x1F4BE;</button>
+            <select id="stageBlockSelect" class="toolbarSelect" aria-label="Выбор блока"></select>
         </div>
         <div id="canvas" class="canvasWrap"></div>
         <label class="stageOptions" for="globalShowContentPreview">
@@ -162,6 +164,10 @@ declare(strict_types=1);
         <label class="stageOptions" for="disablePreviewAnimation">
             <input id="disablePreviewAnimation" type="checkbox">
             Не показывать анимацию
+        </label>
+        <label class="stageOptions" for="showSelectedOnly">
+            <input id="showSelectedOnly" type="checkbox">
+            виден только выбранный
         </label>
     </section>
 
@@ -325,9 +331,9 @@ declare(strict_types=1);
                         <option value="zoom_in">масштаб</option>
                     </select>
                 </label>
-                <label>Время анимации, мс <input id="bAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
-                <label>Задержка on, мс <input id="bDelayOnMs" type="number" min="0" step="50" value="0"></label>
-                <label>Задержка off, мс <input id="bDelayOffMs" type="number" min="0" step="50" value="0"></label>
+                <label id="bAnimMsWrap">Время анимации, мс <input id="bAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label id="bDelayOnMsWrap">Задержка on, мс <input id="bDelayOnMs" type="number" min="0" step="50" value="0"></label>
+                <label id="bDelayOffMsWrap">Задержка off, мс <input id="bDelayOffMs" type="number" min="0" step="50" value="0"></label>
             </div>
         </details>
         <p id="status" class="status"></p>
@@ -396,6 +402,7 @@ const state = {
   saveInProgress: false,
   globalShowContentPreview: false,
   disablePreviewAnimation: false,
+  showSelectedOnly: false,
   bgGallery: [],
   bgGallerySelectedUrl: '',
   bgGallerySelectedName: '',
@@ -424,6 +431,7 @@ const el = {
   screenTransitionName: document.getElementById('screenTransitionName'),
   screenTransitionMs: document.getElementById('screenTransitionMs'),
   screenTransitionSquaresPx: document.getElementById('screenTransitionSquaresPx'),
+  stageBlockSelect: document.getElementById('stageBlockSelect'),
   bX: document.getElementById('bX'),
   bY: document.getElementById('bY'),
   bW: document.getElementById('bW'),
@@ -434,6 +442,7 @@ const el = {
   bContentId: document.getElementById('bContentId'),
   globalShowContentPreview: document.getElementById('globalShowContentPreview'),
   disablePreviewAnimation: document.getElementById('disablePreviewAnimation'),
+  showSelectedOnly: document.getElementById('showSelectedOnly'),
   bBgMode: document.getElementById('bBgMode'),
   bBgColor: document.getElementById('bBgColor'),
   bBgImage: document.getElementById('bBgImage'),
@@ -888,11 +897,49 @@ function renderTemplateList() {
     el.templateList.appendChild(d);
   }
 }
+function renderStageBlockSelect() {
+  if (!el.stageBlockSelect) return;
+  const options = [];
+  if (state.blocks.length === 0) {
+    options.push('<option value="">Блоков нет</option>');
+    el.stageBlockSelect.innerHTML = options.join('');
+    el.stageBlockSelect.disabled = true;
+    return;
+  }
+  state.blocks.forEach((block, index) => {
+    ensureBlockKey(block, index);
+    const selected = index === state.selectedBlockIndex ? ' selected' : '';
+    const label = String(block.block_key || `block_${index + 1}`);
+    options.push(`<option value="${index}"${selected}>${label}</option>`);
+  });
+  el.stageBlockSelect.innerHTML = options.join('');
+  el.stageBlockSelect.disabled = false;
+}
+function selectBlockByIndex(index) {
+  const nextIndex = Number(index);
+  if (!Number.isInteger(nextIndex)) return;
+  if (nextIndex < 0 || nextIndex >= state.blocks.length) return;
+  state.selectedBlockIndex = nextIndex;
+  fillBlockEditor();
+  renderCanvas();
+}
+function isMainBlock(block, index) {
+  const key = String(block?.block_key || '').trim().toLowerCase();
+  if (key === 'main') return true;
+  return index === 0 && key === '';
+}
+function shouldRenderBlock(block, index) {
+  if (!state.showSelectedOnly) return true;
+  if (isMainBlock(block, index)) return true;
+  return index === state.selectedBlockIndex;
+}
 
 function renderCanvas() {
   applyBackgroundStyle(el.canvas, state.screen_style, '#ffffff');
   el.canvas.innerHTML = '';
+  renderStageBlockSelect();
   state.blocks.forEach((b, i) => {
+    if (!shouldRenderBlock(b, i)) return;
     const div = document.createElement('div');
     div.className = 'block' + (i === state.selectedBlockIndex ? ' selected' : '');
     div.style.left = `${b.x_pct}%`;
@@ -933,12 +980,10 @@ function renderCanvas() {
       div.appendChild(metaWrap);
     }
 
-    div.onclick = (event) => { event.stopPropagation(); state.selectedBlockIndex = i; fillBlockEditor(); renderCanvas(); };
+    div.onclick = (event) => { event.stopPropagation(); selectBlockByIndex(i); };
     div.onmousedown = (event) => {
       if (event.target !== div && event.target !== t) return;
-      state.selectedBlockIndex = i;
-      fillBlockEditor();
-      renderCanvas();
+      selectBlockByIndex(i);
       startPointerDrag(event, i);
     };
 
@@ -947,9 +992,7 @@ function renderCanvas() {
         const h = document.createElement('div');
         h.className = 'handle handle-' + dir;
         h.onmousedown = (event) => {
-          state.selectedBlockIndex = i;
-          fillBlockEditor();
-          renderCanvas();
+          selectBlockByIndex(i);
           startPointerResize(event, i, dir);
         };
         div.appendChild(h);
@@ -986,10 +1029,15 @@ function syncBlockBackgroundFieldVisibility() {
   const mode = String(el.bBgMode?.value || 'color');
   const showColor = mode === 'color';
   const showImage = mode === 'image';
+  const animationName = String(el.bAnim?.value || 'none');
+  const showAnimationTiming = animationName !== 'none';
   setFieldVisibility(el.bBgColor ? el.bBgColor.closest('label') : null, showColor);
   setFieldVisibility(el.bBgImage ? el.bBgImage.closest('.urlRow') : null, showImage);
   setFieldVisibility(el.bBgSize ? el.bBgSize.closest('.row') : null, showImage);
   setFieldVisibility(el.bBgPosition ? el.bBgPosition.closest('label') : null, showImage);
+  setFieldVisibility(document.getElementById('bAnimMsWrap'), showAnimationTiming);
+  setFieldVisibility(document.getElementById('bDelayOnMsWrap'), showAnimationTiming);
+  setFieldVisibility(document.getElementById('bDelayOffMsWrap'), showAnimationTiming);
 }
 function fillTemplateMeta(tpl) {
   const rawStatus = String(tpl?.status || 'draft');
@@ -1008,6 +1056,7 @@ function fillTemplateMeta(tpl) {
   el.screenTransitionName.value = state.screen_style.transition_name;
   el.screenTransitionMs.value = String(state.screen_style.transition_ms);
   el.screenTransitionSquaresPx.value = String(state.screen_style.transition_squares_px);
+  renderStageBlockSelect();
   syncScreenBackgroundFieldVisibility();
 }
 
@@ -1496,6 +1545,7 @@ function resetTemplateEditor() {
   state.blocks = [];
   state.globalShowContentPreview = false;
   state.disablePreviewAnimation = false;
+  state.showSelectedOnly = false;
   setStageEditorVisible(false);
   setInspectorVisible(false);
   state.selectedBlockIndex = -1;
@@ -1512,9 +1562,11 @@ function resetTemplateEditor() {
   el.screenTransitionName.value = state.screen_style.transition_name;
   el.screenTransitionMs.value = String(state.screen_style.transition_ms);
   el.screenTransitionSquaresPx.value = String(state.screen_style.transition_squares_px);
+  renderStageBlockSelect();
   syncScreenBackgroundFieldVisibility();
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
   if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
+  if (el.showSelectedOnly) el.showSelectedOnly.checked = false;
   fillBlockEditor();
   renderTemplateList();
   renderCanvas();
@@ -1629,6 +1681,12 @@ document.getElementById('removeBlockBtn').onclick = () => {
   state.selectedBlockIndex = Math.min(state.selectedBlockIndex, state.blocks.length - 1);
   fillBlockEditor(); renderCanvas();
 };
+if (el.stageBlockSelect) {
+  el.stageBlockSelect.addEventListener('change', () => {
+    if (el.stageBlockSelect.value === '') return;
+    selectBlockByIndex(Number(el.stageBlockSelect.value));
+  });
+}
 document.getElementById('saveTemplateBtn').onclick = saveTemplate;
 document.getElementById('deleteCancelBtn').onclick = () => { document.getElementById('deleteModal').classList.remove('open'); };
 document.getElementById('duplicateTemplateCancelBtn').onclick = closeDuplicateTemplateModal;
@@ -1657,6 +1715,10 @@ if (el.bBgMode) {
   el.bBgMode.addEventListener('input', syncBlockBackgroundFieldVisibility);
   el.bBgMode.addEventListener('change', syncBlockBackgroundFieldVisibility);
 }
+if (el.bAnim) {
+  el.bAnim.addEventListener('input', syncBlockBackgroundFieldVisibility);
+  el.bAnim.addEventListener('change', syncBlockBackgroundFieldVisibility);
+}
 if (el.globalShowContentPreview) {
   el.globalShowContentPreview.addEventListener('change', () => {
     state.globalShowContentPreview = !!el.globalShowContentPreview.checked;
@@ -1666,6 +1728,12 @@ if (el.globalShowContentPreview) {
 if (el.disablePreviewAnimation) {
   el.disablePreviewAnimation.addEventListener('change', () => {
     state.disablePreviewAnimation = !!el.disablePreviewAnimation.checked;
+    renderCanvas();
+  });
+}
+if (el.showSelectedOnly) {
+  el.showSelectedOnly.addEventListener('change', () => {
+    state.showSelectedOnly = !!el.showSelectedOnly.checked;
     renderCanvas();
   });
 }

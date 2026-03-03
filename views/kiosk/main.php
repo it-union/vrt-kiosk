@@ -328,8 +328,31 @@ function applyTimedAppearance(target, animationName, animationMs, delayMs) {
         slide_left: `slideLeftBlock ${ms}ms ease ${delay}ms both`,
       zoom_in: `zoomInBlock ${ms}ms ease ${delay}ms both`
       };
-      target.style.animation = map[name] || '';
-  }
+       target.style.animation = map[name] || '';
+   }
+function deferBlockAnimationStart(target, animationName, animationMs, delayMs, runtime, starter) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    if (!target || typeof starter !== 'function') return;
+    if (name === 'none') {
+        starter(target, name, animationMs, delayMs);
+        return;
+    }
+    const templateDelayMs = getTemplateTransitionDelay(runtime);
+    if (templateDelayMs <= 0) {
+        starter(target, name, animationMs, delayMs);
+        return;
+    }
+    target.style.animation = '';
+    target.style.opacity = '0';
+    target.style.visibility = 'hidden';
+    registerMediaTimer(setTimeout(() => {
+        if (!target.isConnected) return;
+        target.style.visibility = '';
+        starter(target, name, animationMs, delayMs);
+    }, templateDelayMs));
+}
 function getTemplateTransitionDelay(runtime) {
     if (!runtime || typeof runtime !== 'object') return 0;
     return Math.max(0, Number(runtime.templateDelayMs || 0));
@@ -376,13 +399,14 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
     const totalItems = Math.max(0, Number(queueState.total_items || 0));
     const show = buildShowAnimation(animationName, animationMs);
     const hide = buildHideAnimation(animationName, animationMs);
-    const onMs = Math.max(0, Number(delayOnMs || 0)) + getTemplateTransitionDelay(runtime);
+    const templateDelayMs = getTemplateTransitionDelay(runtime);
+    const onMs = Math.max(0, Number(delayOnMs || 0));
     const offMs = Math.max(0, Number(delayOffMs || 0));
     const elapsedMsRaw = Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000));
     const cycleOffsetMs = slideDurationMs > 0 ? (elapsedMsRaw % slideDurationMs) : 0;
-    const showStartMs = onMs;
+    const showStartMs = templateDelayMs + onMs;
     const showEndMs = showStartMs + (show.name === 'none' ? 0 : show.duration);
-    const hideStartMs = showEndMs + offMs;
+    const hideStartMs = offMs > 0 ? Math.max(showEndMs, templateDelayMs + offMs) : showEndMs;
     const hideEndMs = hideStartMs + (hide.name === 'none' ? 0 : hide.duration);
 
     const resetForCycle = () => {
@@ -419,11 +443,13 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
         target.style.animation = 'none';
         void target.offsetWidth;
         target.style.animation = hide.value;
-        registerMediaTimer(setTimeout(() => {
+        setTimeout(() => {
             if (!target.isConnected) return;
+            target.style.animation = '';
+            target.style.opacity = '0';
             target.style.visibility = 'hidden';
             target.style.pointerEvents = 'none';
-        }, hide.duration));
+        }, hide.duration);
     };
     const showFinalState = () => {
         target.style.animation = '';
@@ -789,16 +815,15 @@ async function renderBlock(blockRaw, runtime = null) {
             el.style.display = 'flex';
             el.style.justifyContent = justify;
             el.style.alignItems = align;
-            const templateDelayMs = getTemplateTransitionDelay(runtime);
             const hasOwnAnimation = String(motion.animation || 'none') !== 'none';
             const img = buildImageElement(
                 mediaUrl,
                 title,
                 {
                     ...p,
-                    animation: motion.animation,
+                    animation: 'none',
                     animation_ms: motion.animation_ms,
-                    delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0),
+                    delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)),
                     delay_off_ms: motion.delay_off_ms
                 },
                 'media',
@@ -815,10 +840,23 @@ async function renderBlock(blockRaw, runtime = null) {
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
             if (!startContentCycle(img, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyImageAnimation(img, {
-                    ...motion,
-                    delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0)
-                });
+                deferBlockAnimationStart(
+                    img,
+                    motion.animation || 'none',
+                    motion.animation_ms || 700,
+                    Math.max(0, Number(motion.delay_on_ms || 0)),
+                    runtime,
+                    (target, name, ms, delay) => applyImageAnimation(target, {
+                        ...motion,
+                        animation: name,
+                        animation_ms: ms,
+                        delay_on_ms: delay
+                    })
+                );
+                if (!hasOwnAnimation) {
+                    img.style.opacity = '';
+                    img.style.visibility = '';
+                }
             }
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');
@@ -834,8 +872,6 @@ async function renderBlock(blockRaw, runtime = null) {
             appendTitleBody(el, title, 'Для HTML не задан body');
         } else {
             const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
-            const templateDelayMs = getTemplateTransitionDelay(runtime);
-            const hasOwnAnimation = String(motion.animation || 'none') !== 'none';
             const htmlInner = document.createElement('div');
             htmlInner.innerHTML = html;
             htmlInner.style.zoom = scalePct + '%';
@@ -843,11 +879,13 @@ async function renderBlock(blockRaw, runtime = null) {
             htmlInner.style.height = '100%';
             el.appendChild(htmlInner);
             if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyTimedAppearance(
+                deferBlockAnimationStart(
                     el,
                     motion.animation || 'none',
                     motion.animation_ms || 700,
-                    Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0)
+                    Math.max(0, Number(motion.delay_on_ms || 0)),
+                    runtime,
+                    (target, name, ms, delay) => applyTimedAppearance(target, name, ms, delay)
                 );
             }
         }
@@ -1095,30 +1133,15 @@ async function loadScreen() {
         clearMediaTimers();
         applyBackgroundStyle(document.body, screenStyle, '#ffffff');
         applyBackgroundStyle(stage, { mode: 'none' }, '#ffffff');
-        const existingLayers = Array.from(stage.querySelectorAll('.screenLayer'));
-        const previousLayer = existingLayers.length > 0 ? existingLayers[existingLayers.length - 1] : null;
-        existingLayers.slice(0, -1).forEach((node) => node.remove());
         const nextLayer = await buildScreenLayer(blocks, runtime, screenStyle);
+        stage.innerHTML = '';
+        stage.appendChild(nextLayer);
 
-        if (!previousLayer || transition.name === 'none') {
-            stage.innerHTML = '';
-            stage.appendChild(nextLayer);
-        } else if (transition.name === 'squares') {
-            nextLayer.style.zIndex = '2';
-            stage.appendChild(nextLayer);
-            runSquaresTransition(nextLayer, transition.ms, screenStyle.transition_squares_px, () => {
-                if (previousLayer.parentNode === stage) {
-                    previousLayer.remove();
-                }
-            });
-        } else {
-            nextLayer.style.zIndex = '2';
+        if (transition.name === 'squares') {
+            runSquaresTransition(nextLayer, transition.ms, screenStyle.transition_squares_px, null);
+        } else if (transition.name !== 'none') {
             nextLayer.style.animation = transition.value;
-            stage.appendChild(nextLayer);
             registerMediaTimer(setTimeout(() => {
-                if (previousLayer.parentNode === stage) {
-                    previousLayer.remove();
-                }
                 nextLayer.style.animation = '';
             }, transition.ms + 30));
         }
