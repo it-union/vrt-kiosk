@@ -136,6 +136,33 @@ function resolveTemplateForScreen(PDO $pdo, array $sourceRow): ?array
     return null;
 }
 
+function resolveQueueTypeForScreen(int $screenId): string
+{
+    return $screenId === 0 ? 'test' : 'active';
+}
+
+function resolveQueueLabelForScreen(int $screenId): string
+{
+    return $screenId === 0 ? 'Тестовая очередь' : 'Активная очередь';
+}
+
+function resolveQueueStartedAt(?array $queue, ?array $stateRow): int
+{
+    if (is_array($stateRow) && !empty($stateRow['applied_at'])) {
+        $parsed = strtotime((string)$stateRow['applied_at']);
+        if ($parsed !== false) {
+            return $parsed;
+        }
+    }
+    if (is_array($queue) && !empty($queue['updated_at'])) {
+        $parsed = strtotime((string)$queue['updated_at']);
+        if ($parsed !== false) {
+            return $parsed;
+        }
+    }
+    return time();
+}
+
 function buildRenderedBlocks(PDO $pdo, array $templateBlocks, ?array $currentContent): array
 {
     $ids = [];
@@ -190,9 +217,9 @@ function buildRenderedBlocks(PDO $pdo, array $templateBlocks, ?array $currentCon
     return $rendered;
 }
 
-function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
+function resolveQueueTemplateForScreen(PDO $pdo, int $screenId, ?array $stateRow): ?array
 {
-    $queue = queueGetActive($pdo);
+    $queue = queueGetByType($pdo, resolveQueueTypeForScreen($screenId));
     if ($queue === null) {
         return null;
     }
@@ -201,7 +228,7 @@ function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
     if (count($items) === 0) {
         return [
             'id' => 0,
-            'name' => 'Пустая очередь',
+            'name' => resolveQueueLabelForScreen($screenId),
             'status' => 'work',
             'version' => 1,
             'layout_json' => '',
@@ -223,13 +250,7 @@ function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
         ];
     }
 
-    $startedAt = time();
-    if (is_array($stateRow) && !empty($stateRow['applied_at'])) {
-        $parsed = strtotime((string)$stateRow['applied_at']);
-        if ($parsed !== false) {
-            $startedAt = $parsed;
-        }
-    }
+    $startedAt = resolveQueueStartedAt($queue, $stateRow);
 
     $totalDuration = 0;
     foreach ($items as $item) {
@@ -265,9 +286,9 @@ function resolveQueueTemplateForScreen(PDO $pdo, ?array $stateRow): ?array
     return $tpl;
 }
 
-function resolveQueueStateForScreen(PDO $pdo, ?array $stateRow): ?array
+function resolveQueueStateForScreen(PDO $pdo, int $screenId, ?array $stateRow): ?array
 {
-    $queue = queueGetActive($pdo);
+    $queue = queueGetByType($pdo, resolveQueueTypeForScreen($screenId));
     if ($queue === null) {
         return null;
     }
@@ -287,13 +308,7 @@ function resolveQueueStateForScreen(PDO $pdo, ?array $stateRow): ?array
         ];
     }
 
-    $startedAt = time();
-    if (is_array($stateRow) && !empty($stateRow['applied_at'])) {
-        $parsed = strtotime((string)$stateRow['applied_at']);
-        if ($parsed !== false) {
-            $startedAt = $parsed;
-        }
-    }
+    $startedAt = resolveQueueStartedAt($queue, $stateRow);
 
     $totalDuration = 0;
     foreach ($items as $item) {
@@ -408,9 +423,13 @@ function getScreenPayload(PDO $pdo, int $screenId): array
     }
 
     $template = resolveTemplateForScreen($pdo, $sourceRow);
-    if ($template === null && $source === 'schedule') {
-        $template = resolveQueueTemplateForScreen($pdo, $stateRow);
-        $queueState = resolveQueueStateForScreen($pdo, $stateRow);
+    $shouldResolveQueue = $source === 'schedule' || ($screenId === 0 && $source !== 'manual');
+    if ($template === null && $shouldResolveQueue) {
+        $template = resolveQueueTemplateForScreen($pdo, $screenId, $stateRow);
+        $queueState = resolveQueueStateForScreen($pdo, $screenId, $stateRow);
+        if ($template !== null) {
+            $source = 'schedule';
+        }
     }
 
     if ($template === null) {
@@ -433,7 +452,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                     'id' => $currentContent['id'] ?? null,
                     'type' => $currentContent['type'] ?? null,
                     'title' => $currentContent['title'] ?? 'Нет активного шаблона',
-                    'body' => $currentContent['body'] ?? 'Создайте и активируйте шаблон или заполните активную очередь показа.',
+                    'body' => $currentContent['body'] ?? 'Создайте и активируйте шаблон или заполните очередь показа.',
                     'media_url' => $currentContent['media_url'] ?? null,
                     'data_json' => null,
                 ],
@@ -456,8 +475,8 @@ function getScreenPayload(PDO $pdo, int $screenId): array
             'content' => [
                 'id' => null,
                 'type' => 'html',
-                'title' => 'Активная очередь пуста',
-                'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">Активная очередь пуста</div>',
+                'title' => resolveQueueLabelForScreen($screenId) . ' пуста',
+                'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">' . resolveQueueLabelForScreen($screenId) . ' пуста</div>',
                 'media_url' => null,
                 'data_json' => null,
             ],

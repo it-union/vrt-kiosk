@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 $userName = (string)($currentUser['full_name'] ?? $currentUser['login'] ?? '');
 $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
-$activeQueueName = (string)($activeQueue['name'] ?? 'Активная очередь');
+$selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очередь');
 ?><!doctype html>
 <html lang="ru">
 <head>
@@ -120,7 +120,7 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
                 <select id="queueSelect">
                     <?php foreach ($queues as $queueRow): ?>
                         <option value="<?= (int)$queueRow['id'] ?>" <?= ((int)($queueRow['id'] ?? 0) === (int)($activeQueue['id'] ?? 0)) ? 'selected' : '' ?>>
-                            <?= h((string)($queueRow['name'] ?? 'Очередь')) ?><?= ((int)($queueRow['is_active'] ?? 0) === 1) ? ' [активная]' : '' ?>
+                            <?= h((string)($queueRow['name'] ?? 'Очередь')) ?> [<?= h(queueTypeLabel((string)($queueRow['queue_type'] ?? 'archive'))) ?>]
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -138,10 +138,11 @@ $activeQueueName = (string)($activeQueue['name'] ?? 'Активная очере
             <summary>Параметры очереди</summary>
             <div class="foldBody">
                 <label>Название <input id="queueName" type="text" maxlength="150"></label>
-                <label>Активная
-                    <select id="queueIsActive">
-                        <option value="0">нет</option>
-                        <option value="1">да</option>
+                <label>Тип
+                    <select id="queueType">
+                        <option value="active">активная</option>
+                        <option value="test">тестовая</option>
+                        <option value="archive">архив</option>
                     </select>
                 </label>
             </div>
@@ -169,8 +170,8 @@ const DEFAULT_DURATION_SEC = 15;
 
 const state = {
     queueId: <?= (int)($activeQueue['id'] ?? 0) ?>,
-    queueName: <?= json_encode((string)($activeQueue['name'] ?? 'Активная очередь'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
-    queueIsActive: <?= ((int)($activeQueue['is_active'] ?? 0) === 1) ? 'true' : 'false' ?>,
+    queueName: <?= json_encode($selectedQueueName, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+    queueType: <?= json_encode((string)($activeQueue['queue_type'] ?? 'active'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
     queue: [],
     selectedId: null,
     drag: null
@@ -185,12 +186,19 @@ const el = {
     clearQueueBtn: document.getElementById('clearQueueBtn'),
     saveQueueBtn: document.getElementById('saveQueueBtn'),
     queueName: document.getElementById('queueName'),
-    queueIsActive: document.getElementById('queueIsActive'),
+    queueType: document.getElementById('queueType'),
     inspectorEmpty: document.getElementById('inspectorEmpty'),
     inspectorControls: document.getElementById('inspectorControls'),
     qDurationSec: document.getElementById('qDurationSec'),
     removeQueueItemBtn: document.getElementById('removeQueueItemBtn')
 };
+
+function queueTypeLabel(type) {
+    const value = String(type || 'archive');
+    if (value === 'active') return 'активная';
+    if (value === 'test') return 'тестовая';
+    return 'архив';
+}
 
 function setStatus(message, isError = false) {
     const text = String(message || '').trim();
@@ -213,7 +221,7 @@ function queueItemById(id) {
 
 function syncQueueInspector() {
     el.queueName.value = String(state.queueName || '');
-    el.queueIsActive.value = state.queueIsActive === true ? '1' : '0';
+    el.queueType.value = String(state.queueType || 'archive');
 }
 
 async function refreshQueueList(selectedQueueId = 0) {
@@ -229,7 +237,7 @@ async function refreshQueueList(selectedQueueId = 0) {
     queues.forEach((queue) => {
         const option = document.createElement('option');
         option.value = String(queue.id || 0);
-        option.textContent = String(queue.name || 'Очередь') + ((Number(queue.is_active || 0) === 1) ? ' [активная]' : '');
+        option.textContent = String(queue.name || 'Очередь') + ' [' + queueTypeLabel(queue.queue_type || 'archive') + ']';
         if (Number(queue.id || 0) === Number(currentValue || 0)) {
             option.selected = true;
         }
@@ -250,7 +258,7 @@ async function loadQueue(queueId = 0) {
         const items = Array.isArray(payload.data?.items) ? payload.data.items : [];
         state.queueId = Number(queue?.id || 0);
         state.queueName = String(queue?.name || 'Очередь');
-        state.queueIsActive = Number(queue?.is_active || 0) === 1;
+        state.queueType = String(queue?.queue_type || 'archive');
         state.queue = items.map((item) => ({
             id: uniqueQueueId(),
             template_id: Number(item.template_id || 0),
@@ -404,7 +412,7 @@ async function saveQueueDraft() {
         const body = new URLSearchParams();
         body.set('queue_id', String(state.queueId || 0));
         body.set('queue_name', String(state.queueName || '').trim());
-        body.set('queue_is_active', state.queueIsActive ? '1' : '0');
+        body.set('queue_type', String(state.queueType || 'archive'));
         body.set('items_json', JSON.stringify(state.queue.map((item) => ({
             template_id: item.template_id,
             duration_sec: item.duration_sec
@@ -421,7 +429,7 @@ async function saveQueueDraft() {
         }
 
         state.queueName = String(payload.data?.queue_name || state.queueName || '');
-        state.queueIsActive = Number(payload.data?.queue_is_active || 0) === 1;
+        state.queueType = String(payload.data?.queue_type || state.queueType || 'archive');
         await refreshQueueList(state.queueId);
         syncQueueInspector();
         setStatus('Очередь сохранена в базе данных.', false);
@@ -450,7 +458,7 @@ async function createQueue() {
 
         state.queueId = queueId;
         state.queueName = String(payload.data?.name || 'Очередь');
-        state.queueIsActive = false;
+        state.queueType = 'archive';
         state.queue = [];
         state.selectedId = null;
         await refreshQueueList(queueId);
@@ -501,11 +509,11 @@ el.createQueueBtn.addEventListener('click', createQueue);
 el.queueName.addEventListener('input', () => {
     state.queueName = String(el.queueName.value || '');
 });
-el.queueIsActive.addEventListener('input', () => {
-    state.queueIsActive = String(el.queueIsActive.value || '0') === '1';
+el.queueType.addEventListener('input', () => {
+    state.queueType = String(el.queueType.value || 'archive');
 });
-el.queueIsActive.addEventListener('change', () => {
-    state.queueIsActive = String(el.queueIsActive.value || '0') === '1';
+el.queueType.addEventListener('change', () => {
+    state.queueType = String(el.queueType.value || 'archive');
 });
 
 el.queueList.addEventListener('dragover', (event) => {

@@ -12,29 +12,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
 }
 
-$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : 0;
+$deviceKey = isset($_POST['device_key']) ? normalizeScreenDeviceKey((string)$_POST['device_key']) : '';
+$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : -1;
 $contentId = isset($_POST['content_id']) ? (int)$_POST['content_id'] : 0;
-$duration = isset($_POST['duration_minutes']) ? (int)$_POST['duration_minutes'] : 10;
-
-if ($screenId <= 0 || $contentId <= 0) {
-    jsonResponse(['ok' => false, 'error' => 'Нужны screen_id и content_id'], 400);
+$durationMinutes = isset($_POST['duration_minutes']) ? max(1, (int)$_POST['duration_minutes']) : 10;
+if ($deviceKey !== '') {
+    $screenId = publicScreenIdByDeviceKey($deviceKey);
 }
 
-$duration = max(1, min(1440, $duration));
-
+if ($screenId < 0 || $contentId <= 0) {
+    jsonResponse(['ok' => false, 'error' => 'Нужны device_key и content_id'], 400);
+}
+$deviceKey = deviceKeyByPublicScreenId($screenId);
 $pdo = dbMysql();
 
 try {
     $pdo->beginTransaction();
-    $commandId = showNow($pdo, $screenId, $contentId, $duration);
+    $commandId = showNow($pdo, $screenId, $contentId, $durationMinutes);
     $pdo->commit();
 
     jsonResponse([
         'ok' => true,
         'data' => [
             'screen_id' => $screenId,
+            'device_key' => $deviceKey,
+            'content_id' => $contentId,
             'command_id' => $commandId,
-            'duration_minutes' => $duration,
         ],
     ]);
 } catch (RuntimeException $e) {
@@ -43,14 +46,14 @@ try {
     }
 
     if ($e->getMessage() === 'content_not_found') {
-        jsonResponse(['ok' => false, 'error' => 'Контент не найден или неактивен'], 404);
+        jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
     }
 
-    jsonResponse(['ok' => false, 'error' => 'Не удалось создать ручную команду'], 500);
+    jsonResponse(['ok' => false, 'error' => 'Не удалось включить ручной показ'], 500);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
 
-    jsonResponse(['ok' => false, 'error' => 'Не удалось создать ручную команду'], 500);
+    jsonResponse(['ok' => false, 'error' => 'Не удалось включить ручной показ'], 500);
 }

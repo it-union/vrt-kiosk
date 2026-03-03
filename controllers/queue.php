@@ -11,7 +11,7 @@ $projectVersion = projectVersion();
 $currentUser = authCurrentUser();
 $pdo = dbMysql();
 queueEnsureSchema($pdo);
-$activeQueue = queueGetActive($pdo);
+$activeQueue = queueGetDefault($pdo);
 $queues = queueListAll($pdo);
 $workTemplates = array_values(array_filter(listTemplatesWithActiveMark($pdo), static function (array $row): bool {
     return (string)($row['status'] ?? '') === 'work';

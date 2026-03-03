@@ -39,13 +39,13 @@ try {
     $queueId = isset($_POST['queue_id']) ? (int)$_POST['queue_id'] : 0;
     $queue = queueGetOrActive($pdo, $queueId);
     if ($queue === null) {
-        jsonResponse(['ok' => false, 'error' => 'Активная очередь не найдена'], 404);
+        jsonResponse(['ok' => false, 'error' => 'Очередь не найдена'], 404);
     }
 
     $queueName = trim((string)($_POST['queue_name'] ?? (string)($queue['name'] ?? '')));
-    $queueActive = (int)($_POST['queue_is_active'] ?? 0) === 1;
+    $queueType = queueNormalizeType((string)($_POST['queue_type'] ?? (string)($queue['queue_type'] ?? 'archive')));
 
-    queueUpdateMeta($pdo, (int)$queue['id'], $queueName, $queueActive);
+    queueUpdateMeta($pdo, (int)$queue['id'], $queueName, $queueType);
     queueSaveItems($pdo, (int)$queue['id'], $normalized);
 
     jsonResponse([
@@ -53,7 +53,7 @@ try {
         'data' => [
             'queue_id' => (int)$queue['id'],
             'queue_name' => $queueName,
-            'queue_is_active' => $queueActive ? 1 : 0,
+            'queue_type' => $queueType,
             'items_count' => count($normalized),
         ],
     ]);

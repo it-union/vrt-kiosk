@@ -17,7 +17,7 @@ try {
     $queueId = isset($_GET['queue_id']) ? (int)$_GET['queue_id'] : 0;
     $queue = queueGetOrActive($pdo, $queueId);
     if ($queue === null) {
-        jsonResponse(['ok' => false, 'error' => 'Активная очередь не найдена'], 404);
+        jsonResponse(['ok' => false, 'error' => 'Очередь не найдена'], 404);
     }
 
     $items = queueGetItems($pdo, (int)$queue['id']);

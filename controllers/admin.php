@@ -18,7 +18,9 @@ $workTemplates = array_values(array_filter($allTemplates, static function (array
     return (string)($row['status'] ?? '') === 'work';
 }));
 $activeQueue = queueGetActive($pdo);
+$testQueue = queueGetByType($pdo, 'test');
 $activeQueueItems = $activeQueue ? queueGetItems($pdo, (int)$activeQueue['id']) : [];
+$testQueueItems = $testQueue ? queueGetItems($pdo, (int)$testQueue['id']) : [];
 $screenPayload = getScreenPayload($pdo, 1);
 $currentScreenSource = (string)($screenPayload['source'] ?? '');
 $currentScreenTemplateId = (int)($screenPayload['template']['id'] ?? 0);

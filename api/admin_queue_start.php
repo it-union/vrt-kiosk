@@ -12,18 +12,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
 }
 
-$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : 0;
-if ($screenId <= 0) {
-    jsonResponse(['ok' => false, 'error' => 'Нужен screen_id'], 400);
+$deviceKey = isset($_POST['device_key']) ? normalizeScreenDeviceKey((string)$_POST['device_key']) : '';
+$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : -1;
+if ($deviceKey !== '') {
+    $screenId = publicScreenIdByDeviceKey($deviceKey);
+}
+if ($screenId < 0) {
+    jsonResponse(['ok' => false, 'error' => 'Нужен device_key'], 400);
 }
 
+$deviceKey = deviceKeyByPublicScreenId($screenId);
 $pdo = dbMysql();
 
 try {
     $pdo->beginTransaction();
     startQueue($pdo, $screenId);
     $pdo->commit();
-    jsonResponse(['ok' => true, 'data' => ['screen_id' => $screenId, 'source' => 'schedule']]);
+    jsonResponse(['ok' => true, 'data' => ['screen_id' => $screenId, 'device_key' => $deviceKey, 'source' => 'schedule']]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

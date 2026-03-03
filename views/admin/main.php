@@ -84,9 +84,22 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             flex-wrap: wrap;
             margin-bottom: 20px;
         }
+        .navRowRight {
+            margin-left: auto;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
         .navRow .btn,
         .navRow .btnGhost {
             min-width: 160px;
+        }
+        .navIconBtn {
+            min-width: 42px;
+            width: 42px;
+            padding: 0;
+            font-size: 18px;
+            line-height: 1;
         }
         .navRow .btnGhost.disabled {
             opacity: 0.7;
@@ -154,11 +167,24 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .panelHead {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
             padding: 16px 18px;
             border-bottom: 1px solid var(--line);
+        }
+        .panelHead.screenPanelHead {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .panelHead.screenPanelHead > :first-child {
+            justify-self: start;
+        }
+        .panelHead.screenPanelHead > :nth-child(2) {
+            justify-self: center;
+        }
+        .panelHead.screenPanelHead > :nth-child(3) {
+            justify-self: end;
         }
         .panelHead h2 {
             margin: 0 0 4px;
@@ -253,8 +279,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             line-height: 1.45;
         }
         .status {
-            margin: 0 0 0 auto;
-            align-self: center;
+            margin: 0;
             display: none;
             padding: 6px 10px;
             border-radius: 10px;
@@ -278,14 +303,32 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .mirrorPanelBody {
             display: flex;
+            flex-direction: column;
+            gap: 12px;
             justify-content: center;
             align-items: flex-start;
             padding: 18px;
             min-height: 0;
         }
+        .mirrorToolbar {
+            width: min(960px, 100%);
+            display: flex;
+            justify-content: flex-end;
+        }
+        .mirrorToolbar select {
+            width: auto;
+            min-width: 220px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text);
+            font: inherit;
+        }
         .mirrorFrame {
             position: relative;
             width: min(960px, 100%);
+            margin: 0 auto;
             aspect-ratio: 16/9;
             border: 2px dashed #b7c1cf;
             border-radius: 16px;
@@ -418,10 +461,18 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                 flex-direction: column;
                 align-items: stretch;
             }
+            .navRowRight {
+                margin-left: 0;
+                width: 100%;
+            }
             .navRow .btn,
-            .navRow .btnGhost {
+            .navRow .btnGhost,
+            .navRowRight .btn {
                 width: 100%;
                 min-width: 0;
+            }
+            .navIconBtn {
+                width: 100%;
             }
             .queueActions {
                 grid-template-columns: 1fr;
@@ -434,6 +485,9 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             }
             .panelHead {
                 flex-direction: column;
+            }
+            .panelHead.screenPanelHead {
+                grid-template-columns: 1fr;
             }
             .status {
                 margin-left: 0;
@@ -472,6 +526,10 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
 
         <a class="btn" href="/queue/">Настройка очереди</a>
         <div class="navNote">Навигация по основным разделам панели.</div>
+        <div class="navRowRight">
+            <a class="btn navIconBtn" href="/kiosk/?device_key=main-kiosk" target="_blank" rel="noopener" title="?????" aria-label="?????">&#128187;</a>
+            <a class="btn navIconBtn" href="/kiosk/?device_key=test-kiosk" target="_blank" rel="noopener" title="???????? ?????" aria-label="???????? ?????">&#129514;</a>
+        </div>
     </div>
 
     <section class="layout">
@@ -491,43 +549,31 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                 <div id="queueStatus" class="queueStatus"></div>
                 <div class="queueListBox">
                     <div class="queueListHead">
-                        <strong><?= h((string)($activeQueue['name'] ?? 'Активная очередь')) ?></strong>
-                        <span>Шаблоны активной очереди</span>
+                        <strong id="queuePreviewName"><?= h((string)($activeQueue['name'] ?? 'Активная очередь')) ?></strong>
+                        <span id="queuePreviewCaption">Шаблоны активной очереди</span>
                     </div>
-                    <?php if (count($activeQueueItems) > 0): ?>
-                        <div class="queueList" id="activeQueueList">
-                            <?php foreach ($activeQueueItems as $index => $queueItem): ?>
-                                <?php
-                                $templateId = (int)($queueItem['template_id'] ?? 0);
-                                $isCurrentQueueItem = $currentScreenSource === 'schedule' && $currentScreenTemplateId > 0 && $currentScreenTemplateId === $templateId;
-                                ?>
-                                <div class="queueListItem<?= $isCurrentQueueItem ? ' current' : '' ?>" data-template-id="<?= $templateId ?>">
-                                    <p class="queueListName"><?= h((string)($queueItem['template_name'] ?? 'Шаблон')) ?></p>
-                                    <p class="queueListMeta">
-                                        Позиция: <?= $index + 1 ?> • Время показа: <?= max(1, (int)($queueItem['duration_sec'] ?? 1)) ?> сек
-                                    </p>
-                                    <div class="queueProgress"><div class="queueProgressBar"></div></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <div class="queueEmpty">Активная очередь пока пуста.</div>
-                    <?php endif; ?>
+                    <div id="queuePreviewList"></div>
                 </div>
             </div>
         </div>
 
         <div class="panel">
-            <div class="panelHead">
+            <div class="panelHead screenPanelHead">
                 <div>
                     <h2>Экран</h2>
                     <p>Дублирование текущего состояния экрана в реальном времени.</p>
                 </div>
-                <p id="screenStatus" class="status"></p>
+                <div id="screenStatus" class="status"></div>
+                <div class="mirrorToolbar">
+                    <select id="previewScreenSelect">
+                        <option value="main-kiosk">Киоск</option>
+                        <option value="test-kiosk">Тестовый киоск</option>
+                    </select>
+                </div>
             </div>
             <div class="mirrorPanelBody">
                 <div class="mirrorFrame">
-                    <iframe class="mirror" src="/kiosk/" title="Экран"></iframe>
+                    <iframe id="mirrorFrame" class="mirror" src="/kiosk/?device_key=main-kiosk" title="Экран"></iframe>
                 </div>
             </div>
         </div>
@@ -576,11 +622,81 @@ const screenStatus = document.getElementById('screenStatus');
 const queueStartBtn = document.getElementById('queueStartBtn');
 const queueStopBtn = document.getElementById('queueStopBtn');
 const queueManualBtn = document.getElementById('queueManualBtn');
+const previewScreenSelect = document.getElementById('previewScreenSelect');
+const mirrorFrame = document.getElementById('mirrorFrame');
+const queuePreviewName = document.getElementById('queuePreviewName');
+const queuePreviewCaption = document.getElementById('queuePreviewCaption');
+const queuePreviewList = document.getElementById('queuePreviewList');
 const manualModal = document.getElementById('manualModal');
 const manualModalClose = document.getElementById('manualModalClose');
 const showTemplateButtons = Array.from(document.querySelectorAll('.js-show-template'));
-const activeQueueListItems = Array.from(document.querySelectorAll('#activeQueueList .queueListItem'));
 let screenStatusTimer = null;
+const queuePreviewData = {
+    'main-kiosk': {
+        name: <?= json_encode((string)($activeQueue['name'] ?? 'Активная очередь'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+        caption: 'Шаблоны активной очереди',
+        emptyText: 'Активная очередь пока пуста.',
+        items: <?= json_encode(array_values($activeQueueItems), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+    },
+    'test-kiosk': {
+        name: <?= json_encode((string)($testQueue['name'] ?? 'Тестовая очередь'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+        caption: 'Шаблоны тестовой очереди',
+        emptyText: 'Тестовая очередь пока пуста.',
+        items: <?= json_encode(array_values($testQueueItems), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>
+    }
+};
+
+function getPreviewDeviceKey() {
+    return previewScreenSelect ? String(previewScreenSelect.value || 'main-kiosk') : 'main-kiosk';
+}
+
+function syncMirrorFrame() {
+    if (!mirrorFrame) return;
+    mirrorFrame.src = '/kiosk/?device_key=' + encodeURIComponent(getPreviewDeviceKey());
+}
+
+function getPreviewQueueData() {
+    const deviceKey = getPreviewDeviceKey();
+    return queuePreviewData[deviceKey] || queuePreviewData['main-kiosk'];
+}
+
+function getQueuePreviewItems() {
+    if (!queuePreviewList) {
+        return [];
+    }
+    return Array.from(queuePreviewList.querySelectorAll('.queueListItem'));
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function renderQueuePreview() {
+    if (!queuePreviewList || !queuePreviewName || !queuePreviewCaption) {
+        return;
+    }
+    const preview = getPreviewQueueData();
+    const items = Array.isArray(preview.items) ? preview.items : [];
+    queuePreviewName.textContent = String(preview.name || '');
+    queuePreviewCaption.textContent = String(preview.caption || '');
+    if (items.length <= 0) {
+        queuePreviewList.innerHTML = '<div class="queueEmpty">' + escapeHtml(String(preview.emptyText || 'Очередь пока пуста.')) + '</div>';
+        return;
+    }
+
+    queuePreviewList.innerHTML = '<div class="queueList">' + items.map((item, index) => `
+        <div class="queueListItem" data-template-id="${Number(item.template_id || 0)}">
+            <p class="queueListName">${escapeHtml(String(item.template_name || 'Шаблон'))}</p>
+            <p class="queueListMeta">Позиция: ${index + 1} • Время показа: ${Math.max(1, Number(item.duration_sec || 1))} сек</p>
+            <div class="queueProgress"><div class="queueProgressBar"></div></div>
+        </div>
+    `).join('') + '</div>';
+}
 
 function setQueueStatus(message, isError) {
     if (!queueStatus) return;
@@ -608,7 +724,7 @@ function setModeButtons(source) {
 
 function paintQueueProgress() {
     const state = arguments.length > 0 ? arguments[0] : null;
-    activeQueueListItems.forEach((node) => {
+    getQueuePreviewItems().forEach((node) => {
         const bar = node.querySelector('.queueProgressBar');
         if (!bar) return;
         const nodeTemplateId = Number(node.dataset.templateId || 0);
@@ -630,7 +746,7 @@ function setQueueProgress(queueState, source) {
 }
 
 function markCurrentQueueTemplate(templateId, source) {
-    activeQueueListItems.forEach((node) => {
+    getQueuePreviewItems().forEach((node) => {
         const nodeTemplateId = Number(node.dataset.templateId || 0);
         const isCurrent = source === 'schedule' && templateId > 0 && nodeTemplateId === templateId;
         node.classList.toggle('current', isCurrent);
@@ -657,7 +773,8 @@ function closeManualModal() {
 
 async function refreshScreenStatus() {
     try {
-        const res = await fetch('/api/screen.php?screen_id=1', { cache: 'no-store' });
+        const previewDeviceKey = getPreviewDeviceKey();
+        const res = await fetch('/api/screen.php?device_key=' + encodeURIComponent(previewDeviceKey), { cache: 'no-store' });
         const payload = await res.json();
         const source = String(payload?.data?.source || '');
         const templateId = Number(payload?.data?.template?.id || 0);
@@ -666,11 +783,11 @@ async function refreshScreenStatus() {
         setQueueProgress(queueState, source);
         setModeButtons(source);
         if (source === 'schedule') {
-            setScreenStatus('Очередь работает', false);
+            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск работает' : 'Очередь работает', false);
         } else if (source === 'fallback') {
-            setScreenStatus('Очередь остановлена', true);
+            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск остановлен' : 'Очередь остановлена', true);
         } else if (source === 'manual') {
-            setScreenStatus('Ручной режим', false);
+            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск в ручном режиме' : 'Ручной режим', false);
         } else {
             setScreenStatus('', false);
         }
@@ -688,7 +805,7 @@ async function postQueueAction(url, successMessage) {
 
     try {
         const body = new URLSearchParams();
-        body.set('screen_id', '1');
+        body.set('device_key', getPreviewDeviceKey());
 
         const res = await fetch(url, {
             method: 'POST',
@@ -738,6 +855,14 @@ if (manualModal) {
     });
 }
 
+if (previewScreenSelect) {
+    previewScreenSelect.addEventListener('change', () => {
+        renderQueuePreview();
+        syncMirrorFrame();
+        refreshScreenStatus();
+    });
+}
+
 showTemplateButtons.forEach((button) => {
     button.addEventListener('click', async () => {
         const templateId = Number(button.dataset.templateId || 0);
@@ -752,7 +877,7 @@ showTemplateButtons.forEach((button) => {
 
         try {
             const body = new URLSearchParams();
-            body.set('screen_id', '1');
+            body.set('device_key', getPreviewDeviceKey());
             body.set('template_id', String(templateId));
 
             const res = await fetch('/api/admin_show_template.php', {
@@ -778,6 +903,8 @@ showTemplateButtons.forEach((button) => {
     });
 });
 
+renderQueuePreview();
+syncMirrorFrame();
 refreshScreenStatus();
 screenStatusTimer = window.setInterval(refreshScreenStatus, 5000);
   window.addEventListener('beforeunload', () => {

@@ -5,19 +5,26 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/screen_service.php';
 
-$screenId = isset($_GET['screen_id']) ? (int)$_GET['screen_id'] : 0;
-if ($screenId <= 0) {
+$deviceKey = isset($_GET['device_key']) ? normalizeScreenDeviceKey((string)$_GET['device_key']) : '';
+$screenId = isset($_GET['screen_id']) ? (int)$_GET['screen_id'] : 1;
+if ($deviceKey !== '') {
+    $screenId = publicScreenIdByDeviceKey($deviceKey);
+} elseif ($screenId < 0) {
     jsonResponse(['ok' => false, 'error' => 'Некорректный screen_id'], 400);
 }
 
+$deviceKey = deviceKeyByPublicScreenId($screenId);
+
 try {
     $payload = getScreenPayload(dbMysql(), $screenId);
+    $payload['device_key'] = $deviceKey;
     jsonResponse(['ok' => true, 'data' => $payload]);
 } catch (Throwable $e) {
     jsonResponse([
         'ok' => true,
         'data' => [
             'screen_id' => $screenId,
+            'device_key' => $deviceKey,
             'source' => 'fallback',
             'template' => null,
             'screen_style' => [

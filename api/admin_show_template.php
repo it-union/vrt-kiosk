@@ -12,12 +12,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
 }
 
-$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : 0;
+$deviceKey = isset($_POST['device_key']) ? normalizeScreenDeviceKey((string)$_POST['device_key']) : '';
+$screenId = isset($_POST['screen_id']) ? (int)$_POST['screen_id'] : -1;
 $templateId = isset($_POST['template_id']) ? (int)$_POST['template_id'] : 0;
-
-if ($screenId <= 0 || $templateId <= 0) {
-    jsonResponse(['ok' => false, 'error' => 'Нужны screen_id и template_id'], 400);
+if ($deviceKey !== '') {
+    $screenId = publicScreenIdByDeviceKey($deviceKey);
 }
+
+if ($screenId < 0 || $templateId <= 0) {
+    jsonResponse(['ok' => false, 'error' => 'Нужны device_key и template_id'], 400);
+}
+$deviceKey = deviceKeyByPublicScreenId($screenId);
 $pdo = dbMysql();
 
 try {
@@ -29,6 +34,7 @@ try {
         'ok' => true,
         'data' => [
             'screen_id' => $screenId,
+            'device_key' => $deviceKey,
             'template_id' => $templateId,
             'command_id' => $commandId,
         ],

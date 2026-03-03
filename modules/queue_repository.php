@@ -1,6 +1,29 @@
 <?php
 declare(strict_types=1);
 
+function queueAllowedTypes(): array
+{
+    return ['active', 'test', 'archive'];
+}
+
+function queueNormalizeType(string $value): string
+{
+    $type = trim(strtolower($value));
+    return in_array($type, queueAllowedTypes(), true) ? $type : 'archive';
+}
+
+function queueTypeLabel(string $value): string
+{
+    $type = queueNormalizeType($value);
+    if ($type === 'active') {
+        return 'активная';
+    }
+    if ($type === 'test') {
+        return 'тестовая';
+    }
+    return 'архив';
+}
+
 function queueEnsureSchema(PDO $pdo): void
 {
     static $ready = false;
@@ -37,16 +60,54 @@ function queueEnsureSchema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
+    $columnStmt = $pdo->query("SHOW COLUMNS FROM display_queues LIKE 'queue_type'");
+    if ($columnStmt && !$columnStmt->fetch()) {
+        $pdo->exec("ALTER TABLE display_queues ADD COLUMN queue_type varchar(16) NOT NULL DEFAULT 'archive' AFTER name");
+        $pdo->exec("ALTER TABLE display_queues ADD KEY idx_display_queues_type (queue_type)");
+    }
+
     $count = (int)$pdo->query('SELECT COUNT(*) FROM display_queues')->fetchColumn();
     if ($count <= 0) {
-        $stmt = $pdo->prepare("INSERT INTO display_queues (name, is_active, created_at, updated_at) VALUES (:name, 1, NOW(), NOW())");
+        $stmt = $pdo->prepare("
+            INSERT INTO display_queues (name, queue_type, is_active, created_at, updated_at)
+            VALUES (:name, 'active', 1, NOW(), NOW())
+        ");
         $stmt->execute([':name' => 'Основная очередь']);
     }
 
-    $activeCount = (int)$pdo->query('SELECT COUNT(*) FROM display_queues WHERE is_active = 1')->fetchColumn();
-    if ($activeCount <= 0) {
-        $pdo->exec("UPDATE display_queues SET is_active = 1 WHERE id = (SELECT q.id FROM (SELECT id FROM display_queues ORDER BY id ASC LIMIT 1) q)");
+    $pdo->exec("
+        UPDATE display_queues
+        SET queue_type = CASE
+            WHEN queue_type IN ('active', 'test', 'archive') THEN queue_type
+            WHEN is_active = 1 THEN 'active'
+            ELSE 'archive'
+        END
+    ");
+
+    $activeRows = $pdo->query("SELECT id FROM display_queues WHERE queue_type = 'active' ORDER BY updated_at DESC, id DESC")->fetchAll(PDO::FETCH_COLUMN);
+    if (count($activeRows) > 1) {
+        $keepId = (int)$activeRows[0];
+        $stmt = $pdo->prepare("UPDATE display_queues SET queue_type = 'archive' WHERE queue_type = 'active' AND id <> :id");
+        $stmt->execute([':id' => $keepId]);
     }
+
+    $testRows = $pdo->query("SELECT id FROM display_queues WHERE queue_type = 'test' ORDER BY updated_at DESC, id DESC")->fetchAll(PDO::FETCH_COLUMN);
+    if (count($testRows) > 1) {
+        $keepId = (int)$testRows[0];
+        $stmt = $pdo->prepare("UPDATE display_queues SET queue_type = 'archive' WHERE queue_type = 'test' AND id <> :id");
+        $stmt->execute([':id' => $keepId]);
+    }
+
+    $activeCount = (int)$pdo->query("SELECT COUNT(*) FROM display_queues WHERE queue_type = 'active'")->fetchColumn();
+    if ($activeCount <= 0) {
+        $pdo->exec("
+            UPDATE display_queues
+            SET queue_type = 'active'
+            WHERE id = (SELECT q.id FROM (SELECT id FROM display_queues ORDER BY id ASC LIMIT 1) q)
+        ");
+    }
+
+    $pdo->exec("UPDATE display_queues SET is_active = CASE WHEN queue_type = 'active' THEN 1 ELSE 0 END");
 
     $ready = true;
 }
@@ -55,10 +116,22 @@ function queueListAll(PDO $pdo): array
 {
     queueEnsureSchema($pdo);
     $stmt = $pdo->query("
-        SELECT q.id, q.name, q.is_active, q.created_at, q.updated_at,
+        SELECT q.id,
+               q.name,
+               q.queue_type,
+               CASE WHEN q.queue_type = 'active' THEN 1 ELSE 0 END AS is_active,
+               q.created_at,
+               q.updated_at,
                (SELECT COUNT(*) FROM display_queue_items qi WHERE qi.queue_id = q.id) AS items_count
         FROM display_queues q
-        ORDER BY q.is_active DESC, q.updated_at DESC, q.id DESC
+        ORDER BY
+            CASE q.queue_type
+                WHEN 'active' THEN 0
+                WHEN 'test' THEN 1
+                ELSE 2
+            END ASC,
+            q.updated_at DESC,
+            q.id DESC
     ");
     return $stmt->fetchAll();
 }
@@ -66,15 +139,49 @@ function queueListAll(PDO $pdo): array
 function queueCreate(PDO $pdo, string $name): int
 {
     queueEnsureSchema($pdo);
-    $stmt = $pdo->prepare("INSERT INTO display_queues (name, is_active, created_at, updated_at) VALUES (:name, 0, NOW(), NOW())");
+    $stmt = $pdo->prepare("
+        INSERT INTO display_queues (name, queue_type, is_active, created_at, updated_at)
+        VALUES (:name, 'archive', 0, NOW(), NOW())
+    ");
     $stmt->execute([':name' => $name]);
     return (int)$pdo->lastInsertId();
 }
 
-function queueGetActive(PDO $pdo): ?array
+function queueGetByType(PDO $pdo, string $queueType): ?array
 {
     queueEnsureSchema($pdo);
-    $stmt = $pdo->query("SELECT id, name, is_active, created_at, updated_at FROM display_queues WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
+    $type = queueNormalizeType($queueType);
+    $stmt = $pdo->prepare("
+        SELECT id, name, queue_type, CASE WHEN queue_type = 'active' THEN 1 ELSE 0 END AS is_active, created_at, updated_at
+        FROM display_queues
+        WHERE queue_type = :queue_type
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([':queue_type' => $type]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+function queueGetActive(PDO $pdo): ?array
+{
+    return queueGetByType($pdo, 'active');
+}
+
+function queueGetDefault(PDO $pdo): ?array
+{
+    queueEnsureSchema($pdo);
+    $active = queueGetActive($pdo);
+    if ($active !== null) {
+        return $active;
+    }
+
+    $stmt = $pdo->query("
+        SELECT id, name, queue_type, CASE WHEN queue_type = 'active' THEN 1 ELSE 0 END AS is_active, created_at, updated_at
+        FROM display_queues
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+    ");
     $row = $stmt->fetch();
     return $row ?: null;
 }
@@ -82,7 +189,12 @@ function queueGetActive(PDO $pdo): ?array
 function queueGetById(PDO $pdo, int $queueId): ?array
 {
     queueEnsureSchema($pdo);
-    $stmt = $pdo->prepare("SELECT id, name, is_active, created_at, updated_at FROM display_queues WHERE id = :id LIMIT 1");
+    $stmt = $pdo->prepare("
+        SELECT id, name, queue_type, CASE WHEN queue_type = 'active' THEN 1 ELSE 0 END AS is_active, created_at, updated_at
+        FROM display_queues
+        WHERE id = :id
+        LIMIT 1
+    ");
     $stmt->execute([':id' => $queueId]);
     $row = $stmt->fetch();
     return $row ?: null;
@@ -93,7 +205,7 @@ function queueGetOrActive(PDO $pdo, int $queueId): ?array
     if ($queueId > 0) {
         return queueGetById($pdo, $queueId);
     }
-    return queueGetActive($pdo);
+    return queueGetDefault($pdo);
 }
 
 function queueGetItems(PDO $pdo, int $queueId): array
@@ -114,44 +226,43 @@ function queueGetItems(PDO $pdo, int $queueId): array
 function queueActivate(PDO $pdo, int $queueId): void
 {
     queueEnsureSchema($pdo);
-    $pdo->exec("UPDATE display_queues SET is_active = 0");
-    $stmt = $pdo->prepare("UPDATE display_queues SET is_active = 1, updated_at = NOW() WHERE id = :id");
-    $stmt->execute([':id' => $queueId]);
+    queueUpdateMeta($pdo, $queueId, (string)(queueGetById($pdo, $queueId)['name'] ?? ''), 'active');
 }
 
-function queueUpdateMeta(PDO $pdo, int $queueId, string $name, bool $setActive): void
+function queueUpdateMeta(PDO $pdo, int $queueId, string $name, string $queueType): void
 {
     queueEnsureSchema($pdo);
     $name = trim($name);
     if ($name === '') {
         $name = queueGenerateName($pdo);
     }
+    $type = queueNormalizeType($queueType);
+    $isActive = $type === 'active' ? 1 : 0;
 
     $pdo->beginTransaction();
     try {
-        if ($setActive) {
-            $pdo->exec("UPDATE display_queues SET is_active = 0");
-            $stmt = $pdo->prepare("
-                UPDATE display_queues
-                SET name = :name, is_active = 1, updated_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':id' => $queueId,
-                ':name' => $name,
-            ]);
-        } else {
-            $stmt = $pdo->prepare("
-                UPDATE display_queues
-                SET name = :name, updated_at = NOW()
-                WHERE id = :id
-            ");
-            $stmt->execute([
-                ':id' => $queueId,
-                ':name' => $name,
-            ]);
+        if ($type === 'active') {
+            $pdo->exec("UPDATE display_queues SET queue_type = 'archive' WHERE queue_type = 'active'");
+        } elseif ($type === 'test') {
+            $pdo->exec("UPDATE display_queues SET queue_type = 'archive' WHERE queue_type = 'test'");
         }
 
+        $stmt = $pdo->prepare("
+            UPDATE display_queues
+            SET name = :name,
+                queue_type = :queue_type,
+                is_active = :is_active,
+                updated_at = NOW()
+            WHERE id = :id
+        ");
+        $stmt->execute([
+            ':id' => $queueId,
+            ':name' => $name,
+            ':queue_type' => $type,
+            ':is_active' => $isActive,
+        ]);
+
+        $pdo->exec("UPDATE display_queues SET is_active = CASE WHEN queue_type = 'active' THEN 1 ELSE 0 END");
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {

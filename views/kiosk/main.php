@@ -32,6 +32,10 @@ declare(strict_types=1);
 <script>
 const stage = document.getElementById('stage');
 const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' };
+const DEVICE_KEY = (() => {
+    const raw = String(new URLSearchParams(window.location.search).get('device_key') || '').trim().toLowerCase();
+    return raw === 'test-kiosk' ? 'test-kiosk' : 'main-kiosk';
+})();
 const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
@@ -1104,7 +1108,7 @@ async function buildScreenLayer(blocks, runtime, screenStyle) {
 
 async function loadScreen() {
     try {
-        const res = await fetch('/api/screen.php?screen_id=1', { cache: 'no-store' });
+        const res = await fetch('/api/screen.php?device_key=' + encodeURIComponent(DEVICE_KEY), { cache: 'no-store' });
         if (!res.ok) throw new Error('Код HTTP: ' + res.status);
         const payload = await res.json();
         if (!payload.ok) throw new Error(payload.error || 'Ошибка API');
