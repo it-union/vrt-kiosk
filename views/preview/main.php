@@ -213,6 +213,105 @@ function resolvePosition(pos) {
     };
     return map[String(pos || 'center')] || map.center;
 }
+function applyImageEffects(target, imageData) {
+    const p = imageData && typeof imageData === 'object' ? imageData : {};
+    const opacity = Math.max(0, Math.min(100, Number(p.opacity_pct ?? 100)));
+    const radius = Math.max(0, Math.min(500, Number(p.radius_px ?? 0)));
+    const brightness = Math.max(0, Math.min(300, Number(p.brightness_pct ?? 100)));
+    const contrast = Math.max(0, Math.min(300, Number(p.contrast_pct ?? 100)));
+    const saturation = Math.max(0, Math.min(300, Number(p.saturation_pct ?? 100)));
+    const fade = Math.max(0, Math.min(100, Number(p.fade_pct ?? 0)));
+    const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(p.fade_mode || ''))
+        ? String(p.fade_mode || 'all')
+        : 'all';
+    const shadow = ['none', 'soft', 'medium', 'strong'].includes(String(p.shadow || ''))
+        ? String(p.shadow || 'none')
+        : 'none';
+    const shadowMap = {
+        none: 'none',
+        soft: '0 6px 18px rgba(15, 23, 42, 0.18)',
+        medium: '0 10px 26px rgba(15, 23, 42, 0.24)',
+        strong: '0 16px 36px rgba(15, 23, 42, 0.34)'
+    };
+    target.style.opacity = String(opacity / 100);
+    target.style.borderRadius = radius > 0 ? (radius + 'px') : '0';
+    target.style.boxShadow = shadowMap[shadow] || 'none';
+    target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+}
+function setImageMask(target, mode, fade) {
+    if (!target) return;
+    if (fade <= 0) {
+        target.style.webkitMaskImage = 'none';
+        target.style.maskImage = 'none';
+        target.style.webkitMaskRepeat = 'no-repeat';
+        target.style.maskRepeat = 'no-repeat';
+        target.style.webkitMaskSize = '100% 100%';
+        target.style.maskSize = '100% 100%';
+        return;
+    }
+    const sideFade = Math.min(49.5, fade / 2);
+    let maskImage = '';
+    if (mode === 'horizontal') {
+        maskImage = `linear-gradient(to right, transparent 0%, black ${sideFade}%, black ${100 - sideFade}%, transparent 100%)`;
+    } else if (mode === 'vertical') {
+        maskImage = `linear-gradient(to bottom, transparent 0%, black ${sideFade}%, black ${100 - sideFade}%, transparent 100%)`;
+    } else {
+        maskImage = 'none';
+    }
+    target.style.webkitMaskImage = maskImage;
+    target.style.maskImage = maskImage;
+    target.style.webkitMaskRepeat = 'no-repeat';
+    target.style.maskRepeat = 'no-repeat';
+    target.style.webkitMaskSize = '100% 100%';
+    target.style.maskSize = '100% 100%';
+}
+function buildImageElement(src, title, imageData, className) {
+    const p = imageData && typeof imageData === 'object' ? imageData : {};
+    const wrap = document.createElement('div');
+    wrap.className = className;
+    wrap.style.position = 'relative';
+    wrap.style.lineHeight = '0';
+    const img = document.createElement('img');
+    img.className = className;
+    img.src = src;
+    img.alt = title || '';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.display = 'block';
+    img.style.objectFit = 'contain';
+    wrap.appendChild(img);
+    applyImageEffects(img, p);
+    const fade = Math.max(0, Math.min(100, Number(p.fade_pct ?? 0)));
+    const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(p.fade_mode || ''))
+        ? String(p.fade_mode || 'all')
+        : 'all';
+    setImageMask(wrap, 'none', 0);
+    setImageMask(img, 'none', 0);
+    if (fadeMode === 'all') {
+        setImageMask(wrap, 'horizontal', fade);
+        setImageMask(img, 'vertical', fade);
+    } else {
+        setImageMask(img, fadeMode, fade);
+    }
+    applyImageAnimation(wrap, p);
+    return wrap;
+}
+function applyImageAnimation(target, imageData) {
+    const p = imageData && typeof imageData === 'object' ? imageData : {};
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(p.animation || ''))
+        ? String(p.animation || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
+    const delayMs = Math.max(0, Math.min(10000, Number(p.delay_ms || 0)));
+    const map = {
+        none: '',
+        fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
+        slide_up: `slideUpBlock ${ms}ms ease ${delayMs}ms both`,
+        slide_left: `slideLeftBlock ${ms}ms ease ${delayMs}ms both`,
+        zoom_in: `zoomInBlock ${ms}ms ease ${delayMs}ms both`
+    };
+    target.style.animation = map[name] || '';
+}
 let pdfjsLibPromise = null;
 const pdfDocCache = new Map();
 function getPdfJsLib() {
@@ -395,19 +494,16 @@ async function renderBlock(blockRaw, contentMap) {
             el.style.display = 'flex';
             el.style.justifyContent = justify;
             el.style.alignItems = align;
-            const img = document.createElement('img');
-            img.className = 'media';
-            img.src = mediaUrl;
+            const img = buildImageElement(mediaUrl, title, p, 'media', el);
             if (fluid) {
                 img.style.width = '100%';
-                img.style.height = 'auto';
+                img.style.height = '100%';
             } else {
                 img.style.width = widthPx > 0 ? (widthPx + 'px') : 'auto';
                 img.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
             }
             img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
             img.style.transformOrigin = 'center center';
-            img.alt = title;
             el.appendChild(img);
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');

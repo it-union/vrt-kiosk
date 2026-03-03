@@ -19,6 +19,7 @@ declare(strict_types=1);
         .wrap { flex: 1; display: grid; grid-template-columns: 320px 1fr 360px; gap: 12px; min-height: 0; }
         .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; }
         .wrap .panel { display: flex; flex-direction: column; min-height: 0; }
+        .inspectorPanel { min-height: 0; overflow: hidden; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
@@ -40,7 +41,7 @@ declare(strict_types=1);
         .status.error { color: #842029; background: #f8d7da; border-color: #f5c2c7; }
         .row { display: flex; gap: 8px; }
         .row > * { flex: 1; }
-        .inspectorPanel #editorControls { display: flex; flex-direction: column; gap: 8px; }
+        .inspectorPanel #editorControls { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: auto; padding-right: 4px; }
         .inspectorPanel #editorControls label { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px; align-items: center; margin: 8px 0 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
         .inspectorPanel #editorControls label input,
         .inspectorPanel #editorControls label select,
@@ -103,6 +104,10 @@ declare(strict_types=1);
         .libraryName { margin-top: 4px; font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .footer { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
         @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
+        @keyframes fadeInBlock { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUpBlock { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideLeftBlock { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes zoomInBlock { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
         .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 50; }
         .modalBack.open { display: flex; }
         .modal { width: min(440px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 12px; }
@@ -208,6 +213,38 @@ declare(strict_types=1);
                 </div>
                 <label>Масштаб, % <input id="pImageScale" type="number" min="1" max="500" step="1" value="100"></label>
                 <label>Поворот, ° <input id="pImageRotate" type="number" min="-360" max="360" step="1" value="0"></label>
+                <label>Прозрачность, % <input id="pImageOpacity" type="number" min="0" max="100" step="1" value="100"></label>
+                <label>Скругление, px <input id="pImageRadius" type="number" min="0" max="500" step="1" value="0"></label>
+                <label>Тень
+                    <select id="pImageShadow">
+                        <option value="none">нет</option>
+                        <option value="soft">слабая</option>
+                        <option value="medium">средняя</option>
+                        <option value="strong">сильная</option>
+                    </select>
+                </label>
+                <label>Яркость, % <input id="pImageBrightness" type="number" min="0" max="300" step="1" value="100"></label>
+                <label>Контраст, % <input id="pImageContrast" type="number" min="0" max="300" step="1" value="100"></label>
+                <label>Насыщенность, % <input id="pImageSaturation" type="number" min="0" max="300" step="1" value="100"></label>
+                <label>Прозрачные края, % <input id="pImageFade" type="number" min="0" max="100" step="1" value="0"></label>
+                <label>Режим прозрачных краёв
+                    <select id="pImageFadeMode">
+                        <option value="all">все края</option>
+                        <option value="horizontal">по горизонтали</option>
+                        <option value="vertical">по вертикали</option>
+                    </select>
+                </label>
+                <label>Анимация появления
+                    <select id="pImageAnim">
+                        <option value="none">без анимации</option>
+                        <option value="fade_in">появление</option>
+                        <option value="slide_up">снизу вверх</option>
+                        <option value="slide_left">справа налево</option>
+                        <option value="zoom_in">масштаб</option>
+                    </select>
+                </label>
+                <label>Время анимации, мс <input id="pImageAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label>Задержка, мс <input id="pImageDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
                 <label>Режи изображения
                     <select id="pImageFluidMode">
                         <option value="fixed">фиксированный разер</option>
@@ -422,6 +459,17 @@ const el = {
   pImageHeight: document.getElementById('pImageHeight'),
   pImageScale: document.getElementById('pImageScale'),
   pImageRotate: document.getElementById('pImageRotate'),
+  pImageOpacity: document.getElementById('pImageOpacity'),
+  pImageRadius: document.getElementById('pImageRadius'),
+  pImageShadow: document.getElementById('pImageShadow'),
+  pImageBrightness: document.getElementById('pImageBrightness'),
+  pImageContrast: document.getElementById('pImageContrast'),
+  pImageSaturation: document.getElementById('pImageSaturation'),
+  pImageFade: document.getElementById('pImageFade'),
+  pImageFadeMode: document.getElementById('pImageFadeMode'),
+  pImageAnim: document.getElementById('pImageAnim'),
+  pImageAnimMs: document.getElementById('pImageAnimMs'),
+  pImageDelayMs: document.getElementById('pImageDelayMs'),
   pImageFluidMode: document.getElementById('pImageFluidMode'),
   pImagePosition: document.getElementById('pImagePosition'),
   pVideoWidth: document.getElementById('pVideoWidth'),
@@ -594,6 +642,23 @@ function buildImageDataJson() {
   const heightPx = Number(el.pImageHeight.value || 0);
   const scalePct = Number(el.pImageScale.value || 100);
   const rotateDeg = Math.max(-360, Math.min(360, Number(el.pImageRotate.value || 0)));
+  const opacityPct = Math.max(0, Math.min(100, Number(el.pImageOpacity.value || 100)));
+  const radiusPx = Math.max(0, Math.min(500, Number(el.pImageRadius.value || 0)));
+  const brightnessPct = Math.max(0, Math.min(300, Number(el.pImageBrightness.value || 100)));
+  const contrastPct = Math.max(0, Math.min(300, Number(el.pImageContrast.value || 100)));
+  const saturationPct = Math.max(0, Math.min(300, Number(el.pImageSaturation.value || 100)));
+  const fadePct = Math.max(0, Math.min(100, Number(el.pImageFade.value || 0)));
+  const shadow = ['none', 'soft', 'medium', 'strong'].includes(String(el.pImageShadow.value || ''))
+    ? String(el.pImageShadow.value || 'none')
+    : 'none';
+  const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(el.pImageFadeMode.value || ''))
+    ? String(el.pImageFadeMode.value || 'all')
+    : 'all';
+  const animation = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(el.pImageAnim.value || ''))
+    ? String(el.pImageAnim.value || 'none')
+    : 'none';
+  const animationMs = Math.max(100, Math.min(5000, Number(el.pImageAnimMs.value || 700)));
+  const delayMs = Math.max(0, Math.min(10000, Number(el.pImageDelayMs.value || 0)));
   const fluid = el.pImageFluidMode && el.pImageFluidMode.value === 'fluid';
   return {
     image: {
@@ -601,11 +666,123 @@ function buildImageDataJson() {
       height_px: heightPx > 0 ? heightPx : null,
       scale_pct: scalePct > 0 ? scalePct : 100,
       rotate_deg: Number.isFinite(rotateDeg) ? rotateDeg : 0,
+      opacity_pct: opacityPct,
+      radius_px: radiusPx,
+      shadow: shadow,
+      brightness_pct: brightnessPct,
+      contrast_pct: contrastPct,
+      saturation_pct: saturationPct,
+      fade_pct: fadePct,
+      fade_mode: fadeMode,
+      animation: animation,
+      animation_ms: animationMs,
+      delay_ms: delayMs,
       fluid: fluid,
       mode: fluid ? 'fluid' : 'fixed',
       position: el.pImagePosition.value || 'center'
     }
   };
+}
+function applyImageEffects(target, imageData) {
+  const p = imageData && typeof imageData === 'object' ? imageData : {};
+  const opacity = Math.max(0, Math.min(100, Number(p.opacity_pct ?? 100)));
+  const radius = Math.max(0, Math.min(500, Number(p.radius_px ?? 0)));
+  const brightness = Math.max(0, Math.min(300, Number(p.brightness_pct ?? 100)));
+  const contrast = Math.max(0, Math.min(300, Number(p.contrast_pct ?? 100)));
+  const saturation = Math.max(0, Math.min(300, Number(p.saturation_pct ?? 100)));
+  const shadow = ['none', 'soft', 'medium', 'strong'].includes(String(p.shadow || ''))
+    ? String(p.shadow || 'none')
+    : 'none';
+  const shadowMap = {
+    none: 'none',
+    soft: '0 6px 18px rgba(15, 23, 42, 0.18)',
+    medium: '0 10px 26px rgba(15, 23, 42, 0.24)',
+    strong: '0 16px 36px rgba(15, 23, 42, 0.34)'
+  };
+  target.style.opacity = String(opacity / 100);
+  target.style.borderRadius = radius > 0 ? (radius + 'px') : '0';
+  target.style.boxShadow = shadowMap[shadow] || 'none';
+  target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+}
+function setImageMask(target, mode, fade) {
+  if (!target) return;
+  if (fade <= 0) {
+    target.style.webkitMaskImage = 'none';
+    target.style.maskImage = 'none';
+    target.style.webkitMaskRepeat = 'no-repeat';
+    target.style.maskRepeat = 'no-repeat';
+    target.style.webkitMaskSize = '100% 100%';
+    target.style.maskSize = '100% 100%';
+    return;
+  }
+  const sideFade = Math.min(49.5, fade / 2);
+  let maskImage = '';
+  if (mode === 'horizontal') {
+    maskImage = `linear-gradient(to right, transparent 0%, black ${sideFade}%, black ${100 - sideFade}%, transparent 100%)`;
+  } else if (mode === 'vertical') {
+    maskImage = `linear-gradient(to bottom, transparent 0%, black ${sideFade}%, black ${100 - sideFade}%, transparent 100%)`;
+  } else {
+    maskImage = 'none';
+  }
+  target.style.webkitMaskImage = maskImage;
+  target.style.maskImage = maskImage;
+  target.style.webkitMaskRepeat = 'no-repeat';
+  target.style.maskRepeat = 'no-repeat';
+  target.style.webkitMaskSize = '100% 100%';
+  target.style.maskSize = '100% 100%';
+}
+function applyImageAnimation(target, imageData) {
+  const p = imageData && typeof imageData === 'object' ? imageData : {};
+  const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(p.animation || ''))
+    ? String(p.animation || 'none')
+    : 'none';
+  const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
+  const delayMs = Math.max(0, Math.min(10000, Number(p.delay_ms || 0)));
+  const map = {
+    none: '',
+    fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
+    slide_up: `slideUpBlock ${ms}ms ease ${delayMs}ms both`,
+    slide_left: `slideLeftBlock ${ms}ms ease ${delayMs}ms both`,
+    zoom_in: `zoomInBlock ${ms}ms ease ${delayMs}ms both`
+  };
+  target.style.animation = map[name] || '';
+}
+function buildImageElement(src, title, imageData, className) {
+  const p = imageData && typeof imageData === 'object' ? imageData : {};
+  const wrap = document.createElement('div');
+  wrap.className = className;
+  wrap.style.position = 'relative';
+  wrap.style.lineHeight = '0';
+  const img = document.createElement('img');
+  img.className = className;
+  img.src = src;
+  img.alt = title || '';
+  img.style.width = '100%';
+  img.style.height = '100%';
+  img.style.display = 'block';
+  img.style.objectFit = 'contain';
+  wrap.appendChild(img);
+  applyImageEffects(img, p);
+  const fade = Math.max(0, Math.min(100, Number(p.fade_pct ?? 0)));
+  const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(p.fade_mode || ''))
+    ? String(p.fade_mode || 'all')
+    : 'all';
+  setImageMask(wrap, 'none', 0);
+  setImageMask(img, 'none', 0);
+  if (fadeMode === 'all') {
+    setImageMask(wrap, 'horizontal', fade);
+    setImageMask(img, 'vertical', fade);
+  } else {
+    setImageMask(img, fadeMode, fade);
+  }
+  applyImageAnimation(wrap, p);
+  return wrap;
+}
+function clearPreviewImageNode() {
+  const box = el.previewImg ? el.previewImg.parentElement : null;
+  if (!box) return null;
+  box.querySelectorAll('.previewImageNode').forEach((node) => node.remove());
+  return box;
 }
 function buildPptDataJson() {
   const widthPx = Number(el.pPptWidth.value || 0);
@@ -832,6 +1009,7 @@ function setHtmlValue(value) {
   }
 }
 function syncPreview() {
+  clearPreviewImageNode();
   if (state.currentType === 'html') {
     if (el.previewImg) el.previewImg.style.display = 'none';
     if (el.previewVideo) {
@@ -992,7 +1170,7 @@ function syncPreview() {
     el.previewHtml.style.display = 'none';
     el.previewHtml.innerHTML = '';
   }
-  if (el.previewImg) el.previewImg.style.display = 'block';
+  if (el.previewImg) el.previewImg.style.display = 'none';
   if (el.previewVideo) {
     el.previewVideo.style.display = 'none';
     el.previewVideo.removeAttribute('src');
@@ -1004,7 +1182,6 @@ function syncPreview() {
   }
   stopPptPreviewTimer();
   const url = (el.cMediaUrl.value || '').trim();
-  el.previewImg.src = url;
   const data = buildImageDataJson();
   const widthPx = Number(data.image.width_px || 0);
   const heightPx = Number(data.image.height_px || 0);
@@ -1026,19 +1203,21 @@ function syncPreview() {
   const box = el.previewImg.parentElement;
   box.style.justifyContent = justify;
   box.style.alignItems = align;
+  const imageNode = buildImageElement(url, '', data.image, 'media previewImageNode', box);
   if (fluid) {
-    el.previewImg.style.width = '100%';
-    el.previewImg.style.height = 'auto';
-    el.previewImg.style.maxWidth = '100%';
-    el.previewImg.style.maxHeight = '100%';
+    imageNode.style.width = '100%';
+    imageNode.style.height = '100%';
+    imageNode.style.maxWidth = '100%';
+    imageNode.style.maxHeight = '100%';
   } else {
-    el.previewImg.style.width = widthPx > 0 ? (widthPx + 'px') : 'auto';
-    el.previewImg.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
-    el.previewImg.style.maxWidth = '100%';
-    el.previewImg.style.maxHeight = '100%';
+    imageNode.style.width = widthPx > 0 ? (widthPx + 'px') : 'auto';
+    imageNode.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
+    imageNode.style.maxWidth = '100%';
+    imageNode.style.maxHeight = '100%';
   }
-  el.previewImg.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
-  el.previewImg.style.transformOrigin = 'center center';
+  imageNode.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
+  imageNode.style.transformOrigin = 'center center';
+  box.appendChild(imageNode);
 }
 function loadImageNaturalSize(url) {
   return new Promise((resolve) => {
@@ -1204,6 +1383,17 @@ function nowDraft() {
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
   el.pImageRotate.value = '0';
+  el.pImageOpacity.value = '100';
+  el.pImageRadius.value = '0';
+  el.pImageShadow.value = 'none';
+  el.pImageBrightness.value = '100';
+  el.pImageContrast.value = '100';
+  el.pImageSaturation.value = '100';
+  el.pImageFade.value = '0';
+  el.pImageFadeMode.value = 'all';
+  el.pImageAnim.value = 'none';
+  el.pImageAnimMs.value = '700';
+  el.pImageDelayMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1399,6 +1589,17 @@ function resetEditor() {
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
   el.pImageRotate.value = '0';
+  el.pImageOpacity.value = '100';
+  el.pImageRadius.value = '0';
+  el.pImageShadow.value = 'none';
+  el.pImageBrightness.value = '100';
+  el.pImageContrast.value = '100';
+  el.pImageSaturation.value = '100';
+  el.pImageFade.value = '0';
+  el.pImageFadeMode.value = 'all';
+  el.pImageAnim.value = 'none';
+  el.pImageAnimMs.value = '700';
+  el.pImageDelayMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1600,6 +1801,23 @@ async function loadById(id) {
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
     el.pImageScale.value = image.scale_pct ? String(Number(image.scale_pct || 100)) : '100';
     el.pImageRotate.value = String(Math.max(-360, Math.min(360, Number(image.rotate_deg || 0))));
+    el.pImageOpacity.value = String(Math.max(0, Math.min(100, Number(image.opacity_pct ?? 100))));
+    el.pImageRadius.value = String(Math.max(0, Math.min(500, Number(image.radius_px ?? 0))));
+    el.pImageShadow.value = ['none', 'soft', 'medium', 'strong'].includes(String(image.shadow || ''))
+      ? String(image.shadow || 'none')
+      : 'none';
+    el.pImageBrightness.value = String(Math.max(0, Math.min(300, Number(image.brightness_pct ?? 100))));
+    el.pImageContrast.value = String(Math.max(0, Math.min(300, Number(image.contrast_pct ?? 100))));
+    el.pImageSaturation.value = String(Math.max(0, Math.min(300, Number(image.saturation_pct ?? 100))));
+    el.pImageFade.value = String(Math.max(0, Math.min(100, Number(image.fade_pct ?? 0))));
+    el.pImageFadeMode.value = ['all', 'horizontal', 'vertical'].includes(String(image.fade_mode || ''))
+      ? String(image.fade_mode || 'all')
+      : 'all';
+    el.pImageAnim.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(image.animation || ''))
+      ? String(image.animation || 'none')
+      : 'none';
+    el.pImageAnimMs.value = String(Math.max(100, Math.min(5000, Number(image.animation_ms || 700))));
+    el.pImageDelayMs.value = String(Math.max(0, Math.min(10000, Number(image.delay_ms || 0))));
     el.pImageFluidMode.value = (image.fluid === true || String(image.mode || '') === 'fluid') ? 'fluid' : 'fixed';
     el.pImagePosition.value = String(image.position || 'center');
     el.pVideoWidth.value = video.width_px ? String(Number(video.width_px || 0)) : '';
@@ -1941,6 +2159,17 @@ el.pImageWidth.addEventListener('input', () => { syncScaleFromDimensions(); sync
 el.pImageHeight.addEventListener('input', () => { syncScaleFromDimensions(); syncDataJson(); syncPreview(); });
 el.pImageScale.addEventListener('input', () => { applyScaleToDimensions(); syncDataJson(); syncPreview(); });
 el.pImageRotate.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageOpacity.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageRadius.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageShadow.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pImageBrightness.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageContrast.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageSaturation.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageFade.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageFadeMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pImageAnim.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pImageAnimMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageDelayMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pVideoWidth.addEventListener('input', () => { syncVideoScaleFromDimensions(); syncDataJson(); syncPreview(); });
