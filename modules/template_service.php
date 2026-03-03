@@ -77,6 +77,12 @@ function normalizeBlockBackgroundStyle(array $raw): array
         'background_size' => $size,
         'background_position' => $position,
         'background_repeat' => $repeat,
+        'animation' => in_array((string)($raw['animation'] ?? 'none'), ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'], true)
+            ? (string)($raw['animation'] ?? 'none')
+            : 'none',
+        'animation_ms' => max(100, min(5000, (int)($raw['animation_ms'] ?? 700))),
+        'delay_on_ms' => max(0, (int)($raw['delay_on_ms'] ?? 0)),
+        'delay_off_ms' => max(0, (int)($raw['delay_off_ms'] ?? 0)),
     ];
 }
 

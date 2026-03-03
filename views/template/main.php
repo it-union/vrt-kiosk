@@ -159,6 +159,10 @@ declare(strict_types=1);
             <input id="globalShowContentPreview" type="checkbox">
             Показывать выбранный контент внутри всех блоков
         </label>
+        <label class="stageOptions" for="disablePreviewAnimation">
+            <input id="disablePreviewAnimation" type="checkbox">
+            Не показывать анимацию
+        </label>
     </section>
 
     <section class="panel editor">
@@ -299,6 +303,18 @@ declare(strict_types=1);
                         <option value="right bottom">right bottom</option>
                     </select>
                 </label>
+                <label>Animation
+                    <select id="bAnim">
+                        <option value="none">без анимации</option>
+                        <option value="fade_in">появление</option>
+                        <option value="slide_up">снизу вверх</option>
+                        <option value="slide_left">справа налево</option>
+                        <option value="zoom_in">масштаб</option>
+                    </select>
+                </label>
+                <label>Время анимации, мс <input id="bAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label>Задержка on, мс <input id="bDelayOnMs" type="number" min="0" step="50" value="0"></label>
+                <label>Задержка off, мс <input id="bDelayOffMs" type="number" min="0" step="50" value="0"></label>
             </div>
         </details>
         <p id="status" class="status"></p>
@@ -366,6 +382,7 @@ const state = {
   screen_style: { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' },
   saveInProgress: false,
   globalShowContentPreview: false,
+  disablePreviewAnimation: false,
   bgGallery: [],
   bgGallerySelectedUrl: '',
   bgGallerySelectedName: '',
@@ -400,6 +417,7 @@ const el = {
   bType: document.getElementById('bType'),
   bContentId: document.getElementById('bContentId'),
   globalShowContentPreview: document.getElementById('globalShowContentPreview'),
+  disablePreviewAnimation: document.getElementById('disablePreviewAnimation'),
   bBgMode: document.getElementById('bBgMode'),
   bBgColor: document.getElementById('bBgColor'),
   bBgImage: document.getElementById('bBgImage'),
@@ -407,6 +425,10 @@ const el = {
   bBgSize: document.getElementById('bBgSize'),
   bBgPosition: document.getElementById('bBgPosition'),
   bBgRepeat: document.getElementById('bBgRepeat'),
+  bAnim: document.getElementById('bAnim'),
+  bAnimMs: document.getElementById('bAnimMs'),
+  bDelayOnMs: document.getElementById('bDelayOnMs'),
+  bDelayOffMs: document.getElementById('bDelayOffMs'),
   libraryUploadBtn: document.getElementById('libraryUploadBtn'),
   libraryDeleteBtn: document.getElementById('libraryDeleteBtn'),
   libraryUploadFile: document.getElementById('libraryUploadFile'),
@@ -466,7 +488,11 @@ function normalizeBlockBackground(raw) {
     background_image: String(src.background_image || '').trim(),
     background_size: size,
     background_position: position,
-    background_repeat: repeat
+    background_repeat: repeat,
+    animation: ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(src.animation || '')) ? String(src.animation || 'none') : 'none',
+    animation_ms: Math.max(100, Math.min(5000, Number(src.animation_ms || 700))),
+    delay_on_ms: Math.max(0, Number(src.delay_on_ms || 0)),
+    delay_off_ms: Math.max(0, Number(src.delay_off_ms || 0))
   };
 }
 function applyBackgroundStyle(target, cfg, fallbackColor = '#ffffff') {
@@ -676,6 +702,7 @@ function renderBlockContentPreview(blockEl, block) {
 
   const type = String(item.type || block.content_type || 'image');
   const data = parseJsonObject(item.data_json) || {};
+  const blockStyle = normalizeBlockBackground(block);
   const wrap = document.createElement('div');
   wrap.className = 'blockPreview' + (type === 'html' ? ' html' : '');
 
@@ -683,6 +710,13 @@ function renderBlockContentPreview(blockEl, block) {
     const src = String(item.media_url || '');
     if (!src) return;
     const p = data && typeof data.image === 'object' ? data.image : {};
+    const motion = {
+      ...p,
+      animation: state.disablePreviewAnimation ? 'none' : blockStyle.animation,
+      animation_ms: blockStyle.animation_ms,
+      delay_on_ms: state.disablePreviewAnimation ? 0 : blockStyle.delay_on_ms,
+      delay_off_ms: state.disablePreviewAnimation ? 0 : blockStyle.delay_off_ms
+    };
     const [justify, align] = resolveMediaPosition(p.position);
     const widthPx = Math.max(0, Number(p.width_px || 0));
     const heightPx = Math.max(0, Number(p.height_px || 0));
@@ -690,7 +724,7 @@ function renderBlockContentPreview(blockEl, block) {
     const fluid = p.fluid === true;
     wrap.style.justifyContent = justify;
     wrap.style.alignItems = align;
-    const img = buildImageElement(src, String(item.title || ''), p, 'blockPreviewMedia', blockEl);
+    const img = buildImageElement(src, String(item.title || ''), motion, 'blockPreviewMedia', blockEl);
     if (fluid) {
       img.style.width = '100%';
       img.style.height = '100%';
@@ -775,7 +809,12 @@ function renderBlockContentPreview(blockEl, block) {
     htmlInner.style.width = '100%';
     htmlInner.style.height = '100%';
     wrap.appendChild(htmlInner);
-    applyTimedAppearance(wrap, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0);
+    applyTimedAppearance(
+      wrap,
+      state.disablePreviewAnimation ? 'none' : (blockStyle.animation || 'none'),
+      blockStyle.animation_ms || 700,
+      state.disablePreviewAnimation ? 0 : (blockStyle.delay_on_ms || 0)
+    );
     blockEl.appendChild(wrap);
   }
 }
@@ -945,6 +984,10 @@ function fillBlockEditor() {
     el.bBgSize.value = emptyBg.background_size;
     el.bBgPosition.value = emptyBg.background_position;
     el.bBgRepeat.value = emptyBg.background_repeat;
+    el.bAnim.value = emptyBg.animation;
+    el.bAnimMs.value = String(emptyBg.animation_ms);
+    el.bDelayOnMs.value = String(emptyBg.delay_on_ms);
+    el.bDelayOffMs.value = String(emptyBg.delay_off_ms);
     syncBlockBackgroundFieldVisibility();
     renderContentOptionsForBlock(null);
     return;
@@ -960,6 +1003,10 @@ function fillBlockEditor() {
   el.bBgSize.value = bg.background_size;
   el.bBgPosition.value = bg.background_position;
   el.bBgRepeat.value = bg.background_repeat;
+  el.bAnim.value = bg.animation;
+  el.bAnimMs.value = String(bg.animation_ms);
+  el.bDelayOnMs.value = String(bg.delay_on_ms);
+  el.bDelayOffMs.value = String(bg.delay_off_ms);
   syncBlockBackgroundFieldVisibility();
 }
 
@@ -980,6 +1027,12 @@ function updateBlockFromEditor() {
   b.background_size = el.bBgSize.value || 'cover';
   b.background_position = el.bBgPosition.value || 'center center';
   b.background_repeat = el.bBgRepeat.value || 'no-repeat';
+  b.animation = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(el.bAnim.value || ''))
+    ? String(el.bAnim.value || 'none')
+    : 'none';
+  b.animation_ms = Math.max(100, Math.min(5000, Number(el.bAnimMs.value || 700)));
+  b.delay_on_ms = Math.max(0, Number(el.bDelayOnMs.value || 0));
+  b.delay_off_ms = Math.max(0, Number(el.bDelayOffMs.value || 0));
   if (b.x_pct + b.w_pct > 100) b.w_pct = roundPct(100 - b.x_pct);
   if (b.y_pct + b.h_pct > 100) b.h_pct = roundPct(100 - b.y_pct);
   renderCanvas();
@@ -1357,7 +1410,11 @@ async function loadTemplate(templateId) {
         background_image: style.background_image,
         background_size: style.background_size,
         background_position: style.background_position,
-        background_repeat: style.background_repeat
+        background_repeat: style.background_repeat,
+        animation: style.animation,
+        animation_ms: style.animation_ms,
+        delay_on_ms: style.delay_on_ms,
+        delay_off_ms: style.delay_off_ms
       };
     });
     setStageEditorVisible(true);
@@ -1384,7 +1441,11 @@ function newTemplate() {
     background_image: '',
     background_size: 'cover',
     background_position: 'center center',
-    background_repeat: 'no-repeat'
+    background_repeat: 'no-repeat',
+    animation: 'none',
+    animation_ms: 700,
+    delay_on_ms: 0,
+    delay_off_ms: 0
   }];
   setStageEditorVisible(true);
   setInspectorVisible(true);
@@ -1395,6 +1456,7 @@ function resetTemplateEditor() {
   state.currentTemplateId = null;
   state.blocks = [];
   state.globalShowContentPreview = false;
+  state.disablePreviewAnimation = false;
   setStageEditorVisible(false);
   setInspectorVisible(false);
   state.selectedBlockIndex = -1;
@@ -1410,6 +1472,7 @@ function resetTemplateEditor() {
   el.screenBgRepeat.value = state.screen_style.repeat;
   syncScreenBackgroundFieldVisibility();
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
+  if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
   fillBlockEditor();
   renderTemplateList();
   renderCanvas();
@@ -1507,7 +1570,11 @@ document.getElementById('addBlockBtn').onclick = () => {
     background_image: '',
     background_size: 'cover',
     background_position: 'center center',
-    background_repeat: 'no-repeat'
+    background_repeat: 'no-repeat',
+    animation: 'none',
+    animation_ms: 700,
+    delay_on_ms: 0,
+    delay_off_ms: 0
   });
   state.selectedBlockIndex = state.blocks.length - 1; fillBlockEditor(); renderCanvas();
 };
@@ -1536,7 +1603,7 @@ document.getElementById('deleteConfirmBtn').onclick = async () => {
   }
 };
 
-['bX','bY','bW','bH','bZ','bMode','bContentId','bBgMode','bBgColor','bBgImage','bBgSize','bBgPosition','bBgRepeat'].forEach((id) => {
+['bX','bY','bW','bH','bZ','bMode','bContentId','bBgMode','bBgColor','bBgImage','bBgSize','bBgPosition','bBgRepeat','bAnim','bAnimMs','bDelayOnMs','bDelayOffMs'].forEach((id) => {
   const n = document.getElementById(id);
   n.addEventListener('input', updateBlockFromEditor);
   n.addEventListener('change', updateBlockFromEditor);
@@ -1548,6 +1615,12 @@ if (el.bBgMode) {
 if (el.globalShowContentPreview) {
   el.globalShowContentPreview.addEventListener('change', () => {
     state.globalShowContentPreview = !!el.globalShowContentPreview.checked;
+    renderCanvas();
+  });
+}
+if (el.disablePreviewAnimation) {
+  el.disablePreviewAnimation.addEventListener('change', () => {
+    state.disablePreviewAnimation = !!el.disablePreviewAnimation.checked;
     renderCanvas();
   });
 }

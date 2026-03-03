@@ -486,10 +486,6 @@ const el = {
   pImageSaturation: document.getElementById('pImageSaturation'),
   pImageFade: document.getElementById('pImageFade'),
   pImageFadeMode: document.getElementById('pImageFadeMode'),
-  pImageAnim: document.getElementById('pImageAnim'),
-  pImageAnimMs: document.getElementById('pImageAnimMs'),
-  pImageDelayMs: document.getElementById('pImageDelayMs'),
-  pImageDelayOffMs: document.getElementById('pImageDelayOffMs'),
   pImageFluidMode: document.getElementById('pImageFluidMode'),
   pImagePosition: document.getElementById('pImagePosition'),
   pVideoWidth: document.getElementById('pVideoWidth'),
@@ -519,11 +515,7 @@ const el = {
   videoControls: document.getElementById('videoControls'),
   pptControls: document.getElementById('pptControls'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
-  pHtmlAnim: document.getElementById('pHtmlAnim'),
-  pHtmlScale: document.getElementById('pHtmlScale'),
-  pHtmlAnimMs: document.getElementById('pHtmlAnimMs'),
-  pHtmlDelayMs: document.getElementById('pHtmlDelayMs'),
-  pHtmlDelayOffMs: document.getElementById('pHtmlDelayOffMs')
+  pHtmlScale: document.getElementById('pHtmlScale')
     };
 function setLabelText(labelEl, text) {
   if (!labelEl) return;
@@ -681,12 +673,6 @@ function buildImageDataJson() {
   const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(el.pImageFadeMode.value || ''))
     ? String(el.pImageFadeMode.value || 'all')
     : 'all';
-  const animation = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(el.pImageAnim.value || ''))
-    ? String(el.pImageAnim.value || 'none')
-    : 'none';
-  const animationMs = Math.max(100, Math.min(5000, Number(el.pImageAnimMs.value || 700)));
-  const delayOnMs = Math.max(0, Number(el.pImageDelayMs.value || 0));
-  const delayOffMs = Math.max(0, Number(el.pImageDelayOffMs.value || 0));
   const fluid = el.pImageFluidMode && el.pImageFluidMode.value === 'fluid';
   return {
     image: {
@@ -702,10 +688,6 @@ function buildImageDataJson() {
       saturation_pct: saturationPct,
       fade_pct: fadePct,
       fade_mode: fadeMode,
-      animation: animation,
-      animation_ms: animationMs,
-      delay_on_ms: delayOnMs,
-      delay_off_ms: delayOffMs,
       fluid: fluid,
       mode: fluid ? 'fluid' : 'fixed',
       position: el.pImagePosition.value || 'center'
@@ -732,6 +714,15 @@ function applyImageEffects(target, imageData) {
   target.style.borderRadius = radius > 0 ? (radius + 'px') : '0';
   target.style.boxShadow = shadowMap[shadow] || 'none';
   target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+}
+function removeLegacyContentMotionControls() {
+  ['pHtmlAnim', 'pHtmlAnimMs', 'pHtmlDelayMs', 'pHtmlDelayOffMs', 'pImageAnim', 'pImageAnimMs', 'pImageDelayMs', 'pImageDelayOffMs'].forEach((id) => {
+    const node = document.getElementById(id);
+    const label = node ? node.closest('label') : null;
+    if (label) {
+      label.remove();
+    }
+  });
 }
 function setImageMask(target, mode, fade) {
   if (!target) return;
@@ -880,20 +871,10 @@ function buildVideoDataJson() {
   };
 }
 function buildHtmlDataJson() {
-  const animation = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(el.pHtmlAnim.value || ''))
-    ? String(el.pHtmlAnim.value || 'none')
-    : 'none';
   const scalePct = Math.max(1, Math.min(500, Number(el.pHtmlScale.value || 100)));
-  const animationMs = Math.max(100, Math.min(5000, Number(el.pHtmlAnimMs.value || 700)));
-  const delayOnMs = Math.max(0, Number(el.pHtmlDelayMs.value || 0));
-  const delayOffMs = Math.max(0, Number(el.pHtmlDelayOffMs.value || 0));
   return {
     html: {
-      scale_pct: scalePct,
-      animation: animation,
-      animation_ms: animationMs,
-        delay_on_ms: delayOnMs,
-        delay_off_ms: delayOffMs
+      scale_pct: scalePct
     }
   };
 }
@@ -1454,15 +1435,7 @@ function nowDraft() {
   el.pImageSaturation.value = '100';
   el.pImageFade.value = '0';
   el.pImageFadeMode.value = 'all';
-  el.pImageAnim.value = 'none';
-  el.pImageAnimMs.value = '700';
-  el.pImageDelayMs.value = '0';
-  el.pImageDelayOffMs.value = '0';
-  el.pHtmlAnim.value = 'none';
   el.pHtmlScale.value = '100';
-  el.pHtmlAnimMs.value = '700';
-  el.pHtmlDelayMs.value = '0';
-  el.pHtmlDelayOffMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1666,10 +1639,6 @@ function resetEditor() {
   el.pImageSaturation.value = '100';
   el.pImageFade.value = '0';
   el.pImageFadeMode.value = 'all';
-  el.pImageAnim.value = 'none';
-  el.pImageAnimMs.value = '700';
-  el.pImageDelayMs.value = '0';
-  el.pImageDelayOffMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1868,13 +1837,7 @@ async function loadById(id) {
     el.cAnimation.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(data.animation || ''))
       ? String(data.animation || 'none')
       : 'none';
-    el.pHtmlAnim.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(html.animation || ''))
-      ? String(html.animation || 'none')
-      : 'none';
     el.pHtmlScale.value = String(Math.max(1, Math.min(500, Number(html.scale_pct || 100))));
-    el.pHtmlAnimMs.value = String(Math.max(100, Math.min(5000, Number(html.animation_ms || 700))));
-    el.pHtmlDelayMs.value = String(Math.max(0, Number((html.delay_on_ms ?? html.delay_ms) || 0)));
-    el.pHtmlDelayOffMs.value = String(Math.max(0, Number(html.delay_off_ms || 0)));
     el.pImageWidth.value = image.width_px ? String(Number(image.width_px || 0)) : '';
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
     el.pImageScale.value = image.scale_pct ? String(Number(image.scale_pct || 100)) : '100';
@@ -1891,12 +1854,6 @@ async function loadById(id) {
     el.pImageFadeMode.value = ['all', 'horizontal', 'vertical'].includes(String(image.fade_mode || ''))
       ? String(image.fade_mode || 'all')
       : 'all';
-    el.pImageAnim.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(image.animation || ''))
-      ? String(image.animation || 'none')
-      : 'none';
-    el.pImageAnimMs.value = String(Math.max(100, Math.min(5000, Number(image.animation_ms || 700))));
-    el.pImageDelayMs.value = String(Math.max(0, Number((image.delay_on_ms ?? image.delay_ms) || 0)));
-    el.pImageDelayOffMs.value = String(Math.max(0, Number(image.delay_off_ms || 0)));
     el.pImageFluidMode.value = (image.fluid === true || String(image.mode || '') === 'fluid') ? 'fluid' : 'fixed';
     el.pImagePosition.value = String(image.position || 'center');
     el.pVideoWidth.value = video.width_px ? String(Number(video.width_px || 0)) : '';
@@ -2246,15 +2203,7 @@ el.pImageContrast.addEventListener('input', () => { syncDataJson(); syncPreview(
 el.pImageSaturation.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFade.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFadeMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
-el.pImageAnim.addEventListener('change', () => { syncDataJson(); syncPreview(); });
-el.pImageAnimMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-el.pImageDelayMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-  el.pImageDelayOffMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-  el.pHtmlAnim.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-el.pHtmlAnimMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-el.pHtmlDelayMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
-el.pHtmlDelayOffMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pVideoWidth.addEventListener('input', () => { syncVideoScaleFromDimensions(); syncDataJson(); syncPreview(); });
@@ -2286,6 +2235,7 @@ if (el.cHtmlBody) {
 }
 
 (async function boot() {
+  removeLegacyContentMotionControls();
   normalizeInspectorTexts();
   resetEditor();
   await reloadList();

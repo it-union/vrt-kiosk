@@ -119,7 +119,11 @@ function normalizeBlockBackground(raw) {
         background_image: String(src.background_image || '').trim(),
         background_size: size,
         background_position: position,
-        background_repeat: repeat
+        background_repeat: repeat,
+        animation: ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(src.animation || '')) ? String(src.animation || 'none') : 'none',
+        animation_ms: Math.max(100, Math.min(5000, Number(src.animation_ms || 700))),
+        delay_on_ms: Math.max(0, Number(src.delay_on_ms || 0)),
+        delay_off_ms: Math.max(0, Number(src.delay_off_ms || 0))
     };
 }
 function applyBackgroundStyle(target, cfg, fallbackColor = '#ffffff') {
@@ -501,6 +505,7 @@ async function renderBlock(blockRaw, contentMap) {
     if (type === 'image') {
         if (mediaUrl) {
             const p = data && typeof data.image === 'object' ? data.image : {};
+            const motion = normalizeBlockBackground(block.style);
             const [justify, align] = resolvePosition(p.position);
             const widthPx = Math.max(1, Number(p.width_px || 0));
             const heightPx = Math.max(1, Number(p.height_px || 0));
@@ -509,7 +514,7 @@ async function renderBlock(blockRaw, contentMap) {
             el.style.display = 'flex';
             el.style.justifyContent = justify;
             el.style.alignItems = align;
-            const img = buildImageElement(mediaUrl, title, p, 'media', el);
+            const img = buildImageElement(mediaUrl, title, { ...p, animation: motion.animation, animation_ms: motion.animation_ms, delay_on_ms: motion.delay_on_ms, delay_off_ms: motion.delay_off_ms }, 'media', el);
             if (fluid) {
                 img.style.width = '100%';
                 img.style.height = '100%';
@@ -529,6 +534,7 @@ async function renderBlock(blockRaw, contentMap) {
     if (type === 'html') {
         const html = String(content.body || '');
         const p = data && typeof data.html === 'object' ? data.html : {};
+        const motion = normalizeBlockBackground(block.style);
         if (html.trim() === '') {
             appendTitleBody(el, title, 'Для HTML не задан body');
         } else {
@@ -539,7 +545,7 @@ async function renderBlock(blockRaw, contentMap) {
             htmlInner.style.width = '100%';
             htmlInner.style.height = '100%';
             el.appendChild(htmlInner);
-            applyTimedAppearance(el, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0);
+            applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
         }
         return el;
     }
