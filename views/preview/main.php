@@ -187,6 +187,21 @@ function applyBlockAnimation(target, animationName) {
         : 'none';
     target.style.animation = map[key] || '';
 }
+function applyTimedAppearance(target, animationName, animationMs, delayMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    const delay = Math.max(0, Math.min(10000, Number(delayMs || 0)));
+    const map = {
+        none: '',
+        fade_in: `fadeInBlock ${ms}ms ease ${delay}ms both`,
+        slide_up: `slideUpBlock ${ms}ms ease ${delay}ms both`,
+        slide_left: `slideLeftBlock ${ms}ms ease ${delay}ms both`,
+        zoom_in: `zoomInBlock ${ms}ms ease ${delay}ms both`
+    };
+    target.style.animation = map[name] || '';
+}
 
 function appendTitleBody(root, title, body) {
     const h = document.createElement('h3');
@@ -302,7 +317,7 @@ function applyImageAnimation(target, imageData) {
         ? String(p.animation || 'none')
         : 'none';
     const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
-    const delayMs = Math.max(0, Math.min(10000, Number(p.delay_ms || 0)));
+    const delayMs = Math.max(0, Math.min(10000, Number((p.delay_on_ms ?? p.delay_ms) || 0)));
     const map = {
         none: '',
         fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
@@ -513,10 +528,18 @@ async function renderBlock(blockRaw, contentMap) {
 
     if (type === 'html') {
         const html = String(content.body || '');
+        const p = data && typeof data.html === 'object' ? data.html : {};
         if (html.trim() === '') {
             appendTitleBody(el, title, 'Для HTML не задан body');
         } else {
-            el.innerHTML = html;
+            const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
+            const htmlInner = document.createElement('div');
+            htmlInner.innerHTML = html;
+            htmlInner.style.zoom = scalePct + '%';
+            htmlInner.style.width = '100%';
+            htmlInner.style.height = '100%';
+            el.appendChild(htmlInner);
+            applyTimedAppearance(el, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0);
         }
         return el;
     }

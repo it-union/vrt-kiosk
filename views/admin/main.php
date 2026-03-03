@@ -581,9 +581,6 @@ const manualModalClose = document.getElementById('manualModalClose');
 const showTemplateButtons = Array.from(document.querySelectorAll('.js-show-template'));
 const activeQueueListItems = Array.from(document.querySelectorAll('#activeQueueList .queueListItem'));
 let screenStatusTimer = null;
-let queueProgressTimer = null;
-let currentQueueProgressState = null;
-let currentQueueProgressStartedAtMs = 0;
 
 function setQueueStatus(message, isError) {
     if (!queueStatus) return;
@@ -609,15 +606,8 @@ function setModeButtons(source) {
     if (queueManualBtn) queueManualBtn.classList.toggle('isActive', source === 'manual');
 }
 
-function stopQueueProgressTimer() {
-    if (queueProgressTimer !== null) {
-        window.clearInterval(queueProgressTimer);
-        queueProgressTimer = null;
-    }
-}
-
 function paintQueueProgress() {
-    const state = currentQueueProgressState;
+    const state = arguments.length > 0 ? arguments[0] : null;
     activeQueueListItems.forEach((node) => {
         const bar = node.querySelector('.queueProgressBar');
         if (!bar) return;
@@ -626,26 +616,17 @@ function paintQueueProgress() {
             bar.style.width = '0%';
             return;
         }
-        const durationSec = Math.max(1, Number(state.duration_sec || 1));
-        const elapsedBase = Math.max(0, Number(state.elapsed_sec || 0));
-        const extraElapsed = Math.max(0, (Date.now() - currentQueueProgressStartedAtMs) / 1000);
-        const progress = Math.max(0, Math.min(100, ((elapsedBase + extraElapsed) / durationSec) * 100));
+        const progress = Math.max(0, Math.min(100, Number(state.progress_pct || 0)));
         bar.style.width = progress + '%';
     });
 }
 
 function setQueueProgress(queueState, source) {
-    stopQueueProgressTimer();
-    currentQueueProgressState = null;
-    currentQueueProgressStartedAtMs = 0;
     if (source !== 'schedule' || !queueState || Number(queueState.current_template_id || 0) <= 0) {
-        paintQueueProgress();
+        paintQueueProgress(null);
         return;
     }
-    currentQueueProgressState = queueState;
-    currentQueueProgressStartedAtMs = Date.now();
-    paintQueueProgress();
-    queueProgressTimer = window.setInterval(paintQueueProgress, 200);
+    paintQueueProgress(queueState);
 }
 
 function markCurrentQueueTemplate(templateId, source) {
@@ -803,7 +784,6 @@ screenStatusTimer = window.setInterval(refreshScreenStatus, 5000);
       if (screenStatusTimer !== null) {
           window.clearInterval(screenStatusTimer);
       }
-      stopQueueProgressTimer();
   });
 </script>
 </body>

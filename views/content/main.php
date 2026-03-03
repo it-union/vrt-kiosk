@@ -49,9 +49,11 @@ declare(strict_types=1);
         .inspectorPanel #editorControls .row { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 8px 0 0; }
         .inspectorPanel #editorControls .row > label { margin: 0; }
         .inspectorPanel #editorControls > input[type="hidden"] { display: none; }
+        .inspectorPanel #htmlControls,
         .inspectorPanel #imageControls,
         .inspectorPanel #videoControls,
         .inspectorPanel #pptControls { display: flex; flex-direction: column; gap: 8px; }
+        .inspectorPanel #htmlControls > button,
         .inspectorPanel #imageControls > button,
         .inspectorPanel #videoControls > button,
         .inspectorPanel #pptControls > button { width: calc(100% - 150px); margin-left: 150px; }
@@ -205,6 +207,22 @@ declare(strict_types=1);
             </label>
 
             <input id="cMediaUrl" type="hidden" value="">
+            <div id="htmlControls" style="display:none;">
+                <label>Анимация появления
+                    <select id="pHtmlAnim">
+                        <option value="none">без анимации</option>
+                        <option value="fade_in">появление</option>
+                        <option value="slide_up">снизу вверх</option>
+                        <option value="slide_left">справа налево</option>
+                        <option value="zoom_in">масштаб</option>
+                    </select>
+                </label>
+                <label>Масштаб, % <input id="pHtmlScale" type="number" min="1" max="500" step="1" value="100"></label>
+                <label>Время анимации, мс <input id="pHtmlAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label>Задержка on, мс <input id="pHtmlDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
+                <label>Задержка off, мс <input id="pHtmlDelayOffMs" type="number" min="0" max="10000" step="50" value="0"></label>
+            </div>
+
             <div id="imageControls">
                 <button type="button" id="openLibraryBtn">иблиотека изображений</button>
                 <div class="row">
@@ -244,7 +262,8 @@ declare(strict_types=1);
                     </select>
                 </label>
                 <label>Время анимации, мс <input id="pImageAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
-                <label>Задержка, мс <input id="pImageDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
+                <label>Задержка on, мс <input id="pImageDelayMs" type="number" min="0" max="10000" step="50" value="0"></label>
+                <label>Задержка off, мс <input id="pImageDelayOffMs" type="number" min="0" max="10000" step="50" value="0"></label>
                 <label>Режи изображения
                     <select id="pImageFluidMode">
                         <option value="fixed">фиксированный разер</option>
@@ -470,6 +489,7 @@ const el = {
   pImageAnim: document.getElementById('pImageAnim'),
   pImageAnimMs: document.getElementById('pImageAnimMs'),
   pImageDelayMs: document.getElementById('pImageDelayMs'),
+  pImageDelayOffMs: document.getElementById('pImageDelayOffMs'),
   pImageFluidMode: document.getElementById('pImageFluidMode'),
   pImagePosition: document.getElementById('pImagePosition'),
   pVideoWidth: document.getElementById('pVideoWidth'),
@@ -494,11 +514,17 @@ const el = {
   previewPpt: document.getElementById('previewPpt'),
   previewHtml: document.getElementById('previewHtml'),
   imageLibrary: document.getElementById('imageLibrary'),
+  htmlControls: document.getElementById('htmlControls'),
   imageControls: document.getElementById('imageControls'),
   videoControls: document.getElementById('videoControls'),
   pptControls: document.getElementById('pptControls'),
-  htmlEditorWrap: document.getElementById('htmlEditorWrap')
-};
+  htmlEditorWrap: document.getElementById('htmlEditorWrap'),
+  pHtmlAnim: document.getElementById('pHtmlAnim'),
+  pHtmlScale: document.getElementById('pHtmlScale'),
+  pHtmlAnimMs: document.getElementById('pHtmlAnimMs'),
+  pHtmlDelayMs: document.getElementById('pHtmlDelayMs'),
+  pHtmlDelayOffMs: document.getElementById('pHtmlDelayOffMs')
+    };
 function setLabelText(labelEl, text) {
   if (!labelEl) return;
   for (const node of labelEl.childNodes) {
@@ -605,6 +631,7 @@ function setEditorVisible(visible, type = 'image') {
   if (el.previewEmpty) el.previewEmpty.style.display = visible ? 'none' : 'block';
   if (el.editorControls) el.editorControls.style.display = visible ? 'block' : 'none';
   if (el.editorEmpty) el.editorEmpty.style.display = visible ? 'none' : 'block';
+  if (el.htmlControls) el.htmlControls.style.display = visible && viewType === 'html' ? 'block' : 'none';
   if (el.imageControls) el.imageControls.style.display = visible && viewType === 'image' ? 'block' : 'none';
   if (el.videoControls) el.videoControls.style.display = visible && viewType === 'video' ? 'block' : 'none';
   if (el.pptControls) el.pptControls.style.display = visible && viewType === 'ppt' ? 'block' : 'none';
@@ -658,7 +685,8 @@ function buildImageDataJson() {
     ? String(el.pImageAnim.value || 'none')
     : 'none';
   const animationMs = Math.max(100, Math.min(5000, Number(el.pImageAnimMs.value || 700)));
-  const delayMs = Math.max(0, Math.min(10000, Number(el.pImageDelayMs.value || 0)));
+  const delayOnMs = Math.max(0, Math.min(10000, Number(el.pImageDelayMs.value || 0)));
+  const delayOffMs = Math.max(0, Math.min(10000, Number(el.pImageDelayOffMs.value || 0)));
   const fluid = el.pImageFluidMode && el.pImageFluidMode.value === 'fluid';
   return {
     image: {
@@ -676,7 +704,8 @@ function buildImageDataJson() {
       fade_mode: fadeMode,
       animation: animation,
       animation_ms: animationMs,
-      delay_ms: delayMs,
+      delay_on_ms: delayOnMs,
+      delay_off_ms: delayOffMs,
       fluid: fluid,
       mode: fluid ? 'fluid' : 'fixed',
       position: el.pImagePosition.value || 'center'
@@ -737,13 +766,28 @@ function applyImageAnimation(target, imageData) {
     ? String(p.animation || 'none')
     : 'none';
   const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
-  const delayMs = Math.max(0, Math.min(10000, Number(p.delay_ms || 0)));
+  const delayMs = Math.max(0, Math.min(10000, Number((p.delay_on_ms ?? p.delay_ms) || 0)));
   const map = {
     none: '',
     fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
     slide_up: `slideUpBlock ${ms}ms ease ${delayMs}ms both`,
     slide_left: `slideLeftBlock ${ms}ms ease ${delayMs}ms both`,
     zoom_in: `zoomInBlock ${ms}ms ease ${delayMs}ms both`
+  };
+  target.style.animation = map[name] || '';
+}
+function applyTimedAppearance(target, animationName, animationMs, delayMs) {
+  const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+    ? String(animationName || 'none')
+    : 'none';
+  const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+  const delay = Math.max(0, Math.min(10000, Number(delayMs || 0)));
+  const map = {
+    none: '',
+    fade_in: `fadeInBlock ${ms}ms ease ${delay}ms both`,
+    slide_up: `slideUpBlock ${ms}ms ease ${delay}ms both`,
+    slide_left: `slideLeftBlock ${ms}ms ease ${delay}ms both`,
+    zoom_in: `zoomInBlock ${ms}ms ease ${delay}ms both`
   };
   target.style.animation = map[name] || '';
 }
@@ -836,7 +880,22 @@ function buildVideoDataJson() {
   };
 }
 function buildHtmlDataJson() {
-  return {};
+  const animation = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(el.pHtmlAnim.value || ''))
+    ? String(el.pHtmlAnim.value || 'none')
+    : 'none';
+  const scalePct = Math.max(1, Math.min(500, Number(el.pHtmlScale.value || 100)));
+  const animationMs = Math.max(100, Math.min(5000, Number(el.pHtmlAnimMs.value || 700)));
+  const delayOnMs = Math.max(0, Math.min(10000, Number(el.pHtmlDelayMs.value || 0)));
+  const delayOffMs = Math.max(0, Math.min(10000, Number(el.pHtmlDelayOffMs.value || 0)));
+  return {
+    html: {
+      scale_pct: scalePct,
+      animation: animation,
+      animation_ms: animationMs,
+        delay_on_ms: delayOnMs,
+        delay_off_ms: delayOffMs
+    }
+  };
 }
 function syncDataJson() {
   if (state.currentType === 'html') return JSON.stringify(buildHtmlDataJson());
@@ -1013,16 +1072,20 @@ function syncPreview() {
   if (state.currentType === 'html') {
     if (el.previewImg) el.previewImg.style.display = 'none';
     if (el.previewVideo) {
-      el.previewVideo.style.display = 'none';
-      el.previewVideo.removeAttribute('src');
+        el.previewVideo.style.display = 'none';
+        el.previewVideo.removeAttribute('src');
       el.previewVideo.load();
     }
     if (el.previewPpt) {
-      el.previewPpt.style.display = 'none';
-      el.previewPpt.removeAttribute('src');
-    }
-    stopPptPreviewTimer();
-    if (el.previewHtml) el.previewHtml.style.display = 'none';
+        el.previewPpt.style.display = 'none';
+        el.previewPpt.removeAttribute('src');
+      }
+      stopPptPreviewTimer();
+      if (el.previewHtml) {
+        el.previewHtml.style.display = 'none';
+        el.previewHtml.innerHTML = '';
+        el.previewHtml.style.animation = '';
+      }
     syncHtmlShadow();
     return;
   }
@@ -1394,6 +1457,12 @@ function nowDraft() {
   el.pImageAnim.value = 'none';
   el.pImageAnimMs.value = '700';
   el.pImageDelayMs.value = '0';
+  el.pImageDelayOffMs.value = '0';
+  el.pHtmlAnim.value = 'none';
+  el.pHtmlScale.value = '100';
+  el.pHtmlAnimMs.value = '700';
+  el.pHtmlDelayMs.value = '0';
+  el.pHtmlDelayOffMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1600,6 +1669,7 @@ function resetEditor() {
   el.pImageAnim.value = 'none';
   el.pImageAnimMs.value = '700';
   el.pImageDelayMs.value = '0';
+  el.pImageDelayOffMs.value = '0';
   el.pImageFluidMode.value = 'fixed';
   imageBaseWidth = 0;
   imageBaseHeight = 0;
@@ -1791,12 +1861,20 @@ async function loadById(id) {
     setHtmlValue(String(row.body || ''));
 
     const data = parseJsonSafe(row.data_json || '');
+    const html = data.html && typeof data.html === 'object' ? data.html : {};
     const image = data.image && typeof data.image === 'object' ? data.image : {};
     const video = data.video && typeof data.video === 'object' ? data.video : {};
     const ppt = data.ppt && typeof data.ppt === 'object' ? data.ppt : {};
     el.cAnimation.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(data.animation || ''))
       ? String(data.animation || 'none')
       : 'none';
+    el.pHtmlAnim.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(html.animation || ''))
+      ? String(html.animation || 'none')
+      : 'none';
+    el.pHtmlScale.value = String(Math.max(1, Math.min(500, Number(html.scale_pct || 100))));
+    el.pHtmlAnimMs.value = String(Math.max(100, Math.min(5000, Number(html.animation_ms || 700))));
+    el.pHtmlDelayMs.value = String(Math.max(0, Math.min(10000, Number((html.delay_on_ms ?? html.delay_ms) || 0))));
+    el.pHtmlDelayOffMs.value = String(Math.max(0, Math.min(10000, Number(html.delay_off_ms || 0))));
     el.pImageWidth.value = image.width_px ? String(Number(image.width_px || 0)) : '';
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
     el.pImageScale.value = image.scale_pct ? String(Number(image.scale_pct || 100)) : '100';
@@ -1817,7 +1895,8 @@ async function loadById(id) {
       ? String(image.animation || 'none')
       : 'none';
     el.pImageAnimMs.value = String(Math.max(100, Math.min(5000, Number(image.animation_ms || 700))));
-    el.pImageDelayMs.value = String(Math.max(0, Math.min(10000, Number(image.delay_ms || 0))));
+    el.pImageDelayMs.value = String(Math.max(0, Math.min(10000, Number((image.delay_on_ms ?? image.delay_ms) || 0))));
+    el.pImageDelayOffMs.value = String(Math.max(0, Math.min(10000, Number(image.delay_off_ms || 0))));
     el.pImageFluidMode.value = (image.fluid === true || String(image.mode || '') === 'fluid') ? 'fluid' : 'fixed';
     el.pImagePosition.value = String(image.position || 'center');
     el.pVideoWidth.value = video.width_px ? String(Number(video.width_px || 0)) : '';
@@ -2170,6 +2249,12 @@ el.pImageFadeMode.addEventListener('change', () => { syncDataJson(); syncPreview
 el.pImageAnim.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImageAnimMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageDelayMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+  el.pImageDelayOffMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+  el.pHtmlAnim.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pHtmlAnimMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pHtmlDelayMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pHtmlDelayOffMs.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pVideoWidth.addEventListener('input', () => { syncVideoScaleFromDimensions(); syncDataJson(); syncPreview(); });

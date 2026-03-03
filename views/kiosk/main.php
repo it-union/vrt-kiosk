@@ -76,6 +76,10 @@ function clearMediaTimers() {
         clearTimeout(id);
     }
 }
+function registerMediaTimer(id) {
+    activeMediaTimers.push(id);
+    return id;
+}
 function parseDataJson(value) {
     if (value && typeof value === 'object') return value;
     if (typeof value !== 'string' || value.trim() === '') return null;
@@ -180,6 +184,173 @@ function applyBlockAnimation(target, animationName) {
         ? String(animationName || '')
         : 'none';
     target.style.animation = map[key] || '';
+}
+function applyTimedAppearance(target, animationName, animationMs, delayMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    const delay = Math.max(0, Math.min(10000, Number(delayMs || 0)));
+    const map = {
+        none: '',
+        fade_in: `fadeInBlock ${ms}ms ease ${delay}ms both`,
+        slide_up: `slideUpBlock ${ms}ms ease ${delay}ms both`,
+        slide_left: `slideLeftBlock ${ms}ms ease ${delay}ms both`,
+      zoom_in: `zoomInBlock ${ms}ms ease ${delay}ms both`
+      };
+      target.style.animation = map[name] || '';
+  }
+function buildShowAnimation(animationName, animationMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    if (name === 'none') {
+        return { value: '', duration: ms, name: 'none' };
+    }
+    const map = {
+        fade_in: `fadeInBlock ${ms}ms ease 0ms both`,
+        slide_up: `slideUpBlock ${ms}ms ease 0ms both`,
+        slide_left: `slideLeftBlock ${ms}ms ease 0ms both`,
+        zoom_in: `zoomInBlock ${ms}ms ease 0ms both`
+    };
+    return { value: map[name] || '', duration: ms, name };
+}
+function buildHideAnimation(animationName, animationMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    if (name === 'none') {
+        return { value: '', duration: ms, name: 'none' };
+    }
+    const map = {
+        fade_in: `fadeInBlock ${ms}ms ease 0ms reverse both`,
+        slide_up: `slideUpBlock ${ms}ms ease 0ms reverse both`,
+        slide_left: `slideLeftBlock ${ms}ms ease 0ms reverse both`,
+        zoom_in: `zoomInBlock ${ms}ms ease 0ms reverse both`
+      };
+      return { value: map[name] || '', duration: ms, name };
+  }
+function startContentCycle(target, animationName, animationMs, delayOnMs, delayOffMs, runtime) {
+    if (!target || !runtime || runtime.source !== 'schedule') return false;
+    const queueState = runtime.queueState && typeof runtime.queueState === 'object' ? runtime.queueState : null;
+    if (!queueState) return false;
+    const slideDurationMs = Math.max(0, Math.round(Math.max(0, Number(queueState.duration_sec || 0)) * 1000));
+    if (slideDurationMs <= 0) return false;
+
+    const totalItems = Math.max(0, Number(queueState.total_items || 0));
+    const show = buildShowAnimation(animationName, animationMs);
+    const hide = buildHideAnimation(animationName, animationMs);
+    const onMs = Math.max(0, Math.min(10000, Number(delayOnMs || 0)));
+    const offMs = Math.max(0, Math.min(10000, Number(delayOffMs || 0)));
+    const elapsedMsRaw = Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000));
+    const cycleOffsetMs = slideDurationMs > 0 ? (elapsedMsRaw % slideDurationMs) : 0;
+    const showStartMs = onMs;
+    const showEndMs = showStartMs + (show.name === 'none' ? 0 : show.duration);
+    const hideStartMs = showEndMs + offMs;
+    const hideEndMs = hideStartMs + (hide.name === 'none' ? 0 : hide.duration);
+
+    const resetForCycle = () => {
+        target.style.animation = '';
+        target.style.opacity = '';
+        target.style.visibility = '';
+        target.style.pointerEvents = '';
+        if (onMs > 0 || show.name !== 'none') {
+            target.style.opacity = '0';
+            target.style.visibility = 'hidden';
+        }
+    };
+    const runShow = () => {
+        if (!target.isConnected) return;
+        target.style.visibility = 'visible';
+        target.style.pointerEvents = '';
+        if (show.name === 'none') {
+            target.style.opacity = '1';
+            target.style.animation = '';
+            return;
+        }
+        target.style.animation = 'none';
+        void target.offsetWidth;
+        target.style.animation = show.value;
+    };
+    const runHide = () => {
+        if (!target.isConnected) return;
+        if (hide.name === 'none') {
+            target.style.opacity = '0';
+            target.style.visibility = 'hidden';
+            target.style.pointerEvents = 'none';
+            return;
+        }
+        target.style.animation = 'none';
+        void target.offsetWidth;
+        target.style.animation = hide.value;
+        registerMediaTimer(setTimeout(() => {
+            if (!target.isConnected) return;
+            target.style.visibility = 'hidden';
+            target.style.pointerEvents = 'none';
+        }, hide.duration));
+    };
+    const showFinalState = () => {
+        target.style.animation = '';
+        target.style.visibility = 'visible';
+        target.style.opacity = '1';
+        target.style.pointerEvents = '';
+    };
+    const hideFinalState = () => {
+        target.style.animation = '';
+        target.style.opacity = '0';
+        target.style.visibility = 'hidden';
+        target.style.pointerEvents = 'none';
+    };
+    const scheduleCycle = (offsetMs) => {
+        const safeOffset = Math.max(0, Math.min(slideDurationMs, Number(offsetMs || 0)));
+        resetForCycle();
+        if (safeOffset <= 0) {
+            if (showStartMs > 0) {
+                registerMediaTimer(setTimeout(runShow, showStartMs));
+            } else {
+                runShow();
+            }
+            if (offMs > 0 && hideStartMs < slideDurationMs) {
+                registerMediaTimer(setTimeout(runHide, hideStartMs));
+            }
+            return;
+        }
+
+        if (safeOffset < showStartMs) {
+            registerMediaTimer(setTimeout(runShow, Math.max(0, showStartMs - safeOffset)));
+            if (offMs > 0 && hideStartMs < slideDurationMs) {
+                registerMediaTimer(setTimeout(runHide, Math.max(0, hideStartMs - safeOffset)));
+            }
+            return;
+        }
+
+        if (offMs <= 0 || safeOffset < hideStartMs) {
+            showFinalState();
+            if (offMs > 0 && hideStartMs < slideDurationMs) {
+                registerMediaTimer(setTimeout(runHide, Math.max(0, hideStartMs - safeOffset)));
+            }
+            return;
+        }
+
+        if (safeOffset < hideEndMs) {
+            runHide();
+            return;
+        }
+
+        hideFinalState();
+    };
+
+    scheduleCycle(cycleOffsetMs);
+    if (totalItems <= 1) {
+        registerMediaTimer(setTimeout(function repeatCycle() {
+            if (!target.isConnected) return;
+            scheduleCycle(0);
+            registerMediaTimer(setTimeout(repeatCycle, slideDurationMs));
+        }, Math.max(0, slideDurationMs - cycleOffsetMs)));
+    }
+    return true;
 }
 
 function appendTitleBody(root, title, body) {
@@ -296,7 +467,7 @@ function applyImageAnimation(target, imageData) {
         ? String(p.animation || 'none')
         : 'none';
     const ms = Math.max(100, Math.min(5000, Number(p.animation_ms || 700)));
-    const delayMs = Math.max(0, Math.min(10000, Number(p.delay_ms || 0)));
+    const delayMs = Math.max(0, Math.min(10000, Number((p.delay_on_ms ?? p.delay_ms) || 0)));
     const map = {
         none: '',
         fade_in: `fadeInBlock ${ms}ms ease ${delayMs}ms both`,
@@ -441,7 +612,7 @@ function resetPptSlide(node) {
     node.style.zIndex = '1';
 }
 
-async function renderBlock(blockRaw) {
+async function renderBlock(blockRaw, runtime = null) {
     const block = normalizeBlock(blockRaw);
     const el = document.createElement('div');
     el.className = 'block';
@@ -494,6 +665,9 @@ async function renderBlock(blockRaw) {
             img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
+            if (!startContentCycle(img, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0, p.delay_off_ms || 0, runtime)) {
+                applyImageAnimation(img, p);
+            }
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');
         }
@@ -502,10 +676,20 @@ async function renderBlock(blockRaw) {
 
     if (type === 'html') {
         const html = String(content.body || '');
+        const p = data && typeof data.html === 'object' ? data.html : {};
         if (html.trim() === '') {
             appendTitleBody(el, title, 'Для HTML не задан body');
         } else {
-            el.innerHTML = html;
+            const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
+            const htmlInner = document.createElement('div');
+            htmlInner.innerHTML = html;
+            htmlInner.style.zoom = scalePct + '%';
+            htmlInner.style.width = '100%';
+            htmlInner.style.height = '100%';
+            el.appendChild(htmlInner);
+            if (!startContentCycle(el, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0, p.delay_off_ms || 0, runtime)) {
+                applyTimedAppearance(el, p.animation || 'none', p.animation_ms || 700, (p.delay_on_ms ?? p.delay_ms) || 0);
+            }
         }
         return el;
     }
@@ -696,6 +880,10 @@ async function loadScreen() {
         const data = payload.data || {};
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];
         const screenStyle = normalizeScreenStyle(data.screen_style || DEFAULT_SCREEN_STYLE);
+        const runtime = {
+            source: String(data.source || ''),
+            queueState: data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null
+        };
         const signature = JSON.stringify({
             source: data.source || '',
             template: data.template || null,
@@ -713,7 +901,7 @@ async function loadScreen() {
         applyBackgroundStyle(stage, screenStyle, '#ffffff');
         stage.innerHTML = '';
         for (const block of blocks) {
-            stage.appendChild(await renderBlock(block));
+            stage.appendChild(await renderBlock(block, runtime));
         }
 
     } catch (e) {
