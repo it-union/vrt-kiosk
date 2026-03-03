@@ -40,10 +40,11 @@ function normalizeScreenStyle(?array $raw): array
         'size' => $size,
         'position' => $position,
         'repeat' => $repeat,
-        'transition_name' => in_array((string)($raw['transition_name'] ?? 'none'), ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'], true)
+        'transition_name' => in_array((string)($raw['transition_name'] ?? 'none'), ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom', 'squares'], true)
             ? (string)($raw['transition_name'] ?? 'none')
             : 'none',
         'transition_ms' => max(100, min(5000, (int)($raw['transition_ms'] ?? 700))),
+        'transition_squares_px' => max(40, min(400, (int)($raw['transition_squares_px'] ?? 160))),
     ];
 }
 

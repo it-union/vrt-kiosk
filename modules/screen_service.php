@@ -17,6 +17,7 @@ function defaultScreenStyle(): array
         'repeat' => 'no-repeat',
         'transition_name' => 'none',
         'transition_ms' => 700,
+        'transition_squares_px' => 160,
     ];
 }
 
@@ -61,10 +62,11 @@ function extractScreenStyleFromLayout(?string $layoutJson): array
     $style['color'] = $color !== '' ? $color : '#ffffff';
     $style['image'] = trim((string)($raw['image'] ?? ''));
     $transitionName = (string)($raw['transition_name'] ?? $style['transition_name']);
-    if (in_array($transitionName, ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'], true)) {
+    if (in_array($transitionName, ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom', 'squares'], true)) {
         $style['transition_name'] = $transitionName;
     }
     $style['transition_ms'] = max(100, min(5000, (int)($raw['transition_ms'] ?? $style['transition_ms'])));
+    $style['transition_squares_px'] = max(40, min(400, (int)($raw['transition_squares_px'] ?? $style['transition_squares_px'])));
 
     return $style;
 }

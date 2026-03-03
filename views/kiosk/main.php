@@ -35,6 +35,7 @@ const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size:
 const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
+let screenTransitionClipCounter = 0;
 
 function clamp(v, min, max) {
     const n = Number(v);
@@ -81,10 +82,121 @@ function clearMediaTimers() {
         const id = activeMediaTimers.pop();
         clearTimeout(id);
     }
+    stage.querySelectorAll('svg[data-screen-transition="squares"]').forEach((node) => node.remove());
+    stage.querySelectorAll('.screenLayer').forEach((node) => {
+        node.style.clipPath = '';
+        node.style.webkitClipPath = '';
+    });
 }
 function registerMediaTimer(id) {
     activeMediaTimers.push(id);
     return id;
+}
+function shuffleList(items) {
+    const list = Array.isArray(items) ? items.slice() : [];
+    for (let i = list.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = list[i];
+        list[i] = list[j];
+        list[j] = tmp;
+    }
+    return list;
+}
+function createSvgNode(tagName) {
+    return document.createElementNS('http://www.w3.org/2000/svg', tagName);
+}
+function getSquaresGridMetrics(node, squareSizePx) {
+    const width = Math.max(1, Math.round(node?.clientWidth || stage.clientWidth || window.innerWidth || 1));
+    const height = Math.max(1, Math.round(node?.clientHeight || stage.clientHeight || window.innerHeight || 1));
+    const targetCell = Math.max(40, Math.min(400, Number(squareSizePx || 160)));
+    const cols = Math.max(4, Math.min(12, Math.round(width / targetCell) || 1));
+    const rows = Math.max(3, Math.min(8, Math.round(height / targetCell) || 1));
+    return {
+        width,
+        height,
+        cols,
+        rows,
+        cellWidth: width / cols,
+        cellHeight: height / rows
+    };
+}
+function runSquaresTransition(node, animationMs, squareSizePx, onDone) {
+    if (!node) {
+        if (typeof onDone === 'function') onDone();
+        return;
+    }
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    const metrics = getSquaresGridMetrics(node, squareSizePx);
+    const clipId = `screenSquaresClip${++screenTransitionClipCounter}`;
+    const svg = createSvgNode('svg');
+    svg.setAttribute('width', '0');
+    svg.setAttribute('height', '0');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.dataset.screenTransition = 'squares';
+    svg.style.position = 'absolute';
+    svg.style.width = '0';
+    svg.style.height = '0';
+    svg.style.pointerEvents = 'none';
+    const defs = createSvgNode('defs');
+    const clipPath = createSvgNode('clipPath');
+    clipPath.setAttribute('id', clipId);
+    clipPath.setAttribute('clipPathUnits', 'userSpaceOnUse');
+    clipPath.setAttribute('shape-rendering', 'crispEdges');
+    defs.appendChild(clipPath);
+    svg.appendChild(defs);
+    stage.appendChild(svg);
+
+    const cleanup = () => {
+        node.style.clipPath = '';
+        node.style.webkitClipPath = '';
+        if (svg.parentNode) {
+            svg.remove();
+        }
+    };
+
+    node.style.clipPath = `url(#${clipId})`;
+    node.style.webkitClipPath = `url(#${clipId})`;
+
+    const cells = [];
+    const overlapPx = 1;
+    for (let row = 0; row < metrics.rows; row += 1) {
+        for (let col = 0; col < metrics.cols; col += 1) {
+            const x = Math.round(col * metrics.cellWidth);
+            const y = Math.round(row * metrics.cellHeight);
+            const nextX = Math.round((col + 1) * metrics.cellWidth);
+            const nextY = Math.round((row + 1) * metrics.cellHeight);
+            const drawX = Math.max(0, x - overlapPx);
+            const drawY = Math.max(0, y - overlapPx);
+            const drawWidth = Math.min(metrics.width - drawX, Math.max(1, nextX - x) + overlapPx * 2);
+            const drawHeight = Math.min(metrics.height - drawY, Math.max(1, nextY - y) + overlapPx * 2);
+            cells.push({
+                x: drawX,
+                y: drawY,
+                width: Math.max(1, drawWidth),
+                height: Math.max(1, drawHeight)
+            });
+        }
+    }
+
+    const shuffled = shuffleList(cells);
+    const total = Math.max(1, shuffled.length);
+    shuffled.forEach((cell, index) => {
+        const delay = Math.round((index * ms) / total);
+        registerMediaTimer(setTimeout(() => {
+            if (!node.isConnected) return;
+            const rect = createSvgNode('rect');
+            rect.setAttribute('x', String(cell.x));
+            rect.setAttribute('y', String(cell.y));
+            rect.setAttribute('width', String(cell.width));
+            rect.setAttribute('height', String(cell.height));
+            clipPath.appendChild(rect);
+        }, delay));
+    });
+
+    registerMediaTimer(setTimeout(() => {
+        cleanup();
+        if (typeof onDone === 'function') onDone();
+    }, ms + 40));
 }
 function parseDataJson(value) {
     if (value && typeof value === 'object') return value;
@@ -103,10 +215,11 @@ function normalizeScreenStyle(raw) {
     const repeat = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(String(src.repeat || '')) ? String(src.repeat) : 'no-repeat';
     const positions = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom'];
     const position = positions.includes(String(src.position || '')) ? String(src.position) : 'center center';
-    const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(src.transition_name || ''))
+    const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom', 'squares'].includes(String(src.transition_name || ''))
         ? String(src.transition_name || 'none')
         : 'none';
     const transitionMs = Math.max(100, Math.min(5000, Number(src.transition_ms || 700)));
+    const transitionSquaresPx = Math.max(40, Math.min(400, Number(src.transition_squares_px || 160)));
     return {
         mode,
         color: String(src.color || '#ffffff').trim() || '#ffffff',
@@ -115,7 +228,8 @@ function normalizeScreenStyle(raw) {
         position,
         repeat,
         transition_name: transitionName,
-        transition_ms: transitionMs
+        transition_ms: transitionMs,
+        transition_squares_px: transitionSquaresPx
     };
 }
 function normalizeBlockBackground(raw) {
@@ -676,7 +790,20 @@ async function renderBlock(blockRaw, runtime = null) {
             el.style.justifyContent = justify;
             el.style.alignItems = align;
             const templateDelayMs = getTemplateTransitionDelay(runtime);
-            const img = buildImageElement(mediaUrl, title, { ...p, animation: motion.animation, animation_ms: motion.animation_ms, delay_on_ms: motion.delay_on_ms + templateDelayMs, delay_off_ms: motion.delay_off_ms }, 'media', el);
+            const hasOwnAnimation = String(motion.animation || 'none') !== 'none';
+            const img = buildImageElement(
+                mediaUrl,
+                title,
+                {
+                    ...p,
+                    animation: motion.animation,
+                    animation_ms: motion.animation_ms,
+                    delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0),
+                    delay_off_ms: motion.delay_off_ms
+                },
+                'media',
+                el
+            );
             if (fluid) {
                 img.style.width = '100%';
                 img.style.height = '100%';
@@ -688,7 +815,10 @@ async function renderBlock(blockRaw, runtime = null) {
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
             if (!startContentCycle(img, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyImageAnimation(img, { ...motion, delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + templateDelayMs });
+                applyImageAnimation(img, {
+                    ...motion,
+                    delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0)
+                });
             }
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');
@@ -705,6 +835,7 @@ async function renderBlock(blockRaw, runtime = null) {
         } else {
             const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
             const templateDelayMs = getTemplateTransitionDelay(runtime);
+            const hasOwnAnimation = String(motion.animation || 'none') !== 'none';
             const htmlInner = document.createElement('div');
             htmlInner.innerHTML = html;
             htmlInner.style.zoom = scalePct + '%';
@@ -712,7 +843,12 @@ async function renderBlock(blockRaw, runtime = null) {
             htmlInner.style.height = '100%';
             el.appendChild(htmlInner);
             if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, Math.max(0, Number(motion.delay_on_ms || 0)) + templateDelayMs);
+                applyTimedAppearance(
+                    el,
+                    motion.animation || 'none',
+                    motion.animation_ms || 700,
+                    Math.max(0, Number(motion.delay_on_ms || 0)) + (hasOwnAnimation ? templateDelayMs : 0)
+                );
             }
         }
         return el;
@@ -895,7 +1031,7 @@ async function renderBlock(blockRaw, runtime = null) {
 }
 
 function buildScreenTransition(style) {
-    const name = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(style?.transition_name || ''))
+    const name = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom', 'squares'].includes(String(style?.transition_name || ''))
         ? String(style.transition_name || 'none')
         : 'none';
     const ms = Math.max(100, Math.min(5000, Number(style?.transition_ms || 700)));
@@ -905,9 +1041,17 @@ function buildScreenTransition(style) {
         slide_left: `screenSlideLeftIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
         slide_right: `screenSlideRightIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
         slide_up: `screenSlideUpIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
-        zoom: `screenZoomIn ${ms}ms ease both`
+        zoom: `screenZoomIn ${ms}ms ease both`,
+        squares: ''
     };
     return { name, ms, value: map[name] || '' };
+}
+function getScreenTransitionContentDelay(style) {
+    const transition = buildScreenTransition(style);
+    if (transition.name === 'none') {
+        return 0;
+    }
+    return transition.ms + (transition.name === 'squares' ? 40 : 30);
 }
 
 async function buildScreenLayer(blocks, runtime, screenStyle) {
@@ -930,10 +1074,11 @@ async function loadScreen() {
         const data = payload.data || {};
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];
         const screenStyle = normalizeScreenStyle(data.screen_style || DEFAULT_SCREEN_STYLE);
+        const transition = buildScreenTransition(screenStyle);
         const runtime = {
             source: String(data.source || ''),
             queueState: data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null,
-            templateDelayMs: screenStyle.transition_name !== 'none' ? Math.max(0, Number(screenStyle.transition_ms || 0)) : 0
+            templateDelayMs: getScreenTransitionContentDelay(screenStyle)
         };
         const signature = JSON.stringify({
             source: data.source || '',
@@ -950,7 +1095,6 @@ async function loadScreen() {
         clearMediaTimers();
         applyBackgroundStyle(document.body, screenStyle, '#ffffff');
         applyBackgroundStyle(stage, { mode: 'none' }, '#ffffff');
-        const transition = buildScreenTransition(screenStyle);
         const existingLayers = Array.from(stage.querySelectorAll('.screenLayer'));
         const previousLayer = existingLayers.length > 0 ? existingLayers[existingLayers.length - 1] : null;
         existingLayers.slice(0, -1).forEach((node) => node.remove());
@@ -959,6 +1103,14 @@ async function loadScreen() {
         if (!previousLayer || transition.name === 'none') {
             stage.innerHTML = '';
             stage.appendChild(nextLayer);
+        } else if (transition.name === 'squares') {
+            nextLayer.style.zIndex = '2';
+            stage.appendChild(nextLayer);
+            runSquaresTransition(nextLayer, transition.ms, screenStyle.transition_squares_px, () => {
+                if (previousLayer.parentNode === stage) {
+                    previousLayer.remove();
+                }
+            });
         } else {
             nextLayer.style.zIndex = '2';
             nextLayer.style.animation = transition.value;

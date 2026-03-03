@@ -226,7 +226,7 @@ declare(strict_types=1);
                         <option value="right bottom">right bottom</option>
                     </select>
                 </label>
-                <label>Метод появления шаблона
+                <label>Анимация
                     <select id="screenTransitionName">
                         <option value="none">без анимации</option>
                         <option value="fade">плавное появление</option>
@@ -234,9 +234,11 @@ declare(strict_types=1);
                         <option value="slide_right">сдвиг справа</option>
                         <option value="slide_up">сдвиг снизу</option>
                         <option value="zoom">увеличение</option>
+                        <option value="squares">квадратами</option>
                     </select>
                 </label>
-                <label>Время смены, мс <input id="screenTransitionMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label id="screenTransitionMsWrap">Время смены, мс <input id="screenTransitionMs" type="number" min="100" max="5000" step="50" value="700"></label>
+                <label id="screenTransitionSquaresWrap">Размер квадратов, px <input id="screenTransitionSquaresPx" type="number" min="40" max="400" step="10" value="160"></label>
             </div>
         </details>
         <details class="fold" open>
@@ -421,6 +423,7 @@ const el = {
   screenBgRepeat: document.getElementById('screenBgRepeat'),
   screenTransitionName: document.getElementById('screenTransitionName'),
   screenTransitionMs: document.getElementById('screenTransitionMs'),
+  screenTransitionSquaresPx: document.getElementById('screenTransitionSquaresPx'),
   bX: document.getElementById('bX'),
   bY: document.getElementById('bY'),
   bW: document.getElementById('bW'),
@@ -485,11 +488,22 @@ function normalizeScreenStyle(raw) {
   const positions = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom'];
   const position = positions.includes(String(src.position || '')) ? String(src.position) : 'center center';
   const color = String(src.color || '#ffffff').trim() || '#ffffff';
-  const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(src.transition_name || ''))
+  const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom', 'squares'].includes(String(src.transition_name || ''))
     ? String(src.transition_name || 'none')
     : 'none';
   const transitionMs = Math.max(100, Math.min(5000, Number(src.transition_ms || 700)));
-  return { mode, color, image: String(src.image || '').trim(), size, position, repeat, transition_name: transitionName, transition_ms: transitionMs };
+  const transitionSquaresPx = Math.max(40, Math.min(400, Number(src.transition_squares_px || 160)));
+  return {
+    mode,
+    color,
+    image: String(src.image || '').trim(),
+    size,
+    position,
+    repeat,
+    transition_name: transitionName,
+    transition_ms: transitionMs,
+    transition_squares_px: transitionSquaresPx
+  };
 }
 function normalizeBlockBackground(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -958,10 +972,15 @@ function syncScreenBackgroundFieldVisibility() {
   const mode = String(el.screenBgMode?.value || 'color');
   const showColor = mode === 'color';
   const showImage = mode === 'image';
+  const transitionName = String(el.screenTransitionName?.value || 'none');
+  const showTransitionTiming = transitionName !== 'none';
+  const showSquaresSize = transitionName === 'squares';
   setFieldVisibility(el.screenBgColor ? el.screenBgColor.closest('label') : null, showColor);
   setFieldVisibility(el.screenBgImage ? el.screenBgImage.closest('.urlRow') : null, showImage);
   setFieldVisibility(el.screenBgSize ? el.screenBgSize.closest('.row') : null, showImage);
   setFieldVisibility(el.screenBgPosition ? el.screenBgPosition.closest('label') : null, showImage);
+  setFieldVisibility(document.getElementById('screenTransitionMsWrap'), showTransitionTiming);
+  setFieldVisibility(document.getElementById('screenTransitionSquaresWrap'), showSquaresSize);
 }
 function syncBlockBackgroundFieldVisibility() {
   const mode = String(el.bBgMode?.value || 'color');
@@ -988,6 +1007,7 @@ function fillTemplateMeta(tpl) {
   el.screenBgRepeat.value = state.screen_style.repeat;
   el.screenTransitionName.value = state.screen_style.transition_name;
   el.screenTransitionMs.value = String(state.screen_style.transition_ms);
+  el.screenTransitionSquaresPx.value = String(state.screen_style.transition_squares_px);
   syncScreenBackgroundFieldVisibility();
 }
 
@@ -1491,6 +1511,7 @@ function resetTemplateEditor() {
   el.screenBgRepeat.value = state.screen_style.repeat;
   el.screenTransitionName.value = state.screen_style.transition_name;
   el.screenTransitionMs.value = String(state.screen_style.transition_ms);
+  el.screenTransitionSquaresPx.value = String(state.screen_style.transition_squares_px);
   syncScreenBackgroundFieldVisibility();
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
   if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
@@ -1513,7 +1534,8 @@ async function saveTemplate() {
       position: el.screenBgPosition.value,
       repeat: el.screenBgRepeat.value,
       transition_name: el.screenTransitionName.value,
-      transition_ms: el.screenTransitionMs.value
+      transition_ms: el.screenTransitionMs.value,
+      transition_squares_px: el.screenTransitionSquaresPx.value
     });
     const d = await apiPost('/api/template_save.php', {
       template_id: state.currentTemplateId || 0,
@@ -1647,7 +1669,7 @@ if (el.disablePreviewAnimation) {
     renderCanvas();
   });
 }
-['screenBgMode','screenBgColor','screenBgImage','screenBgSize','screenBgPosition','screenBgRepeat','screenTransitionName','screenTransitionMs'].forEach((id) => {
+['screenBgMode','screenBgColor','screenBgImage','screenBgSize','screenBgPosition','screenBgRepeat','screenTransitionName','screenTransitionMs','screenTransitionSquaresPx'].forEach((id) => {
   const n = document.getElementById(id);
   const onChange = () => {
     state.screen_style = normalizeScreenStyle({
@@ -1658,8 +1680,10 @@ if (el.disablePreviewAnimation) {
       position: el.screenBgPosition.value,
       repeat: el.screenBgRepeat.value,
       transition_name: el.screenTransitionName.value,
-      transition_ms: el.screenTransitionMs.value
+      transition_ms: el.screenTransitionMs.value,
+      transition_squares_px: el.screenTransitionSquaresPx.value
     });
+    syncScreenBackgroundFieldVisibility();
     renderCanvas();
   };
   n.addEventListener('input', onChange);
