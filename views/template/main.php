@@ -226,6 +226,17 @@ declare(strict_types=1);
                         <option value="right bottom">right bottom</option>
                     </select>
                 </label>
+                <label>Метод появления шаблона
+                    <select id="screenTransitionName">
+                        <option value="none">без анимации</option>
+                        <option value="fade">плавное появление</option>
+                        <option value="slide_left">сдвиг слева</option>
+                        <option value="slide_right">сдвиг справа</option>
+                        <option value="slide_up">сдвиг снизу</option>
+                        <option value="zoom">увеличение</option>
+                    </select>
+                </label>
+                <label>Время смены, мс <input id="screenTransitionMs" type="number" min="100" max="5000" step="50" value="700"></label>
             </div>
         </details>
         <details class="fold" open>
@@ -408,6 +419,8 @@ const el = {
   screenBgSize: document.getElementById('screenBgSize'),
   screenBgPosition: document.getElementById('screenBgPosition'),
   screenBgRepeat: document.getElementById('screenBgRepeat'),
+  screenTransitionName: document.getElementById('screenTransitionName'),
+  screenTransitionMs: document.getElementById('screenTransitionMs'),
   bX: document.getElementById('bX'),
   bY: document.getElementById('bY'),
   bW: document.getElementById('bW'),
@@ -472,7 +485,11 @@ function normalizeScreenStyle(raw) {
   const positions = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom'];
   const position = positions.includes(String(src.position || '')) ? String(src.position) : 'center center';
   const color = String(src.color || '#ffffff').trim() || '#ffffff';
-  return { mode, color, image: String(src.image || '').trim(), size, position, repeat };
+  const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(src.transition_name || ''))
+    ? String(src.transition_name || 'none')
+    : 'none';
+  const transitionMs = Math.max(100, Math.min(5000, Number(src.transition_ms || 700)));
+  return { mode, color, image: String(src.image || '').trim(), size, position, repeat, transition_name: transitionName, transition_ms: transitionMs };
 }
 function normalizeBlockBackground(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -844,7 +861,7 @@ function renderTemplateList() {
     wrap.className = 'listItemRow';
     const text = document.createElement('div');
     text.className = 'listItemText';
-    const fullLabel = `${tpl.name} v${tpl.version}`;
+    const fullLabel = String(tpl.name || '');
     text.textContent = fullLabel;
     text.title = fullLabel;
     const badge = document.createElement('span');
@@ -969,6 +986,8 @@ function fillTemplateMeta(tpl) {
   el.screenBgSize.value = state.screen_style.size;
   el.screenBgPosition.value = state.screen_style.position;
   el.screenBgRepeat.value = state.screen_style.repeat;
+  el.screenTransitionName.value = state.screen_style.transition_name;
+  el.screenTransitionMs.value = String(state.screen_style.transition_ms);
   syncScreenBackgroundFieldVisibility();
 }
 
@@ -1470,6 +1489,8 @@ function resetTemplateEditor() {
   el.screenBgSize.value = state.screen_style.size;
   el.screenBgPosition.value = state.screen_style.position;
   el.screenBgRepeat.value = state.screen_style.repeat;
+  el.screenTransitionName.value = state.screen_style.transition_name;
+  el.screenTransitionMs.value = String(state.screen_style.transition_ms);
   syncScreenBackgroundFieldVisibility();
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
   if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
@@ -1490,7 +1511,9 @@ async function saveTemplate() {
       image: el.screenBgImage.value,
       size: el.screenBgSize.value,
       position: el.screenBgPosition.value,
-      repeat: el.screenBgRepeat.value
+      repeat: el.screenBgRepeat.value,
+      transition_name: el.screenTransitionName.value,
+      transition_ms: el.screenTransitionMs.value
     });
     const d = await apiPost('/api/template_save.php', {
       template_id: state.currentTemplateId || 0,
@@ -1624,7 +1647,7 @@ if (el.disablePreviewAnimation) {
     renderCanvas();
   });
 }
-['screenBgMode','screenBgColor','screenBgImage','screenBgSize','screenBgPosition','screenBgRepeat'].forEach((id) => {
+['screenBgMode','screenBgColor','screenBgImage','screenBgSize','screenBgPosition','screenBgRepeat','screenTransitionName','screenTransitionMs'].forEach((id) => {
   const n = document.getElementById(id);
   const onChange = () => {
     state.screen_style = normalizeScreenStyle({
@@ -1633,7 +1656,9 @@ if (el.disablePreviewAnimation) {
       image: el.screenBgImage.value,
       size: el.screenBgSize.value,
       position: el.screenBgPosition.value,
-      repeat: el.screenBgRepeat.value
+      repeat: el.screenBgRepeat.value,
+      transition_name: el.screenTransitionName.value,
+      transition_ms: el.screenTransitionMs.value
     });
     renderCanvas();
   };

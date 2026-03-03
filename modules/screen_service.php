@@ -15,6 +15,8 @@ function defaultScreenStyle(): array
         'size' => 'cover',
         'position' => 'center center',
         'repeat' => 'no-repeat',
+        'transition_name' => 'none',
+        'transition_ms' => 700,
     ];
 }
 
@@ -58,6 +60,11 @@ function extractScreenStyleFromLayout(?string $layoutJson): array
     $color = trim((string)($raw['color'] ?? $style['color']));
     $style['color'] = $color !== '' ? $color : '#ffffff';
     $style['image'] = trim((string)($raw['image'] ?? ''));
+    $transitionName = (string)($raw['transition_name'] ?? $style['transition_name']);
+    if (in_array($transitionName, ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'], true)) {
+        $style['transition_name'] = $transitionName;
+    }
+    $style['transition_ms'] = max(100, min(5000, (int)($raw['transition_ms'] ?? $style['transition_ms'])));
 
     return $style;
 }

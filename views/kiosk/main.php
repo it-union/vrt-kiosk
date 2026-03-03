@@ -8,12 +8,18 @@ declare(strict_types=1);
     <title><?= h($pageTitle) ?></title>
     <style>
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #ffffff; color: #1a1a1a; }
-        #stage { position: relative; width: 100vw; height: 100vh; }
+        #stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        .screenLayer { position: absolute; inset: 0; }
         .block { position: absolute; box-sizing: border-box; overflow: hidden; padding: 0; }
         @keyframes fadeInBlock { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUpBlock { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideLeftBlock { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes zoomInBlock { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+        @keyframes screenFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes screenSlideLeftIn { from { opacity: 0.98; transform: translateX(-5%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes screenSlideRightIn { from { opacity: 0.98; transform: translateX(5%); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes screenSlideUpIn { from { opacity: 0.98; transform: translateY(5%); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes screenZoomIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         .title { font-size: 2.2vmin; font-weight: 700; margin: 0 0 0.8vmin 0; line-height: 1.2; }
         .body { font-size: 1.6vmin; margin: 0; line-height: 1.35; opacity: 0.94; }
         .media { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
@@ -97,13 +103,19 @@ function normalizeScreenStyle(raw) {
     const repeat = ['no-repeat', 'repeat', 'repeat-x', 'repeat-y'].includes(String(src.repeat || '')) ? String(src.repeat) : 'no-repeat';
     const positions = ['left top', 'center top', 'right top', 'left center', 'center center', 'right center', 'left bottom', 'center bottom', 'right bottom'];
     const position = positions.includes(String(src.position || '')) ? String(src.position) : 'center center';
+    const transitionName = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(src.transition_name || ''))
+        ? String(src.transition_name || 'none')
+        : 'none';
+    const transitionMs = Math.max(100, Math.min(5000, Number(src.transition_ms || 700)));
     return {
         mode,
         color: String(src.color || '#ffffff').trim() || '#ffffff',
         image: String(src.image || '').trim(),
         size,
         position,
-        repeat
+        repeat,
+        transition_name: transitionName,
+        transition_ms: transitionMs
     };
 }
 function normalizeBlockBackground(raw) {
@@ -204,6 +216,10 @@ function applyTimedAppearance(target, animationName, animationMs, delayMs) {
       };
       target.style.animation = map[name] || '';
   }
+function getTemplateTransitionDelay(runtime) {
+    if (!runtime || typeof runtime !== 'object') return 0;
+    return Math.max(0, Number(runtime.templateDelayMs || 0));
+}
 function buildShowAnimation(animationName, animationMs) {
     const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
         ? String(animationName || 'none')
@@ -246,7 +262,7 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
     const totalItems = Math.max(0, Number(queueState.total_items || 0));
     const show = buildShowAnimation(animationName, animationMs);
     const hide = buildHideAnimation(animationName, animationMs);
-    const onMs = Math.max(0, Number(delayOnMs || 0));
+    const onMs = Math.max(0, Number(delayOnMs || 0)) + getTemplateTransitionDelay(runtime);
     const offMs = Math.max(0, Number(delayOffMs || 0));
     const elapsedMsRaw = Math.max(0, Math.round(Math.max(0, Number(queueState.elapsed_sec || 0)) * 1000));
     const cycleOffsetMs = slideDurationMs > 0 ? (elapsedMsRaw % slideDurationMs) : 0;
@@ -659,7 +675,8 @@ async function renderBlock(blockRaw, runtime = null) {
             el.style.display = 'flex';
             el.style.justifyContent = justify;
             el.style.alignItems = align;
-            const img = buildImageElement(mediaUrl, title, { ...p, animation: motion.animation, animation_ms: motion.animation_ms, delay_on_ms: motion.delay_on_ms, delay_off_ms: motion.delay_off_ms }, 'media', el);
+            const templateDelayMs = getTemplateTransitionDelay(runtime);
+            const img = buildImageElement(mediaUrl, title, { ...p, animation: motion.animation, animation_ms: motion.animation_ms, delay_on_ms: motion.delay_on_ms + templateDelayMs, delay_off_ms: motion.delay_off_ms }, 'media', el);
             if (fluid) {
                 img.style.width = '100%';
                 img.style.height = '100%';
@@ -671,7 +688,7 @@ async function renderBlock(blockRaw, runtime = null) {
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
             if (!startContentCycle(img, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyImageAnimation(img, motion);
+                applyImageAnimation(img, { ...motion, delay_on_ms: Math.max(0, Number(motion.delay_on_ms || 0)) + templateDelayMs });
             }
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');
@@ -687,6 +704,7 @@ async function renderBlock(blockRaw, runtime = null) {
             appendTitleBody(el, title, 'Для HTML не задан body');
         } else {
             const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
+            const templateDelayMs = getTemplateTransitionDelay(runtime);
             const htmlInner = document.createElement('div');
             htmlInner.innerHTML = html;
             htmlInner.style.zoom = scalePct + '%';
@@ -694,7 +712,7 @@ async function renderBlock(blockRaw, runtime = null) {
             htmlInner.style.height = '100%';
             el.appendChild(htmlInner);
             if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
-                applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
+                applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, Math.max(0, Number(motion.delay_on_ms || 0)) + templateDelayMs);
             }
         }
         return el;
@@ -876,6 +894,32 @@ async function renderBlock(blockRaw, runtime = null) {
     return el;
 }
 
+function buildScreenTransition(style) {
+    const name = ['none', 'fade', 'slide_left', 'slide_right', 'slide_up', 'zoom'].includes(String(style?.transition_name || ''))
+        ? String(style.transition_name || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(style?.transition_ms || 700)));
+    const map = {
+        none: '',
+        fade: `screenFadeIn ${ms}ms ease both`,
+        slide_left: `screenSlideLeftIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
+        slide_right: `screenSlideRightIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
+        slide_up: `screenSlideUpIn ${ms}ms cubic-bezier(0.22, 1, 0.36, 1) both`,
+        zoom: `screenZoomIn ${ms}ms ease both`
+    };
+    return { name, ms, value: map[name] || '' };
+}
+
+async function buildScreenLayer(blocks, runtime, screenStyle) {
+    const layer = document.createElement('div');
+    layer.className = 'screenLayer';
+    applyBackgroundStyle(layer, screenStyle, '#ffffff');
+    for (const block of blocks) {
+        layer.appendChild(await renderBlock(block, runtime));
+    }
+    return layer;
+}
+
 async function loadScreen() {
     try {
         const res = await fetch('/api/screen.php?screen_id=1', { cache: 'no-store' });
@@ -888,7 +932,8 @@ async function loadScreen() {
         const screenStyle = normalizeScreenStyle(data.screen_style || DEFAULT_SCREEN_STYLE);
         const runtime = {
             source: String(data.source || ''),
-            queueState: data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null
+            queueState: data.queue_state && typeof data.queue_state === 'object' ? data.queue_state : null,
+            templateDelayMs: screenStyle.transition_name !== 'none' ? Math.max(0, Number(screenStyle.transition_ms || 0)) : 0
         };
         const signature = JSON.stringify({
             source: data.source || '',
@@ -904,10 +949,26 @@ async function loadScreen() {
 
         clearMediaTimers();
         applyBackgroundStyle(document.body, screenStyle, '#ffffff');
-        applyBackgroundStyle(stage, screenStyle, '#ffffff');
-        stage.innerHTML = '';
-        for (const block of blocks) {
-            stage.appendChild(await renderBlock(block, runtime));
+        applyBackgroundStyle(stage, { mode: 'none' }, '#ffffff');
+        const transition = buildScreenTransition(screenStyle);
+        const existingLayers = Array.from(stage.querySelectorAll('.screenLayer'));
+        const previousLayer = existingLayers.length > 0 ? existingLayers[existingLayers.length - 1] : null;
+        existingLayers.slice(0, -1).forEach((node) => node.remove());
+        const nextLayer = await buildScreenLayer(blocks, runtime, screenStyle);
+
+        if (!previousLayer || transition.name === 'none') {
+            stage.innerHTML = '';
+            stage.appendChild(nextLayer);
+        } else {
+            nextLayer.style.zIndex = '2';
+            nextLayer.style.animation = transition.value;
+            stage.appendChild(nextLayer);
+            registerMediaTimer(setTimeout(() => {
+                if (previousLayer.parentNode === stage) {
+                    previousLayer.remove();
+                }
+                nextLayer.style.animation = '';
+            }, transition.ms + 30));
         }
 
     } catch (e) {
