@@ -109,14 +109,25 @@ $payload = [
 
 try {
     $pdo = dbMysql();
+    $currentUserId = authCurrentUserId();
     ensureContentTypeEnum($pdo, $type);
     if ($id > 0) {
+        $existing = contentGet($pdo, $id);
+        if ($existing === null) {
+            jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
+        }
+        if (!authCanManageOwnedEntity(isset($existing['created_by']) ? (int)$existing['created_by'] : null)) {
+            jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для редактирования контента'], 403);
+        }
+        $payload['updated_by'] = $currentUserId > 0 ? $currentUserId : null;
         $ok = contentUpdate($pdo, $id, $payload);
         if (!$ok) {
             jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
         }
         $contentId = $id;
     } else {
+        $payload['created_by'] = $currentUserId > 0 ? $currentUserId : null;
+        $payload['updated_by'] = $currentUserId > 0 ? $currentUserId : null;
         $contentId = contentCreate($pdo, $payload);
     }
 

@@ -30,8 +30,11 @@ declare(strict_types=1);
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
         .item.itemInactive { opacity: 0.72; }
+        .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
+        .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .statusBadge.statusActive { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .statusBadge.statusInactive { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
@@ -150,6 +153,7 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="duplicateBtn" type="button" title="Дублировать" aria-label="Дублировать">&#x29C9;</button>
             <button class="iconBtn secondary" id="reloadBtn" type="button" title="Обновить список" aria-label="Обновить список">&#x21bb;</button>
             <button class="iconBtn secondary" id="deleteBtn" type="button" title="Удалить" aria-label="Удалить">&#x1F5D1;</button>
+            <button class="secondary" id="ownerFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
         </div>
         <div class="listFilter">
             <label for="contentTypeFilter">Фильтр типа контента</label>
@@ -486,7 +490,8 @@ window.CKEDITOR_LOCAL_TRANSLATIONS = [ru];
 window.dispatchEvent(new Event('ckeditor-local-ready'));
 </script>
 <script>
-const state = { list: [], library: [], currentId: 0, currentType: 'image', listFilterType: '', saveInProgress: false, libraryMode: 'image' };
+const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const state = { list: [], library: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
 let selectedLibraryUrl = '';
 let selectedLibraryName = '';
 let imageBaseWidth = 0;
@@ -665,6 +670,36 @@ function setSaveButtonDisabled(disabled) {
   btn.disabled = !!disabled;
   btn.style.opacity = disabled ? '0.6' : '';
   btn.style.cursor = disabled ? 'not-allowed' : '';
+}
+function setDeleteButtonDisabled(disabled) {
+  const btn = document.getElementById('deleteBtn');
+  if (!btn) return;
+  btn.disabled = !!disabled;
+  btn.style.opacity = disabled ? '0.6' : '';
+  btn.style.cursor = disabled ? 'not-allowed' : '';
+}
+function updateOwnerFilterButton() {
+  const btn = document.getElementById('ownerFilterBtn');
+  if (!btn) return;
+  btn.classList.toggle('secondary', !state.ownerOnly);
+  btn.textContent = state.ownerOnly ? 'Все' : 'Мои';
+  btn.title = state.ownerOnly ? 'Показывать все' : 'Показывать только мои';
+  btn.setAttribute('aria-label', btn.title);
+}
+function buildCreatorText(row) {
+  const name = String((row && (row.creator_name || row.creator_login || '')) || '').trim();
+  return name ? ('Создал: ' + name) : 'Создал: администратор';
+}
+function isForeignOwned(row) {
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  const ownerId = Number((row && row.created_by) || 0);
+  return !isAdmin && ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+}
+function updateCurrentPermissions() {
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  state.currentCanManage = state.currentId <= 0 || isAdmin || (state.currentOwnerId > 0 && Number(state.currentOwnerId) === Number(CURRENT_USER.id || 0));
+  setSaveButtonDisabled(!state.currentCanManage);
+  setDeleteButtonDisabled(state.currentId <= 0 || !state.currentCanManage);
 }
 function setEditorVisible(visible, type = 'image') {
   const viewType = String(type || 'image');
@@ -1609,6 +1644,7 @@ async function setDimensionsFromPpt(url, force = false) {
 function nowDraft() {
   state.currentType = String(pendingCreateType || 'image');
   state.currentId = 0;
+  state.currentOwnerId = Number(CURRENT_USER.id || 0);
   el.cActive.value = '1';
   el.cTitle.value = '';
   el.cAnimation.value = 'none';
@@ -1820,6 +1856,7 @@ function closeNewTypeModal() {
 function resetEditor() {
   state.currentType = 'image';
   state.currentId = 0;
+  state.currentOwnerId = 0;
   el.cActive.value = '1';
   el.cTitle.value = '';
   el.cAnimation.value = 'none';
@@ -1869,6 +1906,7 @@ function resetEditor() {
   syncPreview();
   setStatus('');
   setEditorVisible(false, 'image');
+  updateCurrentPermissions();
 }
 
 async function apiGet(url) {
@@ -1975,10 +2013,11 @@ function renderList() {
   for (const row of state.list) {
     const d = document.createElement('div');
     const isActive = Number(row.is_active || 0) === 1;
-    d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive');
+    const foreignOwned = isForeignOwned(row);
+    d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive') + (foreignOwned ? ' itemForeign' : '');
     const t = String(row.type || 'image');
-    const labelMapSafe = { text: 'Текст', image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
-    const safeLabel = labelMapSafe[t] || 'Изображение';
+    const labelMapSafe = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П' };
+    const safeLabel = labelMapSafe[t] || 'И';
     const wrap = document.createElement('div');
     wrap.className = 'listItemRow';
     const text = document.createElement('div');
@@ -1986,12 +2025,17 @@ function renderList() {
     const fullLabel = `[${safeLabel}] ${row.title} (ID ${row.id})`;
     text.textContent = fullLabel;
     text.title = fullLabel;
+    const meta = document.createElement('div');
+    meta.className = 'listItemMeta';
+    meta.textContent = buildCreatorText(row);
+    meta.title = meta.textContent;
     const badge = document.createElement('span');
     badge.className = 'statusBadge ' + (isActive ? 'statusActive' : 'statusInactive');
     badge.textContent = isActive ? 'Активный' : 'Неактивный';
     wrap.appendChild(text);
     wrap.appendChild(badge);
     d.appendChild(wrap);
+    d.appendChild(meta);
     d.onclick = () => loadById(row.id);
     el.list.appendChild(d);
   }
@@ -2001,7 +2045,8 @@ async function reloadList() {
   try {
     const type = String(state.listFilterType || '').trim();
     const query = type ? ('/api/content_list.php?active=-1&type=' + encodeURIComponent(type)) : '/api/content_list.php?active=-1';
-    state.list = await apiGet(query);
+    const rows = await apiGet(query);
+    state.list = state.ownerOnly ? rows.filter((row) => Number(row.created_by || 0) === Number(CURRENT_USER.id || 0)) : rows;
     renderList();
   } catch (e) {
     setStatus(String(e.message || e), true);
@@ -2021,6 +2066,7 @@ async function loadById(id) {
   try {
     const row = await apiGet('/api/content_get.php?content_id=' + encodeURIComponent(id));
     state.currentId = Number(row.id);
+    state.currentOwnerId = Number(row.created_by || 0);
     state.currentType = String(row.type || 'image');
     el.cActive.value = String(Number(row.is_active || 0));
     el.cTitle.value = row.title || '';
@@ -2089,8 +2135,9 @@ async function loadById(id) {
     }
 
     syncDataJson();
-    setEditorVisible(true, state.currentType);
-    syncPreview();
+  setEditorVisible(true, state.currentType);
+  updateCurrentPermissions();
+  syncPreview();
     if (state.currentType === 'image') {
       await setDimensionsFromImage(el.cMediaUrl.value || '', false);
     } else if (state.currentType === 'video') {
@@ -2103,6 +2150,7 @@ async function loadById(id) {
       setHtmlValue(String(row.body || ''));
     }
     renderList();
+    updateCurrentPermissions();
     setStatus(state.currentType === 'text' ? 'Текст загружен' : (state.currentType === 'html' ? 'HTML загружен' : (state.currentType === 'video' ? 'Видео загружено' : (state.currentType === 'ppt' ? 'Презентация загружена' : 'Изображение загружено'))));
   } catch (e) {
     setStatus(String(e.message || e), true);
@@ -2185,6 +2233,7 @@ async function deleteLibraryImage() {
 }
 
 async function saveCurrent() {
+  if (!state.currentCanManage) { setStatus('Редактирование чужого контента запрещено', true); return; }
   if (state.saveInProgress) return;
   state.saveInProgress = true;
   setSaveButtonDisabled(true);
@@ -2253,6 +2302,11 @@ async function confirmDuplicateContent() {
   }
 }
 document.getElementById('reloadBtn').onclick = reloadList;
+document.getElementById('ownerFilterBtn').onclick = async () => {
+  state.ownerOnly = !state.ownerOnly;
+  updateOwnerFilterButton();
+  await reloadList();
+};
 document.getElementById('contentTypeFilter').onchange = async (event) => {
   state.listFilterType = String(event.target && event.target.value ? event.target.value : '');
   await reloadList();
@@ -2454,6 +2508,7 @@ if (el.cTextBody) {
 (async function boot() {
   removeLegacyContentMotionControls();
   normalizeInspectorTexts();
+  updateOwnerFilterButton();
   resetEditor();
   await reloadList();
   await reloadLibrary();

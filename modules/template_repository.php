@@ -1,6 +1,40 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/user_repository.php';
+
+function templateEnsureOwnershipSchema(PDO $pdo): void
+{
+    userEnsureSchema($pdo);
+
+    $columns = [];
+    $stmt = $pdo->query("SHOW COLUMNS FROM templates");
+    if ($stmt) {
+        foreach ($stmt->fetchAll() as $row) {
+            $columns[] = (string)($row['Field'] ?? '');
+        }
+    }
+
+    if (!in_array('created_by', $columns, true)) {
+        $pdo->exec("ALTER TABLE templates ADD COLUMN created_by BIGINT(20) UNSIGNED DEFAULT NULL AFTER version");
+        $pdo->exec("ALTER TABLE templates ADD KEY idx_templates_created_by (created_by)");
+        $pdo->exec("ALTER TABLE templates ADD CONSTRAINT fk_templates_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE");
+    }
+    if (!in_array('updated_by', $columns, true)) {
+        $pdo->exec("ALTER TABLE templates ADD COLUMN updated_by BIGINT(20) UNSIGNED DEFAULT NULL AFTER created_by");
+        $pdo->exec("ALTER TABLE templates ADD KEY fk_templates_updated_by (updated_by)");
+        $pdo->exec("ALTER TABLE templates ADD CONSTRAINT fk_templates_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE");
+    }
+
+    $adminUserId = userFindFirstAdministratorId($pdo);
+    if ($adminUserId !== null && $adminUserId > 0) {
+        $stmt = $pdo->prepare("UPDATE templates SET created_by = :admin_id WHERE created_by IS NULL");
+        $stmt->execute([':admin_id' => $adminUserId]);
+        $stmt = $pdo->prepare("UPDATE templates SET updated_by = created_by WHERE updated_by IS NULL");
+        $stmt->execute();
+    }
+}
+
 function ensureTemplateStatusEnum(PDO $pdo): void
 {
     $stmt = $pdo->query("SHOW COLUMNS FROM templates LIKE 'status'");
@@ -39,23 +73,27 @@ function ensureTemplateStatusEnum(PDO $pdo): void
     $pdo->exec("ALTER TABLE templates MODIFY COLUMN status ENUM($enumSql) NOT NULL DEFAULT 'draft'");
 }
 
-function templateCreate(PDO $pdo, string $name, string $description, string $layoutJson, string $status): int
+function templateCreate(PDO $pdo, string $name, string $description, string $layoutJson, string $status, ?int $createdBy = null): int
 {
-    $sql = "INSERT INTO templates (name, description, layout_json, status, version, created_at, updated_at) VALUES (:name, :description, :layout_json, :status, 1, NOW(), NOW())";
+    templateEnsureOwnershipSchema($pdo);
+    $sql = "INSERT INTO templates (name, description, layout_json, status, version, created_by, updated_by, created_at, updated_at) VALUES (:name, :description, :layout_json, :status, 1, :created_by, :updated_by, NOW(), NOW())";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         'name' => $name,
         'description' => $description,
         'layout_json' => $layoutJson,
         'status' => $status,
+        'created_by' => $createdBy,
+        'updated_by' => $createdBy,
     ]);
 
     return (int)$pdo->lastInsertId();
 }
 
-function templateUpdate(PDO $pdo, int $id, string $name, string $description, string $layoutJson, string $status): bool
+function templateUpdate(PDO $pdo, int $id, string $name, string $description, string $layoutJson, string $status, ?int $updatedBy = null): bool
 {
-    $sql = "UPDATE templates SET name=:name, description=:description, layout_json=:layout_json, status=:status, version=version+1, updated_at=NOW() WHERE id=:id";
+    templateEnsureOwnershipSchema($pdo);
+    $sql = "UPDATE templates SET name=:name, description=:description, layout_json=:layout_json, status=:status, updated_by=:updated_by, version=version+1, updated_at=NOW() WHERE id=:id";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         'id' => $id,
@@ -63,6 +101,7 @@ function templateUpdate(PDO $pdo, int $id, string $name, string $description, st
         'description' => $description,
         'layout_json' => $layoutJson,
         'status' => $status,
+        'updated_by' => $updatedBy,
     ]);
 
     return $stmt->rowCount() > 0;
@@ -70,12 +109,27 @@ function templateUpdate(PDO $pdo, int $id, string $name, string $description, st
 
 function templateList(PDO $pdo): array
 {
-    return $pdo->query("SELECT id, name, description, status, version, updated_at FROM templates ORDER BY updated_at DESC, id DESC")->fetchAll();
+    templateEnsureOwnershipSchema($pdo);
+    return $pdo->query("
+        SELECT t.id, t.name, t.description, t.status, t.version, t.created_by, t.updated_by, t.updated_at,
+               cu.full_name AS creator_name, cu.login AS creator_login
+        FROM templates t
+        LEFT JOIN users cu ON cu.id = t.created_by
+        ORDER BY t.updated_at DESC, t.id DESC
+    ")->fetchAll();
 }
 
 function templateGet(PDO $pdo, int $id): ?array
 {
-    $stmt = $pdo->prepare("SELECT id, name, description, status, version, layout_json, updated_at FROM templates WHERE id = :id LIMIT 1");
+    templateEnsureOwnershipSchema($pdo);
+    $stmt = $pdo->prepare("
+        SELECT t.id, t.name, t.description, t.status, t.version, t.layout_json, t.created_by, t.updated_by, t.updated_at,
+               cu.full_name AS creator_name, cu.login AS creator_login
+        FROM templates t
+        LEFT JOIN users cu ON cu.id = t.created_by
+        WHERE t.id = :id
+        LIMIT 1
+    ");
     $stmt->execute(['id' => $id]);
     $row = $stmt->fetch();
 
@@ -84,7 +138,8 @@ function templateGet(PDO $pdo, int $id): ?array
 
 function templateGetByStatus(PDO $pdo, string $status): ?array
 {
-    $stmt = $pdo->prepare("SELECT id, name, description, status, version, layout_json, updated_at FROM templates WHERE status = :status ORDER BY updated_at DESC, id DESC LIMIT 1");
+    templateEnsureOwnershipSchema($pdo);
+    $stmt = $pdo->prepare("SELECT id, name, description, status, version, layout_json, created_by, updated_by, updated_at FROM templates WHERE status = :status ORDER BY updated_at DESC, id DESC LIMIT 1");
     $stmt->execute(['status' => $status]);
     $row = $stmt->fetch();
 

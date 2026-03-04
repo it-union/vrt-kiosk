@@ -82,9 +82,19 @@ function ensureTemplateBlockContentTypeEnum(PDO $pdo): void
 
 try {
     $pdo = dbMysql();
+    $currentUserId = authCurrentUserId();
     ensureTemplateStatusEnum($pdo);
     ensureTemplateBlockContentTypeEnum($pdo);
-    $templateId = saveTemplate($pdo, $id, $name, $description, $status, $blocks, $screenStyle);
+    if ($id > 0) {
+        $existing = getTemplateWithBlocks($pdo, $id);
+        if ($existing === null) {
+            jsonResponse(['ok' => false, 'error' => 'Шаблон не найден'], 404);
+        }
+        if (!authCanManageOwnedEntity(isset($existing['created_by']) ? (int)$existing['created_by'] : null)) {
+            jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для редактирования шаблона'], 403);
+        }
+    }
+    $templateId = saveTemplate($pdo, $id, $name, $description, $status, $blocks, $screenStyle, $currentUserId > 0 ? $currentUserId : null);
     jsonResponse(['ok' => true, 'data' => ['template_id' => $templateId]]);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'template_not_found') {

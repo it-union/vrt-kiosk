@@ -18,7 +18,7 @@ if ($id <= 0) {
 }
 
 try {
-    $newId = duplicateTemplate(dbMysql(), $id);
+    $newId = duplicateTemplate(dbMysql(), $id, authCurrentUserId());
     jsonResponse(['ok' => true, 'data' => ['template_id' => $newId]]);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'template_not_found') {

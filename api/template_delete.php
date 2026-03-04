@@ -18,7 +18,15 @@ if ($id <= 0) {
 }
 
 try {
-    deleteTemplate(dbMysql(), $id);
+    $pdo = dbMysql();
+    $existing = getTemplateWithBlocks($pdo, $id);
+    if ($existing === null) {
+        jsonResponse(['ok' => false, 'error' => 'Шаблон не найден'], 404);
+    }
+    if (!authCanManageOwnedEntity(isset($existing['created_by']) ? (int)$existing['created_by'] : null)) {
+        jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для удаления шаблона'], 403);
+    }
+    deleteTemplate($pdo, $id);
     jsonResponse(['ok' => true, 'data' => ['template_id' => $id]]);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'template_not_found') {

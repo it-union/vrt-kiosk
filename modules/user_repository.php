@@ -124,6 +124,23 @@ function userListAllWithRole(PDO $pdo): array
     return $stmt->fetchAll();
 }
 
+function userFindFirstAdministratorId(PDO $pdo): ?int
+{
+    userEnsureSchema($pdo);
+    $stmt = $pdo->prepare("
+        SELECT u.id
+        FROM users u
+        INNER JOIN user_roles ur ON ur.user_id = u.id
+        INNER JOIN roles r ON r.id = ur.role_id
+        WHERE r.code = :role_code
+        ORDER BY u.id ASC
+        LIMIT 1
+    ");
+    $stmt->execute([':role_code' => 'administrator']);
+    $value = $stmt->fetchColumn();
+    return $value === false ? null : (int)$value;
+}
+
 function userAssignRole(PDO $pdo, int $userId, string $roleCode): void
 {
     $roleId = userFindRoleId($pdo, $roleCode);

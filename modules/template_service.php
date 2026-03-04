@@ -110,9 +110,9 @@ function normalizeTemplateBlock(array $raw, int $index): array
         $h = max(1.0, 100.0 - $y);
     }
 
-    $contentMode = (string)($raw['content_mode'] ?? 'dynamic_current');
+    $contentMode = (string)($raw['content_mode'] ?? 'fixed');
     if (!in_array($contentMode, ['fixed', 'dynamic_current', 'empty'], true)) {
-        $contentMode = 'dynamic_current';
+        $contentMode = 'fixed';
     }
 
     $contentType = (string)($raw['content_type'] ?? 'image');
@@ -168,7 +168,7 @@ function normalizeTemplateBlocks(array $blocks): array
             'y_pct' => 0,
             'w_pct' => 100,
             'h_pct' => 100,
-            'content_mode' => 'dynamic_current',
+            'content_mode' => 'fixed',
             'content_type' => 'image',
         ], 0);
     }
@@ -222,7 +222,7 @@ function buildLayoutJson(array $blocks, ?array $screenStyle): string
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
-function saveTemplate(PDO $pdo, int $id, string $name, string $description, string $status, array $blocks, ?array $screenStyle = null): int
+function saveTemplate(PDO $pdo, int $id, string $name, string $description, string $status, array $blocks, ?array $screenStyle = null, ?int $actorUserId = null): int
 {
     $normalizedBlocks = normalizeTemplateBlocks($blocks);
     $layoutJson = buildLayoutJson($normalizedBlocks, $screenStyle);
@@ -230,13 +230,13 @@ function saveTemplate(PDO $pdo, int $id, string $name, string $description, stri
     $pdo->beginTransaction();
     try {
         if ($id > 0) {
-            $ok = templateUpdate($pdo, $id, $name, $description, $layoutJson, $status);
+            $ok = templateUpdate($pdo, $id, $name, $description, $layoutJson, $status, $actorUserId);
             if (!$ok) {
                 throw new RuntimeException('template_not_found');
             }
             $templateId = $id;
         } else {
-            $templateId = templateCreate($pdo, $name, $description, $layoutJson, $status);
+            $templateId = templateCreate($pdo, $name, $description, $layoutJson, $status, $actorUserId);
         }
 
         templateDeleteBlocks($pdo, $templateId);
@@ -306,7 +306,7 @@ function deleteTemplate(PDO $pdo, int $templateId): void
     }
 }
 
-function duplicateTemplate(PDO $pdo, int $templateId): int
+function duplicateTemplate(PDO $pdo, int $templateId, ?int $actorUserId = null): int
 {
     $source = getTemplateWithBlocks($pdo, $templateId);
     if ($source === null) {
@@ -317,6 +317,10 @@ function duplicateTemplate(PDO $pdo, int $templateId): int
     $newName = $sourceName === '' ? 'Шаблон (копия)' : ($sourceName . ' (копия)');
     $description = (string)($source['description'] ?? '');
     $blocks = is_array($source['blocks'] ?? null) ? $source['blocks'] : [];
+    $layout = json_decode((string)($source['layout_json'] ?? ''), true);
+    $screenStyle = is_array($layout) && is_array($layout['screen_style'] ?? null)
+        ? $layout['screen_style']
+        : null;
 
-    return saveTemplate($pdo, 0, $newName, $description, 'draft', $blocks);
+    return saveTemplate($pdo, 0, $newName, $description, 'draft', $blocks, $screenStyle, $actorUserId);
 }

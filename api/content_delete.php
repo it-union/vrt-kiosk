@@ -18,7 +18,15 @@ if ($id <= 0) {
 }
 
 try {
-    $ok = contentDelete(dbMysql(), $id);
+    $pdo = dbMysql();
+    $existing = contentGet($pdo, $id);
+    if ($existing === null) {
+        jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
+    }
+    if (!authCanManageOwnedEntity(isset($existing['created_by']) ? (int)$existing['created_by'] : null)) {
+        jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для удаления контента'], 403);
+    }
+    $ok = contentDelete($pdo, $id);
     if (!$ok) {
         jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
     }

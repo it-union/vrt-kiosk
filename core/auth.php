@@ -102,6 +102,29 @@ function authHasRole(string ...$allowedRoles): bool
     return in_array($role, $allowedRoles, true);
 }
 
+function authCurrentUserId(): int
+{
+    $user = authCurrentUser();
+    return $user ? (int)($user['id'] ?? 0) : 0;
+}
+
+function authIsAdministrator(): bool
+{
+    return authHasRole(AUTH_ROLE_ADMINISTRATOR);
+}
+
+function authCanManageOwnedEntity(?int $ownerUserId): bool
+{
+    if (authIsAdministrator()) {
+        return true;
+    }
+    $currentUserId = authCurrentUserId();
+    if ($currentUserId <= 0) {
+        return false;
+    }
+    return $ownerUserId !== null && $ownerUserId > 0 && $ownerUserId === $currentUserId;
+}
+
 function authLogin(string $login, string $password): array
 {
     authEnsureSession();

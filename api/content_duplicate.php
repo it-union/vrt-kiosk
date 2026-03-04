@@ -19,6 +19,7 @@ if ($id <= 0) {
 
 try {
     $pdo = dbMysql();
+    $currentUserId = authCurrentUserId();
     $src = contentGet($pdo, $id);
     if ($src === null) {
         jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
@@ -38,6 +39,8 @@ try {
         'is_active' => (int)($src['is_active'] ?? 1),
         'publish_from' => ($src['publish_from'] ?? null) !== null ? (string)$src['publish_from'] : null,
         'publish_to' => ($src['publish_to'] ?? null) !== null ? (string)$src['publish_to'] : null,
+        'created_by' => $currentUserId > 0 ? $currentUserId : null,
+        'updated_by' => $currentUserId > 0 ? $currentUserId : null,
     ]);
 
     jsonResponse(['ok' => true, 'data' => ['content_id' => $newId]]);

@@ -62,8 +62,11 @@ declare(strict_types=1);
         .item.itemDraft { border-left: 4px solid #d97706; }
         .item.itemWork { border-left: 4px solid #15803d; }
         .item.itemArchive { border-left: 4px solid #64748b; opacity: 0.78; }
+        .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
+        .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .statusBadge.statusDraft { color: #92400e; background: #fef3c7; border-color: #fcd34d; }
         .statusBadge.statusWork { color: #166534; background: #dcfce7; border-color: #86efac; }
@@ -76,10 +79,46 @@ declare(strict_types=1);
         button.secondary { border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
         .toolbarSelect { min-width: 220px; max-width: 320px; }
-        .stagePanel .stageToolbar { width: min(960px, 100%); margin-left: auto; margin-right: auto; justify-content: center; align-items: center; }
+        .stagePanel { position: relative; }
+        .stagePanel .stageToolbar { width: min(960px, 100%); margin-left: auto; margin-right: auto; justify-content: center; align-items: center; position: relative; }
         .stagePanel .canvasWrap { width: min(960px, 100%); margin-left: auto; margin-right: auto; }
         .stagePanel .stageOptions { width: min(960px, 100%); margin: 8px auto 0; font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px; }
         .stagePanel .stageOptions input { width: auto; }
+        .stageToolbarMenu { position: relative; }
+        .stageToolbarMenu summary { list-style: none; }
+        .stageToolbarMenu summary::-webkit-details-marker { display: none; }
+        .stageToolbarMenu .menuBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; box-sizing: border-box; }
+        .stageToolbarMenu[open] .menuBtn { background: #eef5ff; }
+        .stageToolbarMenuBody { position: absolute; top: calc(100% + 6px); right: 0; min-width: 260px; padding: 10px; border: 1px solid #d7dbe0; border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16); z-index: 20; }
+        .stageToolbarMenuBody label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: #334155; cursor: pointer; }
+        .stageToolbarMenuBody input { width: auto; margin: 0; }
+        .timelineToggleBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .timelineToggleBtn.active { background: #eef5ff; }
+        .timelineToggleBtn .timelineToggleIcon { font-size: 16px; line-height: 1; }
+        .timelineOverlay { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: center; pointer-events: none; opacity: 0; transform: translateY(24px); transition: opacity .22s ease, transform .22s ease; z-index: 15; }
+        .timelineOverlay.open { pointer-events: auto; opacity: 1; transform: translateY(0); }
+        .timelinePanel { width: min(960px, 100%); max-height: min(360px, calc(100vh - 260px)); overflow: auto; border: 1px solid #d7dbe0; border-radius: 14px; background: #fff; padding: 10px; box-sizing: border-box; box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22); }
+        .timelineHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+        .timelineTitle { font-size: 13px; font-weight: bold; color: #0f172a; }
+        .timelineScaleText { font-size: 12px; color: #475569; }
+        .timelineLegend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; font-size: 11px; color: #475569; }
+        .timelineLegendItem { display: inline-flex; align-items: center; gap: 6px; }
+        .timelineLegendSwatch { width: 12px; height: 12px; border-radius: 999px; }
+        .timelineTicks { position: relative; height: 18px; margin-left: 88px; margin-bottom: 4px; }
+        .timelineTick { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; color: #64748b; white-space: nowrap; }
+        .timelineTick::before { content: ''; position: absolute; left: 50%; top: 14px; width: 1px; height: 6px; background: #cbd5e1; transform: translateX(-50%); }
+        .timelineRow { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 8px; }
+        .timelineRowLabel { font-size: 12px; font-weight: bold; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .timelineTrack { position: relative; height: 28px; border-radius: 999px; background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%); border: 1px solid #dbe3ee; overflow: hidden; }
+        .timelineTrack.timelineTrackSelected { border-color: #1d5fbf; box-shadow: 0 0 0 1px rgba(29,95,191,0.22) inset; }
+        .timelineSegment { position: absolute; top: 4px; bottom: 4px; border-radius: 999px; min-width: 2px; }
+        .timelineSegmentDelay { background: #cbd5e1; }
+        .timelineSegmentAppear { background: #60a5fa; }
+        .timelineSegmentVisible { background: #34d399; }
+        .timelineSegmentDisappear { background: #f59e0b; }
+        .timelineSegmentInfinite { background: linear-gradient(90deg, rgba(52,211,153,0.95) 0%, rgba(52,211,153,0.55) 65%, rgba(52,211,153,0.08) 100%); }
+        .timelineInfinity { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #0f766e; font-weight: bold; }
+        .timelineEmpty { padding: 12px; border-radius: 12px; background: #f8fafc; color: #64748b; font-size: 12px; }
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .row { display: flex; gap: 8px; }
         .row > * { flex: 1; }
@@ -158,6 +197,7 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="duplicateTemplateBtn" type="button" title="Дублировать шаблон" aria-label="Дублировать шаблон">&#x29C9;</button>
             <button class="iconBtn secondary" id="previewTemplateBtn" type="button" title="Предпросмотр шаблона" aria-label="Предпросмотр шаблона">&#x1F441;</button>
             <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&#x1F5D1;</button>
+            <button class="secondary" id="ownerTemplateFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
         </div>
         <div id="templateList" class="list"></div>
     </section>
@@ -173,7 +213,7 @@ declare(strict_types=1);
         <div id="canvas" class="canvasWrap"></div>
         <label class="stageOptions" for="globalShowContentPreview">
             <input id="globalShowContentPreview" type="checkbox">
-            Показывать выбранный контент внутри всех блоков
+            Показать контент
         </label>
         <label class="stageOptions" for="disablePreviewAnimation">
             <input id="disablePreviewAnimation" type="checkbox">
@@ -181,7 +221,7 @@ declare(strict_types=1);
         </label>
         <label class="stageOptions" for="showSelectedOnly">
             <input id="showSelectedOnly" type="checkbox">
-            виден только выбранный
+            Виден только выбранный
         </label>
     </section>
 
@@ -276,7 +316,7 @@ declare(strict_types=1);
                 <label>Режим контента
                     <select id="bMode">
                         <option value="dynamic_current">текущий динамический</option>
-                        <option value="fixed">фиксированный</option>
+                        <option value="fixed" selected>фиксированный</option>
                         <option value="empty">пустой</option>
                     </select>
                 </label>
@@ -347,8 +387,8 @@ declare(strict_types=1);
                     </select>
                 </label>
                 <label id="bAnimMsWrap">Время анимации, мс <input id="bAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
-                <label id="bDelayOnMsWrap">Задержка on, мс <input id="bDelayOnMs" type="number" min="0" step="50" value="0"></label>
-                <label id="bDelayOffMsWrap">Задержка off, мс <input id="bDelayOffMs" type="number" min="0" step="50" value="0"></label>
+                <label id="bDelayOnMsWrap">Задержка on, сек <input id="bDelayOnMs" type="number" min="0" step="0.1" value="0"></label>
+                <label id="bDelayOffMsWrap">Задержка off, сек <input id="bDelayOffMs" type="number" min="0" step="0.1" value="0"></label>
             </div>
         </details>
         <p id="status" class="status"></p>
@@ -407,10 +447,14 @@ declare(strict_types=1);
 </div>
 
 <script>
+const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const state = {
   templates: [],
   contents: [],
   currentTemplateId: null,
+  currentOwnerId: 0,
+  currentCanManage: true,
+  ownerOnly: false,
   blocks: [],
   selectedBlockIndex: -1,
   screen_style: { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' },
@@ -493,7 +537,45 @@ function setSaveButtonDisabled(disabled) {
   btn.style.opacity = disabled ? '0.6' : '';
   btn.style.cursor = disabled ? 'not-allowed' : '';
 }
+function setDeleteTemplateButtonDisabled(disabled) {
+  const btn = document.getElementById('deleteTemplateBtn');
+  if (!btn) return;
+  btn.disabled = !!disabled;
+  btn.style.opacity = disabled ? '0.6' : '';
+  btn.style.cursor = disabled ? 'not-allowed' : '';
+}
+function updateOwnerTemplateFilterButton() {
+  const btn = document.getElementById('ownerTemplateFilterBtn');
+  if (!btn) return;
+  btn.classList.toggle('secondary', !state.ownerOnly);
+  btn.textContent = state.ownerOnly ? 'Все' : 'Мои';
+  btn.title = state.ownerOnly ? 'Показывать все' : 'Показывать только мои';
+  btn.setAttribute('aria-label', btn.title);
+}
+function buildCreatorText(row) {
+  const name = String((row && (row.creator_name || row.creator_login || '')) || '').trim();
+  return name ? ('Создал: ' + name) : 'Создал: администратор';
+}
+function isForeignOwned(row) {
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  const ownerId = Number((row && row.created_by) || 0);
+  return !isAdmin && ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+}
+function updateTemplatePermissions() {
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  state.currentCanManage = !state.currentTemplateId || isAdmin || (state.currentOwnerId > 0 && Number(state.currentOwnerId) === Number(CURRENT_USER.id || 0));
+  setSaveButtonDisabled(!state.currentCanManage);
+  setDeleteTemplateButtonDisabled(!state.currentTemplateId || !state.currentCanManage);
+}
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function formatDelaySeconds(ms) {
+  const seconds = Math.max(0, Number(ms || 0)) / 1000;
+  return String(Math.round(seconds * 10) / 10);
+}
+function parseDelaySecondsToMs(value) {
+  const seconds = Math.max(0, Number(value || 0));
+  return Math.round(seconds * 1000);
+}
 function parseJsonObject(value) {
   if (value && typeof value === 'object') return value;
   if (typeof value !== 'string' || value.trim() === '') return null;
@@ -596,7 +678,7 @@ function ensureBlockKey(block, index) {
   }
 }
 function labelContentType(v) {
-  const map = { text: 'Текст', image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
+  const map = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П' };
   return map[v] || v;
 }
 function normalizeTextData(raw) {
@@ -930,7 +1012,8 @@ function renderTemplateList() {
     const d = document.createElement('div');
     const statusClass = normalized === 'work' ? 'itemWork' : (normalized === 'archive' ? 'itemArchive' : 'itemDraft');
     const badgeClass = normalized === 'work' ? 'statusWork' : (normalized === 'archive' ? 'statusArchive' : 'statusDraft');
-    d.className = 'item ' + statusClass + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '');
+    const foreignOwned = isForeignOwned(tpl);
+    d.className = 'item ' + statusClass + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '') + (foreignOwned ? ' itemForeign' : '');
     const wrap = document.createElement('div');
     wrap.className = 'listItemRow';
     const text = document.createElement('div');
@@ -938,12 +1021,17 @@ function renderTemplateList() {
     const fullLabel = String(tpl.name || '');
     text.textContent = fullLabel;
     text.title = fullLabel;
+    const meta = document.createElement('div');
+    meta.className = 'listItemMeta';
+    meta.textContent = buildCreatorText(tpl);
+    meta.title = meta.textContent;
     const badge = document.createElement('span');
     badge.className = 'statusBadge ' + badgeClass;
     badge.textContent = statusLabel;
     wrap.appendChild(text);
     wrap.appendChild(badge);
     d.appendChild(wrap);
+    d.appendChild(meta);
     d.onclick = () => loadTemplate(tpl.id);
     el.templateList.appendChild(d);
   }
@@ -1052,11 +1140,221 @@ function renderCanvas() {
 
     el.canvas.appendChild(div);
   });
+  renderTimeline();
 }
 
 function currentBlock() { return state.selectedBlockIndex < 0 || state.selectedBlockIndex >= state.blocks.length ? null : state.blocks[state.selectedBlockIndex]; }
 function roundPct(value) {
   return Math.round(Number(value || 0) * 100) / 100;
+}
+function formatTimelineSeconds(ms) {
+  const seconds = Math.max(0, Number(ms || 0)) / 1000;
+  return (Math.round(seconds * 10) / 10).toFixed(seconds >= 10 ? 0 : 1).replace(/\.0$/, '') + ' c';
+}
+function getBlockTimelineData(block) {
+  const style = normalizeBlockBackground(block);
+  const hasAnimation = String(style.animation || 'none') !== 'none';
+  const onMs = Math.max(0, Number(style.delay_on_ms || 0));
+  const offMs = Math.max(0, Number(style.delay_off_ms || 0));
+  const animMs = hasAnimation ? Math.max(100, Math.min(5000, Number(style.animation_ms || 700))) : 0;
+  const hasTemporal = hasAnimation || onMs > 0 || offMs > 0;
+  const appearStartMs = onMs;
+  const appearEndMs = appearStartMs + animMs;
+  const offStartMs = offMs > 0 ? Math.max(appearEndMs, offMs) : null;
+  const endMs = offStartMs === null ? null : offStartMs + animMs;
+  return {
+    hasTemporal,
+    hasAnimation,
+    onMs,
+    animMs,
+    offMs,
+    appearStartMs,
+    appearEndMs,
+    offStartMs,
+    endMs
+  };
+}
+function createTimelineSegment(className, startMs, endMs, scaleMs) {
+  if (!(scaleMs > 0)) return null;
+  const safeStart = Math.max(0, Number(startMs || 0));
+  const safeEnd = Math.max(safeStart, Number(endMs || 0));
+  if (safeEnd <= safeStart) return null;
+  const node = document.createElement('div');
+  node.className = 'timelineSegment ' + className;
+  node.style.left = ((safeStart / scaleMs) * 100) + '%';
+  node.style.width = (Math.max(0.6, ((safeEnd - safeStart) / scaleMs) * 100)) + '%';
+  return node;
+}
+function ensureTimelineMounted() {
+  const canvas = document.getElementById('canvas');
+  const stageToolbar = document.getElementById('stageToolbar');
+  const stagePanel = canvas ? canvas.closest('.panel') : null;
+  if (!canvas || !stageToolbar || !stagePanel || document.getElementById('templateTimeline')) return;
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.id = 'timelineToggleBtn';
+  toggleBtn.className = 'iconBtn secondary timelineToggleBtn';
+  toggleBtn.title = 'Циклограмма';
+  toggleBtn.setAttribute('aria-label', 'Циклограмма');
+  toggleBtn.textContent = 'Циклограмма';
+  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x23F2;</span><span>Циклограмма</span>';
+  stageToolbar.appendChild(toggleBtn);
+  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x231A;</span>';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'templateTimelineOverlay';
+  overlay.className = 'timelineOverlay';
+
+  const panel = document.createElement('div');
+  panel.id = 'templateTimeline';
+  panel.className = 'timelinePanel';
+  overlay.appendChild(panel);
+  stagePanel.appendChild(overlay);
+
+  toggleBtn.addEventListener('click', () => {
+    const opened = overlay.classList.toggle('open');
+    toggleBtn.classList.toggle('active', opened);
+  });
+}
+function renderTimeline() {
+  const panel = document.getElementById('templateTimeline');
+  if (!panel) return;
+
+  const visibleBlocks = state.blocks
+    .map((block, index) => ({ block, index }))
+    .filter(({ block, index }) => shouldRenderBlock(block, index));
+
+  if (visibleBlocks.length === 0) {
+    panel.innerHTML = '<div class="timelineEmpty">Нет блоков для отображения циклограммы.</div>';
+    return;
+  }
+
+  const rows = visibleBlocks.map(({ block, index }) => ({
+    block,
+    index,
+    key: String(block.block_key || ('block_' + (index + 1))),
+    timing: getBlockTimelineData(block)
+  }));
+  const hasTemporal = rows.some((row) => row.timing.hasTemporal);
+  const hasInfinite = !hasTemporal || rows.some((row) => row.timing.hasTemporal && row.timing.endMs === null);
+  const finiteEndMs = rows.reduce((max, row) => Math.max(max, Number(row.timing.endMs || 0)), 0);
+  const scaleMs = Math.max(1000, finiteEndMs || rows.reduce((max, row) => Math.max(max, row.timing.appearEndMs), 0) || 1000);
+
+  panel.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'timelineHead';
+  head.innerHTML = '' +
+    '<div class="timelineTitle">Циклограмма</div>' +
+    '<div class="timelineScaleText">' + (hasTemporal ? ('Шкала: 0 .. ' + formatTimelineSeconds(scaleMs) + (hasInfinite ? ' .. ∞' : '')) : 'Шкала: 0 .. ∞') + '</div>';
+  panel.appendChild(head);
+
+  const legend = document.createElement('div');
+  legend.className = 'timelineLegend';
+  legend.innerHTML = '' +
+    '<span class="timelineLegendItem"><span class="timelineLegendSwatch timelineSegmentDelay"></span>ожидание</span>' +
+    '<span class="timelineLegendItem"><span class="timelineLegendSwatch timelineSegmentAppear"></span>появление</span>' +
+    '<span class="timelineLegendItem"><span class="timelineLegendSwatch timelineSegmentVisible"></span>видимость</span>' +
+    '<span class="timelineLegendItem"><span class="timelineLegendSwatch timelineSegmentDisappear"></span>скрытие</span>';
+  panel.appendChild(legend);
+
+  const ticks = document.createElement('div');
+  ticks.className = 'timelineTicks';
+  const tickValues = hasTemporal ? [0, 0.25, 0.5, 0.75, 1] : [0];
+  tickValues.forEach((ratio, idx) => {
+    const tick = document.createElement('div');
+    tick.className = 'timelineTick';
+    tick.style.left = (ratio * 100) + '%';
+    tick.textContent = idx === tickValues.length - 1
+      ? (hasTemporal ? formatTimelineSeconds(scaleMs) : '∞')
+      : formatTimelineSeconds(scaleMs * ratio);
+    ticks.appendChild(tick);
+  });
+  if (hasInfinite) {
+    const infinityTick = document.createElement('div');
+    infinityTick.className = 'timelineTick';
+    infinityTick.style.left = '100%';
+    infinityTick.style.transform = 'translateX(0)';
+    infinityTick.textContent = '∞';
+    ticks.appendChild(infinityTick);
+  }
+  panel.appendChild(ticks);
+
+  rows.forEach((row) => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'timelineRow';
+
+    const label = document.createElement('div');
+    label.className = 'timelineRowLabel';
+    label.textContent = row.key;
+    label.title = row.key;
+    rowEl.appendChild(label);
+
+    const track = document.createElement('div');
+    track.className = 'timelineTrack' + (row.index === state.selectedBlockIndex ? ' timelineTrackSelected' : '');
+    const timing = row.timing;
+
+    if (!timing.hasTemporal) {
+      const full = createTimelineSegment('timelineSegmentVisible', 0, scaleMs, scaleMs);
+      if (full) track.appendChild(full);
+      const infinity = document.createElement('div');
+      infinity.className = 'timelineInfinity';
+      infinity.textContent = '∞';
+      track.appendChild(infinity);
+    } else {
+      const delaySeg = createTimelineSegment('timelineSegmentDelay', 0, timing.appearStartMs, scaleMs);
+      if (delaySeg) track.appendChild(delaySeg);
+
+      const appearSeg = createTimelineSegment('timelineSegmentAppear', timing.appearStartMs, timing.appearEndMs, scaleMs);
+      if (appearSeg) track.appendChild(appearSeg);
+
+      if (timing.offStartMs === null) {
+        const visibleSeg = createTimelineSegment('timelineSegmentInfinite', timing.appearEndMs, scaleMs, scaleMs);
+        if (visibleSeg) track.appendChild(visibleSeg);
+        const infinity = document.createElement('div');
+        infinity.className = 'timelineInfinity';
+        infinity.textContent = '∞';
+        track.appendChild(infinity);
+      } else {
+        const visibleSeg = createTimelineSegment('timelineSegmentVisible', timing.appearEndMs, timing.offStartMs, scaleMs);
+        if (visibleSeg) track.appendChild(visibleSeg);
+        const offSeg = createTimelineSegment('timelineSegmentDisappear', timing.offStartMs, timing.endMs, scaleMs);
+        if (offSeg) track.appendChild(offSeg);
+      }
+    }
+
+    rowEl.appendChild(track);
+    panel.appendChild(rowEl);
+  });
+}
+function mountStageToolbarMenu() {
+  const stageToolbar = document.getElementById('stageToolbar');
+  if (!stageToolbar || stageToolbar.querySelector('.stageToolbarMenu')) return;
+  const options = Array.from(document.querySelectorAll('.stageOptions'));
+  if (options.length === 0) return;
+
+  const menu = document.createElement('details');
+  menu.className = 'stageToolbarMenu';
+
+  const summary = document.createElement('summary');
+  summary.className = 'iconBtn secondary menuBtn';
+  summary.title = 'Параметры вида';
+  summary.setAttribute('aria-label', 'Параметры вида');
+  summary.innerHTML = '&#x2630;';
+  menu.appendChild(summary);
+
+  const body = document.createElement('div');
+  body.className = 'stageToolbarMenuBody';
+  options.forEach((option) => body.appendChild(option));
+  menu.appendChild(body);
+  stageToolbar.appendChild(menu);
+
+  document.addEventListener('click', (event) => {
+    if (!menu.open) return;
+    if (menu.contains(event.target)) return;
+    menu.open = false;
+  });
 }
 function setFieldVisibility(node, visible) {
   if (!node) return;
@@ -1115,7 +1413,7 @@ function fillBlockEditor() {
   const b = currentBlock();
   if (!b) {
     el.bX.value = ''; el.bY.value = ''; el.bW.value = ''; el.bH.value = ''; el.bZ.value = '';
-    el.bMode.value = 'dynamic_current'; el.bType.value = 'image';
+    el.bMode.value = 'fixed'; el.bType.value = 'image';
     const emptyBg = normalizeBlockBackground({});
     el.bBgMode.value = emptyBg.background_mode;
     el.bBgColor.value = emptyBg.background_color;
@@ -1125,8 +1423,8 @@ function fillBlockEditor() {
     el.bBgRepeat.value = emptyBg.background_repeat;
     el.bAnim.value = emptyBg.animation;
     el.bAnimMs.value = String(emptyBg.animation_ms);
-    el.bDelayOnMs.value = String(emptyBg.delay_on_ms);
-    el.bDelayOffMs.value = String(emptyBg.delay_off_ms);
+    el.bDelayOnMs.value = formatDelaySeconds(emptyBg.delay_on_ms);
+    el.bDelayOffMs.value = formatDelaySeconds(emptyBg.delay_off_ms);
     syncBlockBackgroundFieldVisibility();
     renderContentOptionsForBlock(null);
     return;
@@ -1144,8 +1442,8 @@ function fillBlockEditor() {
   el.bBgRepeat.value = bg.background_repeat;
   el.bAnim.value = bg.animation;
   el.bAnimMs.value = String(bg.animation_ms);
-  el.bDelayOnMs.value = String(bg.delay_on_ms);
-  el.bDelayOffMs.value = String(bg.delay_off_ms);
+  el.bDelayOnMs.value = formatDelaySeconds(bg.delay_on_ms);
+  el.bDelayOffMs.value = formatDelaySeconds(bg.delay_off_ms);
   syncBlockBackgroundFieldVisibility();
 }
 
@@ -1170,8 +1468,8 @@ function updateBlockFromEditor() {
     ? String(el.bAnim.value || 'none')
     : 'none';
   b.animation_ms = Math.max(100, Math.min(5000, Number(el.bAnimMs.value || 700)));
-  b.delay_on_ms = Math.max(0, Number(el.bDelayOnMs.value || 0));
-  b.delay_off_ms = Math.max(0, Number(el.bDelayOffMs.value || 0));
+  b.delay_on_ms = parseDelaySecondsToMs(el.bDelayOnMs.value);
+  b.delay_off_ms = parseDelaySecondsToMs(el.bDelayOffMs.value);
   if (b.x_pct + b.w_pct > 100) b.w_pct = roundPct(100 - b.x_pct);
   if (b.y_pct + b.h_pct > 100) b.h_pct = roundPct(100 - b.y_pct);
   renderCanvas();
@@ -1514,7 +1812,11 @@ function applyBgGallerySelection() {
 }
 
 async function reloadTemplateList() {
-  try { state.templates = await apiGet('/api/template_list.php'); renderTemplateList(); }
+  try {
+    const rows = await apiGet('/api/template_list.php');
+    state.templates = state.ownerOnly ? rows.filter((row) => Number(row.created_by || 0) === Number(CURRENT_USER.id || 0)) : rows;
+    renderTemplateList();
+  }
   catch (e) { setStatus(String(e.message || e), true); }
 }
 async function reloadContentList() {
@@ -1532,6 +1834,7 @@ async function loadTemplate(templateId) {
     const layout = parseJsonObject(tpl.layout_json);
     state.screen_style = normalizeScreenStyle(layout?.screen_style || {});
     state.currentTemplateId = Number(tpl.id);
+    state.currentOwnerId = Number(tpl.created_by || 0);
     state.blocks = (tpl.blocks || []).map((b) => {
       const style = normalizeBlockBackground(parseJsonObject(b.style_json) || {});
       return {
@@ -1558,12 +1861,14 @@ async function loadTemplate(templateId) {
     });
     setStageEditorVisible(true);
     setInspectorVisible(true);
+    updateTemplatePermissions();
     fillTemplateMeta(tpl); state.selectedBlockIndex = state.blocks.length ? 0 : -1; fillBlockEditor(); renderTemplateList(); renderCanvas(); setStatus('Шаблон загружен');
   } catch (e) { setStatus(String(e.message || e), true); }
 }
 
 function newTemplate() {
   state.currentTemplateId = null;
+  state.currentOwnerId = Number(CURRENT_USER.id || 0);
   state.screen_style = normalizeScreenStyle({});
   state.blocks = [{
     block_key: 'main',
@@ -1572,7 +1877,7 @@ function newTemplate() {
     w_pct: 100,
     h_pct: 100,
     z_index: 1,
-    content_mode: 'dynamic_current',
+    content_mode: 'fixed',
     content_type: 'image',
     content_id: null,
     background_mode: 'none',
@@ -1588,11 +1893,13 @@ function newTemplate() {
   }];
   setStageEditorVisible(true);
   setInspectorVisible(true);
+  updateTemplatePermissions();
   state.selectedBlockIndex = 0; fillTemplateMeta(null); fillBlockEditor(); renderTemplateList(); renderCanvas(); setStatus('Черновик нового шаблона');
 }
 
 function resetTemplateEditor() {
   state.currentTemplateId = null;
+  state.currentOwnerId = 0;
   state.blocks = [];
   state.globalShowContentPreview = false;
   state.disablePreviewAnimation = false;
@@ -1621,10 +1928,12 @@ function resetTemplateEditor() {
   fillBlockEditor();
   renderTemplateList();
   renderCanvas();
+  updateTemplatePermissions();
   setStatus('');
 }
 
 async function saveTemplate() {
+  if (!state.currentCanManage) { setStatus('Редактирование чужого шаблона запрещено', true); return; }
   if (state.saveInProgress) return;
   state.saveInProgress = true;
   setSaveButtonDisabled(true);
@@ -1684,6 +1993,11 @@ async function confirmDuplicateTemplate() {
 }
 
 document.getElementById('reloadListBtn').onclick = reloadTemplateList;
+document.getElementById('ownerTemplateFilterBtn').onclick = async () => {
+  state.ownerOnly = !state.ownerOnly;
+  updateOwnerTemplateFilterButton();
+  await reloadTemplateList();
+};
 document.getElementById('newTemplateBtn').onclick = newTemplate;
 document.getElementById('duplicateTemplateBtn').onclick = () => {
   const id = Number(state.currentTemplateId || 0);
@@ -1710,7 +2024,7 @@ document.getElementById('addBlockBtn').onclick = () => {
     w_pct: 30,
     h_pct: 30,
     z_index: i,
-    content_mode: 'dynamic_current',
+    content_mode: 'fixed',
     content_type: 'image',
     content_id: null,
     background_mode: 'none',
@@ -1870,6 +2184,9 @@ el.bType.addEventListener('change', () => {
   const stagePanel = document.getElementById('canvas')?.closest('.panel');
   if (stageToolbar) stageToolbar.classList.add('stageToolbar');
   if (stagePanel) stagePanel.classList.add('stagePanel');
+  ensureTimelineMounted();
+  mountStageToolbarMenu();
+  updateOwnerTemplateFilterButton();
   if (stageToolbar && el.status) stageToolbar.appendChild(el.status);
   await reloadContentList();
   await reloadTemplateList();
