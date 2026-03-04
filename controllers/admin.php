@@ -12,7 +12,13 @@ $projectVersion = projectVersion();
 $currentUser = authCurrentUser();
 $canManageAccounts = authHasRole(AUTH_ROLE_ADMINISTRATOR);
 $canUseTemplateEditor = authHasRole(AUTH_ROLE_ADMINISTRATOR, AUTH_ROLE_EDITOR);
+$canUseQueueEditor = authHasRole(AUTH_ROLE_ADMINISTRATOR, AUTH_ROLE_EDITOR);
+$canSelectPreviewScreen = authHasRole(AUTH_ROLE_ADMINISTRATOR, AUTH_ROLE_EDITOR);
 $pdo = dbMysql();
+$allQueues = queueListAll($pdo);
+$mainQueues = array_values(array_filter($allQueues, static function (array $row): bool {
+    return (string)($row['queue_type'] ?? '') !== 'test';
+}));
 $allTemplates = listTemplatesWithActiveMark($pdo);
 $workTemplates = array_values(array_filter($allTemplates, static function (array $row): bool {
     return (string)($row['status'] ?? '') === 'work';

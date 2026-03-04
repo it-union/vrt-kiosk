@@ -23,6 +23,9 @@ try {
     if ($queue === null) {
         jsonResponse(['ok' => false, 'error' => 'Очередь не найдена'], 404);
     }
+    if ((string)($queue['queue_type'] ?? '') === 'test') {
+        jsonResponse(['ok' => false, 'error' => 'РўРµСЃС‚РѕРІСѓСЋ РѕС‡РµСЂРµРґСЊ РЅРµР»СЊР·СЏ Р°РєС‚РёРІРёСЂРѕРІР°С‚СЊ РєР°Рє РѕСЃРЅРѕРІРЅСѓСЋ'], 400);
+    }
     queueActivate($pdo, $queueId);
     jsonResponse(['ok' => true, 'data' => ['queue_id' => $queueId]]);
 } catch (Throwable $e) {

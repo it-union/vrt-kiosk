@@ -214,6 +214,22 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
         }
+        .queueSelectorRow {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .queueSelectorRow select {
+            width: 100%;
+            min-width: 0;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--text);
+            font: inherit;
+        }
         .queueStatus {
             margin-top: 14px;
             min-height: 24px;
@@ -538,7 +554,11 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             <span class="btnGhost disabled">Аккаунты</span>
         <?php endif; ?>
 
-        <a class="btn" href="/queue/">Настройка очереди</a>
+        <?php if ($canUseQueueEditor): ?>
+            <a class="btn" href="/queue/">Настройка очереди</a>
+        <?php else: ?>
+            <span class="btnGhost disabled">Настройка очереди</span>
+        <?php endif; ?>
         <div class="navRowRight">
             <?php if ($canManageAccounts): ?>
                 <a class="btn navIconBtn" href="/settings/" title="Настройки проекта" aria-label="Настройки проекта">&#9881;</a>
@@ -557,6 +577,16 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                 </div>
             </div>
             <div class="panelBody">
+                <div class="queueSelectorRow">
+                    <select id="queueSelect">
+                        <?php foreach ($mainQueues as $queueRow): ?>
+                            <option value="<?= (int)($queueRow['id'] ?? 0) ?>" <?= (int)($queueRow['id'] ?? 0) === (int)($activeQueue['id'] ?? 0) ? 'selected' : '' ?>>
+                                <?= h((string)($queueRow['name'] ?? 'Очередь')) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button id="queueActivateBtn" class="btn" type="button">Активировать</button>
+                </div>
                 <div class="queueActions">
                     <button id="queueStartBtn" class="btnGhost" type="button">Старт</button>
                     <button id="queueStopBtn" class="btnGhost" type="button">Стоп</button>
@@ -580,12 +610,16 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                     <p>Дублирование текущего состояния экрана в реальном времени.</p>
                 </div>
                 <div id="screenStatus" class="status"></div>
-                <div class="mirrorToolbar">
-                    <select id="previewScreenSelect">
-                        <option value="main-kiosk">Киоск</option>
-                        <option value="test-kiosk">Тестовый киоск</option>
-                    </select>
-                </div>
+                <?php if ($canSelectPreviewScreen): ?>
+                    <div class="mirrorToolbar">
+                        <select id="previewScreenSelect">
+                            <option value="main-kiosk">Киоск</option>
+                            <option value="test-kiosk">Тестовый киоск</option>
+                        </select>
+                    </div>
+                <?php else: ?>
+                    <div></div>
+                <?php endif; ?>
             </div>
             <div class="mirrorPanelBody">
                 <div class="mirrorFrame">
@@ -635,6 +669,8 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
 <script>
 const queueStatus = document.getElementById('queueStatus');
 const screenStatus = document.getElementById('screenStatus');
+const queueSelect = document.getElementById('queueSelect');
+const queueActivateBtn = document.getElementById('queueActivateBtn');
 const queueStartBtn = document.getElementById('queueStartBtn');
 const queueStopBtn = document.getElementById('queueStopBtn');
 const queueManualBtn = document.getElementById('queueManualBtn');
@@ -647,6 +683,7 @@ const manualModal = document.getElementById('manualModal');
 const manualModalClose = document.getElementById('manualModalClose');
 const showTemplateButtons = Array.from(document.querySelectorAll('.js-show-template'));
 let screenStatusTimer = null;
+const queueOptions = <?= json_encode(array_values($mainQueues), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const queuePreviewData = {
     'main-kiosk': {
         name: <?= json_encode((string)($activeQueue['name'] ?? 'Активная очередь'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
@@ -770,9 +807,70 @@ function markCurrentQueueTemplate(templateId, source) {
 }
 
 function setButtonsDisabled(disabled) {
-    [queueStartBtn, queueStopBtn, queueManualBtn].forEach((button) => {
+    [queueActivateBtn, queueStartBtn, queueStopBtn, queueManualBtn].forEach((button) => {
         if (button) button.disabled = disabled;
     });
+}
+
+function updateQueueSelectValue(queueId) {
+    if (!queueSelect) return;
+    queueSelect.value = String(Number(queueId || 0));
+}
+
+async function loadQueuePreview(queueId) {
+    const res = await fetch('/api/queue_get.php?queue_id=' + encodeURIComponent(String(queueId || 0)), { cache: 'no-store' });
+    const payload = await res.json();
+    if (!res.ok || !payload || payload.ok !== true) {
+        throw new Error((payload && payload.error) ? String(payload.error) : 'Не удалось загрузить очередь');
+    }
+    const queue = payload.data && payload.data.queue ? payload.data.queue : null;
+    const items = payload.data && Array.isArray(payload.data.items) ? payload.data.items : [];
+    if (!queue) {
+        throw new Error('Некорректный ответ API');
+    }
+    queuePreviewData['main-kiosk'] = {
+        name: String(queue.name || ''),
+        caption: 'Шаблоны активной очереди',
+        emptyText: 'Активная очередь пока пуста.',
+        items
+    };
+    updateQueueSelectValue(queue.id || 0);
+}
+
+async function activateSelectedQueue() {
+    if (!queueSelect || !queueActivateBtn) return;
+    const queueId = Number(queueSelect.value || 0);
+    if (queueId <= 0) {
+        setQueueStatus('Выберите очередь', true);
+        return;
+    }
+
+    setButtonsDisabled(true);
+    setQueueStatus('Активация очереди...', false);
+    try {
+        const body = new URLSearchParams();
+        body.set('queue_id', String(queueId));
+        const res = await fetch('/api/queue_activate.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) ? String(payload.error) : 'Не удалось активировать очередь');
+        }
+        await loadQueuePreview(queueId);
+        if (getPreviewDeviceKey() === 'main-kiosk') {
+            renderQueuePreview();
+        }
+        setQueueStatus('Очередь активирована.', false);
+        await refreshScreenStatus();
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Не удалось активировать очередь';
+        setQueueStatus(message, true);
+    } finally {
+        setButtonsDisabled(false);
+    }
 }
 
 function openManualModal() {
@@ -850,6 +948,10 @@ if (queueStartBtn) {
 }
 
 
+if (queueActivateBtn) {
+    queueActivateBtn.addEventListener('click', activateSelectedQueue);
+}
+
 if (queueStopBtn) {
     queueStopBtn.addEventListener('click', () => {
         postQueueAction('/api/admin_queue_stop.php', 'Очередь показа остановлена.');
@@ -921,6 +1023,7 @@ showTemplateButtons.forEach((button) => {
 });
 
 renderQueuePreview();
+updateQueueSelectValue(<?= (int)($activeQueue['id'] ?? 0) ?>);
 syncMirrorFrame();
 refreshScreenStatus();
 screenStatusTimer = window.setInterval(refreshScreenStatus, 5000);
