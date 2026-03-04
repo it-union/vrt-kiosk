@@ -540,6 +540,9 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
 
         <a class="btn" href="/queue/">Настройка очереди</a>
         <div class="navRowRight">
+            <?php if ($canManageAccounts): ?>
+                <a class="btn navIconBtn" href="/settings/" title="Настройки проекта" aria-label="Настройки проекта">&#9881;</a>
+            <?php endif; ?>
             <a class="btn navIconBtn" href="/kiosk/" target="_blank" rel="noopener" title="Киоск" aria-label="Киоск">&#128187;</a>
             <a class="btn navIconBtn" href="/kiosk/test/" target="_blank" rel="noopener" title="Тестовый киоск" aria-label="Тестовый киоск">&#9879;</a>
         </div>
@@ -845,6 +848,7 @@ if (queueStartBtn) {
         postQueueAction('/api/admin_queue_start.php', 'Очередь показа запущена.');
     });
 }
+
 
 if (queueStopBtn) {
     queueStopBtn.addEventListener('click', () => {

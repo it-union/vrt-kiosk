@@ -75,6 +75,7 @@ declare(strict_types=1);
         .preview { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 10px; height: 220px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; }
         .preview img, .preview video, .preview iframe { max-width: 100%; max-height: 100%; display: block; }
         .previewHtml { width: 100%; height: 100%; overflow: auto; padding: 12px; box-sizing: border-box; color: #1a1a1a; }
+        .textRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-family: Tahoma, sans-serif; }
         .previewPanel { overflow: hidden; }
         .htmlEditorWrap { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; min-height: 0; flex: 1; display: none; flex-direction: column; overflow: hidden; }
         #htmlEditorContainer { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -82,11 +83,17 @@ declare(strict_types=1);
         .htmlToolBtn { min-width: 34px; height: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #c8ced6; background: #fff; color: #1d5fbf; border-radius: 10px; cursor: pointer; font-size: 12px; line-height: 1; }
         .htmlToolBtn:hover { background: #eef5ff; }
         .htmlToolBtn.labelBtn { padding: 0 10px; min-width: auto; }
+        .htmlEditorContrastToggle { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #334155; white-space: nowrap; }
+        .htmlEditorContrastToggle input { width: auto; margin: 0; }
         .htmlEditorSurface { flex: 1; min-height: 0; overflow: hidden; }
         .htmlEditorWrap .ck.ck-editor { flex: 1; min-height: 0; display: flex; flex-direction: column; border: 0; }
         .htmlEditorWrap .ck-editor__main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         .htmlEditorWrap .ck-editor__editable { flex: 1; min-height: 240px; max-height: none; }
         .htmlEditorWrap .ck-content img { max-width: 100%; height: auto; }
+        .htmlEditorWrap.contrastMode { background: #0f172a; }
+        .htmlEditorWrap.contrastMode .ck.ck-editor { background: #0f172a; }
+        .htmlEditorWrap.contrastMode .ck-editor__main { background: #0f172a; }
+        .htmlEditorWrap.contrastMode .ck-editor__editable { background: #111827; color: #f8fafc; }
         .previewPanel #previewControls { display: flex; flex-direction: column; min-height: 0; flex: 1; overflow: hidden; }
         .previewPanel .preview { margin-top: 0; height: auto; min-height: 0; flex: 1; }
         .libraryHead { display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 8px; }
@@ -148,6 +155,7 @@ declare(strict_types=1);
             <label for="contentTypeFilter">Фильтр типа контента</label>
             <select id="contentTypeFilter">
                 <option value="">Все</option>
+                <option value="text">Текст</option>
                 <option value="image">Изображение</option>
                 <option value="html">HTML</option>
                 <option value="video">Видео</option>
@@ -175,6 +183,10 @@ declare(strict_types=1);
                 <div id="htmlEditorContainer">
                     <div class="htmlEditorToolbar" id="htmlEditorToolbar">
                         <button type="button" class="htmlToolBtn labelBtn" id="openHtmlLibraryBtn" title="Вставить изображение из галереи">Изображение</button>
+                        <label class="htmlEditorContrastToggle" for="htmlEditorContrastToggle">
+                            <input type="checkbox" id="htmlEditorContrastToggle">
+                            <span>контраст</span>
+                        </label>
                     </div>
                     <div id="cHtmlEditor" class="htmlEditorSurface"></div>
                     <textarea id="cHtmlBody" style="display:none;"></textarea>
@@ -207,6 +219,37 @@ declare(strict_types=1);
             </label>
 
             <input id="cMediaUrl" type="hidden" value="">
+            <div id="textControls" style="display:none;">
+                <label>Текст
+                    <textarea id="cTextBody" rows="8"></textarea>
+                </label>
+                <div class="row">
+                    <label>Размер шрифта, px <input id="pTextFontSize" type="number" min="8" max="400" step="1" value="64"></label>
+                    <label>Цвет <input id="pTextColor" type="color" value="#ffffff"></label>
+                </div>
+                <div class="row">
+                    <label>Выравнивание
+                        <select id="pTextAlign">
+                            <option value="left">слева</option>
+                            <option value="center">по центру</option>
+                            <option value="right">справа</option>
+                        </select>
+                    </label>
+                    <label>Насыщенность
+                        <select id="pTextWeight">
+                            <option value="400">400</option>
+                            <option value="500">500</option>
+                            <option value="600">600</option>
+                            <option value="700">700</option>
+                            <option value="800">800</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <label>Межстрочный интервал <input id="pTextLineHeight" type="number" min="0.8" max="3" step="0.05" value="1.1"></label>
+                    <label>Отступ, px <input id="pTextPadding" type="number" min="0" max="300" step="1" value="0"></label>
+                </div>
+            </div>
             <div id="htmlControls" style="display:none;">
                 <label>Анимация появления
                     <select id="pHtmlAnim">
@@ -375,6 +418,7 @@ declare(strict_types=1);
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="newTypeTitle">
         <h3 id="newTypeTitle">Выбор типа контента</h3>
         <div class="typeGrid" id="typeGrid">
+            <button type="button" class="typeBtn" data-type="text">Текст</button>
             <button type="button" class="typeBtn active" data-type="image">Изображение</button>
             <button type="button" class="typeBtn" data-type="html">HTML</button>
             <button type="button" class="typeBtn" data-type="video">Видео</button>
@@ -457,6 +501,7 @@ let pptProbeCache = Object.create(null);
 let htmlEditorReady = false;
 let htmlEditorInstance = null;
 let htmlEditorReadyPromise = null;
+let htmlEditorEventsBound = false;
 let libraryUploadInProgress = false;
 let libraryUploadProgressTimer = null;
 let libraryUploadFinalizing = false;
@@ -472,8 +517,16 @@ const el = {
   cTitle: document.getElementById('cTitle'),
   cAnimation: document.getElementById('cAnimation'),
   cMediaUrl: document.getElementById('cMediaUrl'),
+  cTextBody: document.getElementById('cTextBody'),
   cHtmlEditor: document.getElementById('cHtmlEditor'),
   cHtmlBody: document.getElementById('cHtmlBody'),
+  textControls: document.getElementById('textControls'),
+  pTextFontSize: document.getElementById('pTextFontSize'),
+  pTextColor: document.getElementById('pTextColor'),
+  pTextAlign: document.getElementById('pTextAlign'),
+  pTextWeight: document.getElementById('pTextWeight'),
+  pTextLineHeight: document.getElementById('pTextLineHeight'),
+  pTextPadding: document.getElementById('pTextPadding'),
   pImageWidth: document.getElementById('pImageWidth'),
   pImageHeight: document.getElementById('pImageHeight'),
   pImageScale: document.getElementById('pImageScale'),
@@ -515,6 +568,7 @@ const el = {
   videoControls: document.getElementById('videoControls'),
   pptControls: document.getElementById('pptControls'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
+  htmlEditorContrastToggle: document.getElementById('htmlEditorContrastToggle'),
   pHtmlScale: document.getElementById('pHtmlScale')
     };
 function setLabelText(labelEl, text) {
@@ -616,19 +670,20 @@ function setEditorVisible(visible, type = 'image') {
   const viewType = String(type || 'image');
   const previewBox = el.previewImg ? el.previewImg.parentElement : null;
   if (el.previewTitle) {
-    const label = viewType === 'html' ? 'HTML' : (viewType === 'video' ? 'Видео' : (viewType === 'ppt' ? 'Презентация' : 'Изображение'));
+    const label = viewType === 'text' ? 'Текст' : (viewType === 'html' ? 'HTML' : (viewType === 'video' ? 'Видео' : (viewType === 'ppt' ? 'Презентация' : 'Изображение')));
     el.previewTitle.textContent = visible ? label : 'Тип контента';
   }
   if (el.previewControls) el.previewControls.style.display = visible ? 'flex' : 'none';
   if (el.previewEmpty) el.previewEmpty.style.display = visible ? 'none' : 'block';
   if (el.editorControls) el.editorControls.style.display = visible ? 'block' : 'none';
   if (el.editorEmpty) el.editorEmpty.style.display = visible ? 'none' : 'block';
+  if (el.textControls) el.textControls.style.display = visible && viewType === 'text' ? 'block' : 'none';
   if (el.htmlControls) el.htmlControls.style.display = visible && viewType === 'html' ? 'block' : 'none';
   if (el.imageControls) el.imageControls.style.display = visible && viewType === 'image' ? 'block' : 'none';
   if (el.videoControls) el.videoControls.style.display = visible && viewType === 'video' ? 'block' : 'none';
   if (el.pptControls) el.pptControls.style.display = visible && viewType === 'ppt' ? 'block' : 'none';
   if (el.htmlEditorWrap) el.htmlEditorWrap.style.display = visible && viewType === 'html' ? 'flex' : 'none';
-  if (previewBox) previewBox.style.display = visible && viewType !== 'html' ? 'flex' : 'none';
+  if (previewBox) previewBox.style.display = visible && viewType !== 'html' && viewType !== 'text' ? 'flex' : 'none';
   if (el.previewHtml) el.previewHtml.style.display = 'none';
 }
 function parseJsonSafe(v) {
@@ -878,11 +933,105 @@ function buildHtmlDataJson() {
     }
   };
 }
+function buildTextDataJson() {
+  const fontSizePx = Math.max(8, Math.min(400, Number(el.pTextFontSize.value || 64)));
+  const color = String(el.pTextColor.value || '#ffffff').trim() || '#ffffff';
+  const align = ['left', 'center', 'right'].includes(String(el.pTextAlign.value || ''))
+    ? String(el.pTextAlign.value || 'left')
+    : 'left';
+  const fontWeight = ['400', '500', '600', '700', '800'].includes(String(el.pTextWeight.value || ''))
+    ? String(el.pTextWeight.value || '700')
+    : '700';
+  const lineHeight = Math.max(0.8, Math.min(3, Number(el.pTextLineHeight.value || 1.1)));
+  const paddingPx = Math.max(0, Math.min(300, Number(el.pTextPadding.value || 0)));
+  return {
+    text: {
+      font_size_px: fontSizePx,
+      color: color,
+      align: align,
+      font_weight: fontWeight,
+      line_height: lineHeight,
+      padding_px: paddingPx
+    }
+  };
+}
 function syncDataJson() {
+  if (state.currentType === 'text') return JSON.stringify(buildTextDataJson());
   if (state.currentType === 'html') return JSON.stringify(buildHtmlDataJson());
   if (state.currentType === 'video') return JSON.stringify(buildVideoDataJson());
   if (state.currentType === 'ppt') return JSON.stringify(buildPptDataJson());
   return JSON.stringify(buildImageDataJson());
+}
+function normalizeTextData(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
+    color: String(src.color || '#ffffff').trim() || '#ffffff',
+    align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
+    font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+    line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
+    padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
+  };
+}
+function createTextRenderNode(text, rawData) {
+  const p = normalizeTextData(rawData);
+  const node = document.createElement('div');
+  node.className = 'textRenderContent';
+  node.textContent = String(text || '');
+  node.style.fontSize = p.font_size_px + 'px';
+  node.style.color = p.color;
+  node.style.textAlign = p.align;
+  node.style.fontWeight = p.font_weight;
+  node.style.lineHeight = String(p.line_height);
+  node.style.padding = p.padding_px + 'px';
+  return node;
+}
+function parseHexColor(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const match = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!match) return null;
+  let hex = match[1];
+  if (hex.length === 3) {
+    hex = hex.split('').map((ch) => ch + ch).join('');
+  }
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16)
+  };
+}
+function getRelativeLuminance(rgb) {
+  const toLinear = (channel) => {
+    const normalized = Number(channel || 0) / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : Math.pow((normalized + 0.055) / 1.055, 2.4);
+  };
+  const r = toLinear(rgb.r);
+  const g = toLinear(rgb.g);
+  const b = toLinear(rgb.b);
+  return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
+}
+function getContrastRatio(a, b) {
+  const l1 = getRelativeLuminance(a);
+  const l2 = getRelativeLuminance(b);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+function getTextPreviewBackground(rawData) {
+  const textData = normalizeTextData(rawData);
+  const textColor = parseHexColor(textData.color) || { r: 255, g: 255, b: 255 };
+  const darkBg = { r: 15, g: 23, b: 42 };
+  const lightBg = { r: 248, g: 250, b: 252 };
+  const darkRatio = getContrastRatio(textColor, darkBg);
+  const lightRatio = getContrastRatio(textColor, lightBg);
+  return darkRatio >= lightRatio ? '#0f172a' : '#f8fafc';
+}
+function resetPreviewHtmlSurface() {
+  if (!el.previewHtml) return;
+  el.previewHtml.style.background = '';
+  el.previewHtml.style.color = '';
 }
 function escapeHtmlAttr(value) {
   return String(value || '')
@@ -1004,6 +1153,7 @@ async function ensureHtmlEditor() {
       editor.setData(initialValue);
     }
 
+    applyHtmlEditorContrast(!!(el.htmlEditorContrastToggle && el.htmlEditorContrastToggle.checked));
     htmlEditorInstance = editor;
     htmlEditorReady = true;
     return editor;
@@ -1015,7 +1165,19 @@ async function ensureHtmlEditor() {
   return htmlEditorReadyPromise;
 }
 function bindHtmlEditorEvents() {
-  return;
+  if (htmlEditorEventsBound) return;
+  if (el.htmlEditorContrastToggle) {
+    el.htmlEditorContrastToggle.addEventListener('change', () => {
+      applyHtmlEditorContrast(el.htmlEditorContrastToggle.checked);
+    });
+  }
+  htmlEditorEventsBound = true;
+}
+function applyHtmlEditorContrast(enabled) {
+  const contrastEnabled = enabled === true;
+  if (el.htmlEditorWrap) {
+    el.htmlEditorWrap.classList.toggle('contrastMode', contrastEnabled);
+  }
 }
 function saveHtmlSelection() {
   return;
@@ -1048,8 +1210,37 @@ function setHtmlValue(value) {
     el.cHtmlEditor.innerHTML = v;
   }
 }
+function getTextValue() {
+  return String(el.cTextBody?.value || '');
+}
+function setTextValue(value) {
+  if (el.cTextBody) el.cTextBody.value = String(value || '');
+}
 function syncPreview() {
   clearPreviewImageNode();
+  resetPreviewHtmlSurface();
+  if (state.currentType === 'text') {
+    if (el.previewImg) el.previewImg.style.display = 'none';
+    if (el.previewVideo) {
+      el.previewVideo.style.display = 'none';
+      el.previewVideo.removeAttribute('src');
+      el.previewVideo.load();
+    }
+    if (el.previewPpt) {
+      el.previewPpt.style.display = 'none';
+      el.previewPpt.removeAttribute('src');
+    }
+    stopPptPreviewTimer();
+    if (el.previewHtml) {
+      const textData = buildTextDataJson().text;
+      el.previewHtml.style.display = 'block';
+      el.previewHtml.innerHTML = '';
+      el.previewHtml.style.animation = '';
+      el.previewHtml.style.background = getTextPreviewBackground(textData);
+      el.previewHtml.appendChild(createTextRenderNode(getTextValue(), textData));
+    }
+    return;
+  }
   if (state.currentType === 'html') {
     if (el.previewImg) el.previewImg.style.display = 'none';
     if (el.previewVideo) {
@@ -1422,7 +1613,14 @@ function nowDraft() {
   el.cTitle.value = '';
   el.cAnimation.value = 'none';
   el.cMediaUrl.value = '';
+  setTextValue('');
   setHtmlValue('');
+  el.pTextFontSize.value = '64';
+  el.pTextColor.value = '#ffffff';
+  el.pTextAlign.value = 'left';
+  el.pTextWeight.value = '700';
+  el.pTextLineHeight.value = '1.1';
+  el.pTextPadding.value = '0';
   el.pImageWidth.value = '';
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
@@ -1779,7 +1977,7 @@ function renderList() {
     const isActive = Number(row.is_active || 0) === 1;
     d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive');
     const t = String(row.type || 'image');
-    const labelMapSafe = { image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
+    const labelMapSafe = { text: 'Текст', image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
     const safeLabel = labelMapSafe[t] || 'Изображение';
     const wrap = document.createElement('div');
     wrap.className = 'listItemRow';
@@ -1827,9 +2025,11 @@ async function loadById(id) {
     el.cActive.value = String(Number(row.is_active || 0));
     el.cTitle.value = row.title || '';
     el.cMediaUrl.value = row.media_url || '';
+    setTextValue(String(row.body || ''));
     setHtmlValue(String(row.body || ''));
 
     const data = parseJsonSafe(row.data_json || '');
+    const text = data.text && typeof data.text === 'object' ? data.text : {};
     const html = data.html && typeof data.html === 'object' ? data.html : {};
     const image = data.image && typeof data.image === 'object' ? data.image : {};
     const video = data.video && typeof data.video === 'object' ? data.video : {};
@@ -1837,6 +2037,12 @@ async function loadById(id) {
     el.cAnimation.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(data.animation || ''))
       ? String(data.animation || 'none')
       : 'none';
+    el.pTextFontSize.value = String(Math.max(8, Math.min(400, Number(text.font_size_px || 64))));
+    el.pTextColor.value = String(text.color || '#ffffff').trim() || '#ffffff';
+    el.pTextAlign.value = ['left', 'center', 'right'].includes(String(text.align || '')) ? String(text.align || 'left') : 'left';
+    el.pTextWeight.value = ['400', '500', '600', '700', '800'].includes(String(text.font_weight || '')) ? String(text.font_weight || '700') : '700';
+    el.pTextLineHeight.value = String(Math.max(0.8, Math.min(3, Number(text.line_height || 1.1))));
+    el.pTextPadding.value = String(Math.max(0, Math.min(300, Number(text.padding_px || 0))));
     el.pHtmlScale.value = String(Math.max(1, Math.min(500, Number(html.scale_pct || 100))));
     el.pImageWidth.value = image.width_px ? String(Number(image.width_px || 0)) : '';
     el.pImageHeight.value = image.height_px ? String(Number(image.height_px || 0)) : '';
@@ -1883,6 +2089,7 @@ async function loadById(id) {
     }
 
     syncDataJson();
+    setEditorVisible(true, state.currentType);
     syncPreview();
     if (state.currentType === 'image') {
       await setDimensionsFromImage(el.cMediaUrl.value || '', false);
@@ -1895,9 +2102,8 @@ async function loadById(id) {
       bindHtmlEditorEvents();
       setHtmlValue(String(row.body || ''));
     }
-    setEditorVisible(true, state.currentType);
     renderList();
-    setStatus(state.currentType === 'html' ? 'HTML загружен' : (state.currentType === 'video' ? 'Видео загружено' : (state.currentType === 'ppt' ? 'Презентация загружена' : 'Изображение загружено')));
+    setStatus(state.currentType === 'text' ? 'Текст загружен' : (state.currentType === 'html' ? 'HTML загружен' : (state.currentType === 'video' ? 'Видео загружено' : (state.currentType === 'ppt' ? 'Презентация загружена' : 'Изображение загружено'))));
   } catch (e) {
     setStatus(String(e.message || e), true);
   }
@@ -1987,7 +2193,7 @@ async function saveCurrent() {
       content_id: state.currentId || 0,
       type: state.currentType,
       title: el.cTitle.value || '',
-      body: state.currentType === 'html' ? getHtmlValue() : '',
+      body: state.currentType === 'text' ? getTextValue() : (state.currentType === 'html' ? getHtmlValue() : ''),
       media_url: (state.currentType === 'image' || state.currentType === 'video' || state.currentType === 'ppt') ? (el.cMediaUrl.value || '') : '',
       data_json: syncDataJson(),
       is_active: el.cActive.value,
@@ -1998,7 +2204,7 @@ async function saveCurrent() {
     state.currentId = Number(res.content_id);
     await reloadList();
     await loadById(state.currentId);
-    setStatus(state.currentType === 'html' ? 'HTML сохранен' : (state.currentType === 'video' ? 'Видео сохранено' : (state.currentType === 'ppt' ? 'Презентация сохранена' : 'Изображение сохранено')));
+    setStatus(state.currentType === 'text' ? 'Текст сохранен' : (state.currentType === 'html' ? 'HTML сохранен' : (state.currentType === 'video' ? 'Видео сохранено' : (state.currentType === 'ppt' ? 'Презентация сохранена' : 'Изображение сохранено'))));
   } catch (e) {
     setStatus(String(e.message || e), true);
   } finally {
@@ -2151,7 +2357,9 @@ document.getElementById('newTypeCreateBtn').onclick = () => {
     }
     setEditorVisible(true, state.currentType);
     renderList();
-    if (state.currentType === 'html') {
+    if (state.currentType === 'text') {
+      setStatus('Черновик: Текст');
+    } else if (state.currentType === 'html') {
       setStatus('Черновик: HTML');
     } else if (state.currentType === 'video') {
       setStatus('Черновик: Видео');
@@ -2203,6 +2411,12 @@ el.pImageContrast.addEventListener('input', () => { syncDataJson(); syncPreview(
 el.pImageSaturation.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFade.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFadeMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pTextFontSize.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pTextColor.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pTextAlign.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pTextWeight.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+el.pTextLineHeight.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pTextPadding.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
@@ -2232,6 +2446,9 @@ document.addEventListener('change', (event) => {
 });
 if (el.cHtmlBody) {
   el.cHtmlBody.addEventListener('input', () => { if (state.currentType === 'html') syncPreview(); });
+}
+if (el.cTextBody) {
+  el.cTextBody.addEventListener('input', () => { if (state.currentType === 'text') syncPreview(); });
 }
 
 (async function boot() {

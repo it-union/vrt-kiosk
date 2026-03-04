@@ -49,7 +49,7 @@ if ($screenStyleRaw !== '') {
 
 function ensureTemplateBlockContentTypeEnum(PDO $pdo): void
 {
-    $required = ['image', 'html', 'video', 'ppt'];
+    $required = ['text', 'image', 'html', 'video', 'ppt'];
     $stmt = $pdo->query("SHOW COLUMNS FROM template_blocks LIKE 'content_type'");
     if (!$stmt) {
         return;

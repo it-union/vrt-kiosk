@@ -16,7 +16,7 @@ if ($route === null) {
         $route = strtolower(trim((string)$_GET['route']));
     } elseif ($path === '' || $path === 'index.php') {
         $route = 'promo';
-    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue'], true)) {
+    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings'], true)) {
         $route = $path;
     } else {
         http_response_code(404);
@@ -25,7 +25,7 @@ if ($route === null) {
     }
 }
 
-$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue'];
+$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings'];
 if (!in_array($route, $allowedRoutes, true)) {
     http_response_code(404);
     echo 'Маршрут не найден';
@@ -62,6 +62,11 @@ switch ($route) {
     case 'users':
         requireAdministratorRole();
         require __DIR__ . '/controllers/users.php';
+        break;
+
+    case 'settings':
+        requireAdministratorRole();
+        require __DIR__ . '/controllers/settings.php';
         break;
 
     case 'template':

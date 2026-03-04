@@ -23,6 +23,20 @@ declare(strict_types=1);
         .title { font-size: 2.2vmin; font-weight: 700; margin: 0 0 0.8vmin 0; line-height: 1.2; }
         .body { font-size: 1.6vmin; margin: 0; line-height: 1.35; opacity: 0.94; }
         .media { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; }
+        .textRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-family: Tahoma, sans-serif; }
+        .htmlRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; }
+        .htmlRenderContent p,
+        .htmlRenderContent h1,
+        .htmlRenderContent h2,
+        .htmlRenderContent h3,
+        .htmlRenderContent h4,
+        .htmlRenderContent h5,
+        .htmlRenderContent h6,
+        .htmlRenderContent ul,
+        .htmlRenderContent ol,
+        .htmlRenderContent blockquote { margin: 0; }
+        .htmlRenderContent ul,
+        .htmlRenderContent ol { padding-left: 1.2em; }
         .muted { opacity: 0.75; }
     </style>
 </head>
@@ -311,6 +325,30 @@ function normalizeBlock(raw) {
         content: raw.content && typeof raw.content === 'object' ? raw.content : {},
         style
     };
+}
+function normalizeTextData(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    return {
+        font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
+        color: String(src.color || '#ffffff').trim() || '#ffffff',
+        align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
+        font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+        line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
+        padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
+    };
+}
+function createTextRenderNode(text, rawData) {
+    const p = normalizeTextData(rawData);
+    const node = document.createElement('div');
+    node.className = 'textRenderContent';
+    node.textContent = String(text || '');
+    node.style.fontSize = p.font_size_px + 'px';
+    node.style.color = p.color;
+    node.style.textAlign = p.align;
+    node.style.fontWeight = p.font_weight;
+    node.style.lineHeight = String(p.line_height);
+    node.style.padding = p.padding_px + 'px';
+    return node;
 }
 function applyBlockAnimation(target, animationName) {
     const map = {
@@ -905,11 +943,32 @@ async function renderBlock(blockRaw, runtime = null) {
         } else {
             const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
             const htmlInner = document.createElement('div');
+            htmlInner.className = 'htmlRenderContent';
             htmlInner.innerHTML = html;
             htmlInner.style.zoom = scalePct + '%';
-            htmlInner.style.width = '100%';
-            htmlInner.style.height = '100%';
             el.appendChild(htmlInner);
+            if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
+                deferBlockAnimationStart(
+                    el,
+                    motion.animation || 'none',
+                    motion.animation_ms || 700,
+                    Math.max(0, Number(motion.delay_on_ms || 0)),
+                    runtime,
+                    (target, name, ms, delay) => applyTimedAppearance(target, name, ms, delay)
+                );
+            }
+        }
+        return el;
+    }
+
+    if (type === 'text') {
+        const text = String(content.body || '');
+        const p = data && typeof data.text === 'object' ? data.text : {};
+        const motion = normalizeBlockBackground(block.style);
+        if (text.trim() === '') {
+            appendTitleBody(el, title, 'Для текста не задан body');
+        } else {
+            el.appendChild(createTextRenderNode(text, p));
             if (!startContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0, runtime)) {
                 deferBlockAnimationStart(
                     el,

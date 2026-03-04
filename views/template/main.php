@@ -91,8 +91,22 @@ declare(strict_types=1);
         .block .metaLine { font-size: 10px; line-height: 1.2; color: #0f356a; background: rgba(255,255,255,0.75); display: inline-block; padding: 2px 4px; border-radius: 4px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .block .metaWrap { z-index: 2; }
         .blockPreview { position: absolute; left: 4px; right: 4px; top: 4px; bottom: 4px; overflow: hidden; pointer-events: none; z-index: 1; display: flex; align-items: center; justify-content: center; }
-        .blockPreview.html { display: block; padding: 6px; overflow: auto; background: rgba(255,255,255,0.45); }
+        .blockPreview.html, .blockPreview.text { left: 0; right: 0; top: 0; bottom: 0; display: block; overflow: hidden; background: none; }
         .blockPreviewMedia { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
+        .htmlRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; }
+        .textRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-family: Tahoma, sans-serif; }
+        .htmlRenderContent p,
+        .htmlRenderContent h1,
+        .htmlRenderContent h2,
+        .htmlRenderContent h3,
+        .htmlRenderContent h4,
+        .htmlRenderContent h5,
+        .htmlRenderContent h6,
+        .htmlRenderContent ul,
+        .htmlRenderContent ol,
+        .htmlRenderContent blockquote { margin: 0; }
+        .htmlRenderContent ul,
+        .htmlRenderContent ol { padding-left: 1.2em; }
         .handle { position: absolute; z-index: 3; }
         .handle-n, .handle-s { left: 10px; right: 10px; height: 8px; cursor: ns-resize; }
         .handle-n { top: -4px; }
@@ -268,6 +282,7 @@ declare(strict_types=1);
                 </label>
                 <label>Тип контента
                     <select id="bType">
+                        <option value="text">текст</option>
                         <option value="image">изображение</option>
                         <option value="html">html</option>
                         <option value="video">видео</option>
@@ -581,8 +596,32 @@ function ensureBlockKey(block, index) {
   }
 }
 function labelContentType(v) {
-  const map = { image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
+  const map = { text: 'Текст', image: 'Изображение', html: 'HTML', video: 'Видео', ppt: 'Презентация' };
   return map[v] || v;
+}
+function normalizeTextData(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
+    color: String(src.color || '#ffffff').trim() || '#ffffff',
+    align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
+    font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+    line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
+    padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
+  };
+}
+function createTextRenderNode(text, rawData) {
+  const p = normalizeTextData(rawData);
+  const node = document.createElement('div');
+  node.className = 'textRenderContent';
+  node.textContent = String(text || '');
+  node.style.fontSize = p.font_size_px + 'px';
+  node.style.color = p.color;
+  node.style.textAlign = p.align;
+  node.style.fontWeight = p.font_weight;
+  node.style.lineHeight = String(p.line_height);
+  node.style.padding = p.padding_px + 'px';
+  return node;
 }
 function labelContentMode(v) {
   const map = { dynamic_current: 'Динамический', fixed: 'Фиксированный', empty: 'Пустой' };
@@ -744,7 +783,7 @@ function renderBlockContentPreview(blockEl, block) {
   const data = parseJsonObject(item.data_json) || {};
   const blockStyle = normalizeBlockBackground(block);
   const wrap = document.createElement('div');
-  wrap.className = 'blockPreview' + (type === 'html' ? ' html' : '');
+  wrap.className = 'blockPreview' + (type === 'html' ? ' html' : (type === 'text' ? ' text' : ''));
 
   if (type === 'image') {
     const src = String(item.media_url || '');
@@ -840,14 +879,26 @@ function renderBlockContentPreview(blockEl, block) {
     return;
   }
 
+  if (type === 'text') {
+    const textData = data && typeof data.text === 'object' ? data.text : {};
+    wrap.appendChild(createTextRenderNode(String(item.body || ''), textData));
+    applyTimedAppearance(
+      wrap,
+      state.disablePreviewAnimation ? 'none' : (blockStyle.animation || 'none'),
+      blockStyle.animation_ms || 700,
+      state.disablePreviewAnimation ? 0 : (blockStyle.delay_on_ms || 0)
+    );
+    blockEl.appendChild(wrap);
+    return;
+  }
+
   if (type === 'html') {
     const p = data && typeof data.html === 'object' ? data.html : {};
     const scalePct = Math.max(1, Math.min(500, Number(p.scale_pct || 100)));
     const htmlInner = document.createElement('div');
+    htmlInner.className = 'htmlRenderContent';
     htmlInner.innerHTML = String(item.body || '');
     htmlInner.style.zoom = scalePct + '%';
-    htmlInner.style.width = '100%';
-    htmlInner.style.height = '100%';
     wrap.appendChild(htmlInner);
     applyTimedAppearance(
       wrap,

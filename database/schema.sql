@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS `user_roles`;
 DROP TABLE IF EXISTS `display_queues`;
 DROP TABLE IF EXISTS `templates`;
 DROP TABLE IF EXISTS `content_items`;
+DROP TABLE IF EXISTS `app_settings`;
 DROP TABLE IF EXISTS `screens`;
 DROP TABLE IF EXISTS `roles`;
 DROP TABLE IF EXISTS `users`;
@@ -52,6 +53,13 @@ CREATE TABLE `screens` (
   UNIQUE KEY `uk_screens_device_key` (`device_key`),
   KEY `idx_screens_is_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `app_settings` (
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value_json` json NOT NULL,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `content_items` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,

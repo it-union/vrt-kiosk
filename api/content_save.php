@@ -22,7 +22,7 @@ $isActive = isset($_POST['is_active']) ? ((int)$_POST['is_active'] === 1 ? 1 : 0
 $publishFrom = trim((string)($_POST['publish_from'] ?? ''));
 $publishTo = trim((string)($_POST['publish_to'] ?? ''));
 
-$allowedTypes = ['image', 'html', 'video', 'ppt'];
+$allowedTypes = ['text', 'image', 'html', 'video', 'ppt'];
 if (!in_array($type, $allowedTypes, true)) {
     jsonResponse(['ok' => false, 'error' => 'Недопустимый type'], 400);
 }
@@ -38,13 +38,16 @@ if ($type === 'video' && $mediaUrl === '') {
 if ($type === 'ppt' && $mediaUrl === '') {
     jsonResponse(['ok' => false, 'error' => 'PPT requires media_url'], 400);
 }
+if ($type === 'text' && $body === '') {
+    jsonResponse(['ok' => false, 'error' => 'Для текста нужен body'], 400);
+}
 if ($type === 'html' && $body === '') {
     jsonResponse(['ok' => false, 'error' => 'Для HTML нужен body'], 400);
 }
 
 function ensureContentTypeEnum(PDO $pdo, string $value): void
 {
-    $allowed = ['image', 'html', 'video', 'ppt'];
+    $allowed = ['text', 'image', 'html', 'video', 'ppt'];
     if (!in_array($value, $allowed, true)) {
         return;
     }

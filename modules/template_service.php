@@ -116,7 +116,7 @@ function normalizeTemplateBlock(array $raw, int $index): array
     }
 
     $contentType = (string)($raw['content_type'] ?? 'image');
-    if (!in_array($contentType, ['image', 'html', 'video', 'ppt'], true)) {
+    if (!in_array($contentType, ['text', 'image', 'html', 'video', 'ppt'], true)) {
         $contentType = 'image';
     }
 
