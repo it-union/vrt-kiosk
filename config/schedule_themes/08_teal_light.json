@@ -1,0 +1,15 @@
+{
+  "id": "teal_light",
+  "name": "Бирюзовая светлая",
+  "colors": {
+    "background": "#f0fdfa",
+    "text": "#134e4a",
+    "header_bg": "#5eead4",
+    "header_text": "#134e4a",
+    "grid_line": "#99f6e4",
+    "busy_bg": "#fecaca",
+    "busy_text": "#991b1b",
+    "free_bg": "#ccfbf1",
+    "free_text": "#115e59"
+  }
+}

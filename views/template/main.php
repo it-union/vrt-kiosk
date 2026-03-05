@@ -130,7 +130,7 @@ declare(strict_types=1);
         .block .metaLine { font-size: 10px; line-height: 1.2; color: #0f356a; background: rgba(255,255,255,0.75); display: inline-block; padding: 2px 4px; border-radius: 4px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .block .metaWrap { z-index: 2; }
         .blockPreview { position: absolute; left: 4px; right: 4px; top: 4px; bottom: 4px; overflow: hidden; pointer-events: none; z-index: 1; display: flex; align-items: center; justify-content: center; }
-        .blockPreview.html, .blockPreview.text { left: 0; right: 0; top: 0; bottom: 0; display: block; overflow: hidden; background: none; }
+        .blockPreview.html, .blockPreview.text, .blockPreview.schedule { left: 0; right: 0; top: 0; bottom: 0; display: block; overflow: hidden; background: none; }
         .blockPreviewMedia { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
         .htmlRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; }
         .textRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-family: Tahoma, sans-serif; }
@@ -327,6 +327,7 @@ declare(strict_types=1);
                         <option value="html">html</option>
                         <option value="video">видео</option>
                         <option value="ppt">ppt</option>
+                        <option value="schedule">расписание</option>
                     </select>
                 </label>
                 <label>Фиксированный контент
@@ -448,6 +449,7 @@ declare(strict_types=1);
 
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const state = {
   templates: [],
   contents: [],
@@ -678,7 +680,7 @@ function ensureBlockKey(block, index) {
   }
 }
 function labelContentType(v) {
-  const map = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П' };
+  const map = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П', schedule: 'Р' };
   return map[v] || v;
 }
 function normalizeTextData(raw) {
@@ -704,6 +706,137 @@ function createTextRenderNode(text, rawData) {
   node.style.lineHeight = String(p.line_height);
   node.style.padding = p.padding_px + 'px';
   return node;
+}
+function getScheduleThemeById(themeId) {
+  const themes = Array.isArray(SCHEDULE_THEMES) ? SCHEDULE_THEMES : [];
+  const fallback = themes[0] || null;
+  const found = themes.find((theme) => String(theme && theme.id ? theme.id : '') === String(themeId || ''));
+  return found || fallback || {
+    id: 'light_blue',
+    name: 'Светлая синяя',
+    colors: {
+      text: '#0f172a',
+      header_bg: '#dbeafe',
+      header_text: '#1e3a8a',
+      grid_line: '#bfdbfe',
+      busy_bg: '#fee2e2',
+      busy_text: '#991b1b',
+      free_bg: '#dcfce7',
+      free_text: '#166534'
+    }
+  };
+}
+function normalizeScheduleData(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    doctor_id: Math.max(1, Number(src.doctor_id || 1)),
+    theme_id: String(src.theme_id || ''),
+    cached_payload: src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null
+  };
+}
+function extractScheduleRows(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  const days = Array.isArray(payload.days) ? payload.days : [];
+  return days
+    .filter((day) => day && typeof day === 'object')
+    .map((day) => ({
+      label: String(day.day || day.label || ''),
+      slots: Array.isArray(day.slots) ? day.slots.filter((slot) => slot && typeof slot === 'object') : []
+    }));
+}
+function createScheduleRenderNode(rawData) {
+  const schedule = normalizeScheduleData(rawData);
+  const theme = getScheduleThemeById(schedule.theme_id);
+  const colors = theme && typeof theme.colors === 'object' ? theme.colors : {};
+
+  const wrap = document.createElement('div');
+  wrap.style.width = '100%';
+  wrap.style.height = '100%';
+  wrap.style.boxSizing = 'border-box';
+  wrap.style.padding = '8px';
+  wrap.style.overflow = 'auto';
+  wrap.style.color = String(colors.text || '#0f172a');
+
+  const title = document.createElement('div');
+  title.style.fontSize = '12px';
+  title.style.fontWeight = '700';
+  title.style.marginBottom = '6px';
+  title.textContent = 'Расписание врача #' + String(schedule.doctor_id);
+  wrap.appendChild(title);
+
+  const rows = extractScheduleRows(schedule.cached_payload);
+  if (rows.length <= 0) {
+    const empty = document.createElement('div');
+    empty.style.fontSize = '12px';
+    empty.style.opacity = '0.8';
+    empty.textContent = 'Нет кэшированных данных расписания';
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.tableLayout = 'fixed';
+  table.style.fontSize = '11px';
+
+  const tbody = document.createElement('tbody');
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+
+    const th = document.createElement('th');
+    th.textContent = String(row.label || 'День');
+    th.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+    th.style.background = String(colors.header_bg || '#dbeafe');
+    th.style.color = String(colors.header_text || '#1e3a8a');
+    th.style.padding = '4px';
+    th.style.textAlign = 'left';
+    th.style.width = '28%';
+    tr.appendChild(th);
+
+    const td = document.createElement('td');
+    td.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+    td.style.padding = '4px';
+    const slotsWrap = document.createElement('div');
+    slotsWrap.style.display = 'flex';
+    slotsWrap.style.flexWrap = 'wrap';
+    slotsWrap.style.gap = '4px';
+
+    for (const slot of row.slots) {
+      const badge = document.createElement('span');
+      const statusRaw = String(slot.status || slot.state || '').toLowerCase();
+      const isBusy = slot.busy === true || statusRaw === 'busy' || statusRaw === 'occupied';
+      const from = String(slot.from || '').trim();
+      const to = String(slot.to || '').trim();
+      const label = String(slot.time || slot.label || (from && to ? (from + '-' + to) : 'Слот'));
+      badge.textContent = label;
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.padding = '2px 6px';
+      badge.style.borderRadius = '999px';
+      badge.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+      badge.style.fontSize = '10px';
+      badge.style.background = isBusy ? String(colors.busy_bg || '#fee2e2') : String(colors.free_bg || '#dcfce7');
+      badge.style.color = isBusy ? String(colors.busy_text || '#991b1b') : String(colors.free_text || '#166534');
+      slotsWrap.appendChild(badge);
+    }
+
+    if (slotsWrap.childElementCount === 0) {
+      const emptySlot = document.createElement('span');
+      emptySlot.textContent = 'Нет окон';
+      emptySlot.style.opacity = '0.75';
+      emptySlot.style.fontSize = '10px';
+      slotsWrap.appendChild(emptySlot);
+    }
+
+    td.appendChild(slotsWrap);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
 }
 function labelContentMode(v) {
   const map = { dynamic_current: 'Динамический', fixed: 'Фиксированный', empty: 'Пустой' };
@@ -964,6 +1097,20 @@ function renderBlockContentPreview(blockEl, block) {
   if (type === 'text') {
     const textData = data && typeof data.text === 'object' ? data.text : {};
     wrap.appendChild(createTextRenderNode(String(item.body || ''), textData));
+    applyTimedAppearance(
+      wrap,
+      state.disablePreviewAnimation ? 'none' : (blockStyle.animation || 'none'),
+      blockStyle.animation_ms || 700,
+      state.disablePreviewAnimation ? 0 : (blockStyle.delay_on_ms || 0)
+    );
+    blockEl.appendChild(wrap);
+    return;
+  }
+
+  if (type === 'schedule') {
+    const scheduleData = data && typeof data.schedule === 'object' ? data.schedule : {};
+    wrap.classList.add('schedule');
+    wrap.appendChild(createScheduleRenderNode(scheduleData));
     applyTimedAppearance(
       wrap,
       state.disablePreviewAnimation ? 'none' : (blockStyle.animation || 'none'),

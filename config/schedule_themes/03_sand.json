@@ -1,0 +1,15 @@
+{
+  "id": "sand",
+  "name": "Песочная",
+  "colors": {
+    "background": "#fffaf0",
+    "text": "#1f2937",
+    "header_bg": "#fde68a",
+    "header_text": "#78350f",
+    "grid_line": "#fcd34d",
+    "busy_bg": "#fecaca",
+    "busy_text": "#7f1d1d",
+    "free_bg": "#bbf7d0",
+    "free_text": "#14532d"
+  }
+}

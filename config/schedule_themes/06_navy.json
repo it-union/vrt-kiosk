@@ -1,0 +1,15 @@
+{
+  "id": "navy",
+  "name": "Темная синяя",
+  "colors": {
+    "background": "#0f172a",
+    "text": "#e2e8f0",
+    "header_bg": "#1e3a8a",
+    "header_text": "#dbeafe",
+    "grid_line": "#334155",
+    "busy_bg": "#7f1d1d",
+    "busy_text": "#fee2e2",
+    "free_bg": "#14532d",
+    "free_text": "#dcfce7"
+  }
+}

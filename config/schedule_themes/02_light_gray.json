@@ -1,0 +1,15 @@
+{
+  "id": "light_gray",
+  "name": "Светлая серая",
+  "colors": {
+    "background": "#f8fafc",
+    "text": "#111827",
+    "header_bg": "#e5e7eb",
+    "header_text": "#1f2937",
+    "grid_line": "#d1d5db",
+    "busy_bg": "#fee2e2",
+    "busy_text": "#991b1b",
+    "free_bg": "#dcfce7",
+    "free_text": "#166534"
+  }
+}

@@ -10,6 +10,7 @@ DROP TABLE IF EXISTS `schedule_rules`;
 DROP TABLE IF EXISTS `display_queue_items`;
 DROP TABLE IF EXISTS `template_blocks`;
 DROP TABLE IF EXISTS `audit_log`;
+DROP TABLE IF EXISTS `doctors`;
 DROP TABLE IF EXISTS `user_roles`;
 DROP TABLE IF EXISTS `display_queues`;
 DROP TABLE IF EXISTS `templates`;
@@ -59,6 +60,17 @@ CREATE TABLE `app_settings` (
   `setting_value_json` json NOT NULL,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `doctors` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `full_name` varchar(255) NOT NULL,
+  `specialty` varchar(120) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_doctors_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `content_items` (

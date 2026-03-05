@@ -45,6 +45,7 @@ const meta = document.getElementById('meta');
 const url = new URL(window.location.href);
 const templateId = Number(url.searchParams.get('template_id') || 0);
 const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' };
+const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const activeMediaTimers = [];
 const pptPreviewCache = new Map();
 
@@ -215,6 +216,137 @@ function createTextRenderNode(text, rawData) {
     node.style.lineHeight = String(p.line_height);
     node.style.padding = p.padding_px + 'px';
     return node;
+}
+function getScheduleThemeById(themeId) {
+    const themes = Array.isArray(SCHEDULE_THEMES) ? SCHEDULE_THEMES : [];
+    const fallback = themes[0] || null;
+    const found = themes.find((theme) => String(theme && theme.id ? theme.id : '') === String(themeId || ''));
+    return found || fallback || {
+        id: 'light_blue',
+        name: 'Светлая синяя',
+        colors: {
+            text: '#0f172a',
+            header_bg: '#dbeafe',
+            header_text: '#1e3a8a',
+            grid_line: '#bfdbfe',
+            busy_bg: '#fee2e2',
+            busy_text: '#991b1b',
+            free_bg: '#dcfce7',
+            free_text: '#166534'
+        }
+    };
+}
+function normalizeScheduleData(raw) {
+    const src = raw && typeof raw === 'object' ? raw : {};
+    return {
+        doctor_id: Math.max(1, Number(src.doctor_id || 1)),
+        theme_id: String(src.theme_id || ''),
+        cached_payload: src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null
+    };
+}
+function extractScheduleRows(payload) {
+    if (!payload || typeof payload !== 'object') return [];
+    const days = Array.isArray(payload.days) ? payload.days : [];
+    return days
+        .filter((day) => day && typeof day === 'object')
+        .map((day) => ({
+            label: String(day.day || day.label || ''),
+            slots: Array.isArray(day.slots) ? day.slots.filter((slot) => slot && typeof slot === 'object') : []
+        }));
+}
+function createScheduleRenderNode(rawData) {
+    const schedule = normalizeScheduleData(rawData);
+    const theme = getScheduleThemeById(schedule.theme_id);
+    const colors = theme && typeof theme.colors === 'object' ? theme.colors : {};
+
+    const wrap = document.createElement('div');
+    wrap.style.width = '100%';
+    wrap.style.height = '100%';
+    wrap.style.boxSizing = 'border-box';
+    wrap.style.padding = '10px';
+    wrap.style.overflow = 'auto';
+    wrap.style.color = String(colors.text || '#0f172a');
+
+    const title = document.createElement('div');
+    title.style.fontSize = '16px';
+    title.style.fontWeight = '700';
+    title.style.marginBottom = '8px';
+    title.textContent = 'Расписание врача #' + String(schedule.doctor_id);
+    wrap.appendChild(title);
+
+    const rows = extractScheduleRows(schedule.cached_payload);
+    if (rows.length <= 0) {
+        const empty = document.createElement('div');
+        empty.style.fontSize = '14px';
+        empty.style.opacity = '0.8';
+        empty.textContent = 'Нет кэшированных данных расписания';
+        wrap.appendChild(empty);
+        return wrap;
+    }
+
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.tableLayout = 'fixed';
+    table.style.fontSize = '14px';
+
+    const tbody = document.createElement('tbody');
+    for (const row of rows) {
+        const tr = document.createElement('tr');
+
+        const th = document.createElement('th');
+        th.textContent = String(row.label || 'День');
+        th.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+        th.style.background = String(colors.header_bg || '#dbeafe');
+        th.style.color = String(colors.header_text || '#1e3a8a');
+        th.style.padding = '6px';
+        th.style.textAlign = 'left';
+        th.style.width = '22%';
+        tr.appendChild(th);
+
+        const td = document.createElement('td');
+        td.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+        td.style.padding = '6px';
+        const slotsWrap = document.createElement('div');
+        slotsWrap.style.display = 'flex';
+        slotsWrap.style.flexWrap = 'wrap';
+        slotsWrap.style.gap = '6px';
+
+        for (const slot of row.slots) {
+            const badge = document.createElement('span');
+            const statusRaw = String(slot.status || slot.state || '').toLowerCase();
+            const isBusy = slot.busy === true || statusRaw === 'busy' || statusRaw === 'occupied';
+            const from = String(slot.from || '').trim();
+            const to = String(slot.to || '').trim();
+            const label = String(slot.time || slot.label || (from && to ? (from + '-' + to) : 'Слот'));
+            badge.textContent = label;
+            badge.style.display = 'inline-flex';
+            badge.style.alignItems = 'center';
+            badge.style.padding = '4px 8px';
+            badge.style.borderRadius = '999px';
+            badge.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+            badge.style.fontSize = '13px';
+            badge.style.background = isBusy ? String(colors.busy_bg || '#fee2e2') : String(colors.free_bg || '#dcfce7');
+            badge.style.color = isBusy ? String(colors.busy_text || '#991b1b') : String(colors.free_text || '#166534');
+            slotsWrap.appendChild(badge);
+        }
+
+        if (slotsWrap.childElementCount === 0) {
+            const emptySlot = document.createElement('span');
+            emptySlot.textContent = 'Нет окон';
+            emptySlot.style.opacity = '0.75';
+            emptySlot.style.fontSize = '13px';
+            slotsWrap.appendChild(emptySlot);
+        }
+
+        td.appendChild(slotsWrap);
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
 }
 function applyBlockAnimation(target, animationName) {
     const map = {
@@ -597,6 +729,14 @@ async function renderBlock(blockRaw, contentMap) {
             el.appendChild(createTextRenderNode(text, p));
             applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
         }
+        return el;
+    }
+
+    if (type === 'schedule') {
+        const p = data && typeof data.schedule === 'object' ? data.schedule : {};
+        const motion = normalizeBlockBackground(block.style);
+        el.appendChild(createScheduleRenderNode(p));
+        applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
         return el;
     }
 

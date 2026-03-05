@@ -1,0 +1,15 @@
+{
+  "id": "light_green",
+  "name": "Светлая зеленая",
+  "colors": {
+    "background": "#f7fee7",
+    "text": "#1f2937",
+    "header_bg": "#bef264",
+    "header_text": "#3f6212",
+    "grid_line": "#a3e635",
+    "busy_bg": "#fecaca",
+    "busy_text": "#7f1d1d",
+    "free_bg": "#bbf7d0",
+    "free_text": "#14532d"
+  }
+}

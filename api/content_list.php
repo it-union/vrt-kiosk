@@ -13,7 +13,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 }
 
 $type = trim((string)($_GET['type'] ?? ''));
-$allowedTypes = ['text', 'image', 'html', 'video', 'ppt'];
+$allowedTypes = ['text', 'image', 'html', 'video', 'ppt', 'schedule'];
 if ($type !== '' && !in_array($type, $allowedTypes, true)) {
     jsonResponse(['ok' => false, 'error' => 'Недопустимый type'], 400);
 }

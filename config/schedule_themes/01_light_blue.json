@@ -1,0 +1,15 @@
+{
+  "id": "light_blue",
+  "name": "Светлая синяя",
+  "colors": {
+    "background": "#f8fafc",
+    "text": "#0f172a",
+    "header_bg": "#dbeafe",
+    "header_text": "#1e3a8a",
+    "grid_line": "#bfdbfe",
+    "busy_bg": "#fee2e2",
+    "busy_text": "#991b1b",
+    "free_bg": "#dcfce7",
+    "free_text": "#166534"
+  }
+}

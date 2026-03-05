@@ -55,7 +55,8 @@ declare(strict_types=1);
         .inspectorPanel #htmlControls,
         .inspectorPanel #imageControls,
         .inspectorPanel #videoControls,
-        .inspectorPanel #pptControls { display: flex; flex-direction: column; gap: 8px; }
+        .inspectorPanel #pptControls,
+        .inspectorPanel #scheduleControls { display: flex; flex-direction: column; gap: 8px; }
         .inspectorPanel #htmlControls > button,
         .inspectorPanel #imageControls > button,
         .inspectorPanel #videoControls > button,
@@ -164,6 +165,7 @@ declare(strict_types=1);
                 <option value="html">HTML</option>
                 <option value="video">Видео</option>
                 <option value="ppt">Презентация</option>
+                <option value="schedule">Расписание</option>
             </select>
         </div>
         <div id="list" class="list"></div>
@@ -268,6 +270,23 @@ declare(strict_types=1);
                 <label>Время анимации, мс <input id="pHtmlAnimMs" type="number" min="100" max="5000" step="50" value="700"></label>
                 <label>Задержка on, мс <input id="pHtmlDelayMs" type="number" min="0" step="50" value="0"></label>
                 <label>Задержка off, мс <input id="pHtmlDelayOffMs" type="number" min="0" step="50" value="0"></label>
+            </div>
+            <div id="scheduleControls" style="display:none;">
+                <label>Врач
+                    <select id="pScheduleDoctorId"></select>
+                </label>
+                <label>Кэш, минут
+                    <select id="pScheduleCacheTtlMin">
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="15" selected>15</option>
+                        <option value="30">30</option>
+                        <option value="60">60</option>
+                    </select>
+                </label>
+                <label>Тема
+                    <select id="pScheduleThemeId"></select>
+                </label>
             </div>
 
             <div id="imageControls">
@@ -427,6 +446,7 @@ declare(strict_types=1);
             <button type="button" class="typeBtn" data-type="html">HTML</button>
             <button type="button" class="typeBtn" data-type="video">Видео</button>
             <button type="button" class="typeBtn" data-type="ppt">Презентация</button>
+            <button type="button" class="typeBtn" data-type="schedule">Расписание</button>
         </div>
         <div class="row">
             <button type="button" id="newTypeCancelBtn">Отена</button>
@@ -491,7 +511,8 @@ window.dispatchEvent(new Event('ckeditor-local-ready'));
 </script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const state = { list: [], library: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
+const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const state = { list: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
 let selectedLibraryUrl = '';
 let selectedLibraryName = '';
 let imageBaseWidth = 0;
@@ -510,6 +531,8 @@ let htmlEditorEventsBound = false;
 let libraryUploadInProgress = false;
 let libraryUploadProgressTimer = null;
 let libraryUploadFinalizing = false;
+window.__scheduleCachedPayload = null;
+window.__scheduleCachedUpdatedAt = '';
 const el = {
   list: document.getElementById('list'),
   status: document.getElementById('status'),
@@ -526,6 +549,7 @@ const el = {
   cHtmlEditor: document.getElementById('cHtmlEditor'),
   cHtmlBody: document.getElementById('cHtmlBody'),
   textControls: document.getElementById('textControls'),
+  scheduleControls: document.getElementById('scheduleControls'),
   pTextFontSize: document.getElementById('pTextFontSize'),
   pTextColor: document.getElementById('pTextColor'),
   pTextAlign: document.getElementById('pTextAlign'),
@@ -572,6 +596,9 @@ const el = {
   imageControls: document.getElementById('imageControls'),
   videoControls: document.getElementById('videoControls'),
   pptControls: document.getElementById('pptControls'),
+  pScheduleDoctorId: document.getElementById('pScheduleDoctorId'),
+  pScheduleCacheTtlMin: document.getElementById('pScheduleCacheTtlMin'),
+  pScheduleThemeId: document.getElementById('pScheduleThemeId'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
   htmlEditorContrastToggle: document.getElementById('htmlEditorContrastToggle'),
   pHtmlScale: document.getElementById('pHtmlScale')
@@ -671,6 +698,66 @@ function setSaveButtonDisabled(disabled) {
   btn.style.opacity = disabled ? '0.6' : '';
   btn.style.cursor = disabled ? 'not-allowed' : '';
 }
+function populateScheduleThemeOptions() {
+  if (!el.pScheduleThemeId) return;
+  const options = [];
+  const themes = Array.isArray(SCHEDULE_THEMES) ? SCHEDULE_THEMES : [];
+  for (const theme of themes) {
+    const id = String(theme && theme.id ? theme.id : '').trim();
+    if (!id) continue;
+    const name = String(theme && theme.name ? theme.name : id);
+    options.push('<option value="' + escapeHtmlAttr(id) + '">' + name.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>');
+  }
+  if (options.length <= 0) {
+    options.push('<option value="light_blue">Светлая синяя</option>');
+  }
+  el.pScheduleThemeId.innerHTML = options.join('');
+}
+function formatDoctorLabel(doctor) {
+  const fullName = String(doctor && doctor.full_name ? doctor.full_name : '').trim();
+  const specialty = String(doctor && doctor.specialty ? doctor.specialty : '').trim();
+  if (fullName && specialty) return fullName + ' (' + specialty + ')';
+  if (fullName) return fullName;
+  return 'Врач';
+}
+function populateScheduleDoctorOptions(preferredDoctorId) {
+  if (!el.pScheduleDoctorId) return;
+  const doctors = Array.isArray(state.doctors) ? state.doctors : [];
+  const selectedRaw = Number(preferredDoctorId || el.pScheduleDoctorId.value || 0);
+  const options = [];
+  for (const doctor of doctors) {
+    const id = Number(doctor && doctor.id ? doctor.id : 0);
+    if (id <= 0) continue;
+    options.push('<option value="' + String(id) + '">' + formatDoctorLabel(doctor).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</option>');
+  }
+  if (options.length <= 0) {
+    el.pScheduleDoctorId.innerHTML = '<option value="">Нет врачей</option>';
+    return;
+  }
+  el.pScheduleDoctorId.innerHTML = options.join('');
+  const validIds = doctors.map((doctor) => Number(doctor && doctor.id ? doctor.id : 0)).filter((id) => id > 0);
+  const selected = validIds.includes(selectedRaw) ? selectedRaw : validIds[0];
+  el.pScheduleDoctorId.value = String(selected);
+}
+async function reloadDoctors() {
+  if (!el.pScheduleDoctorId) return;
+  try {
+    const payload = await apiGet('/api/doctor_list.php');
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    state.doctors = items
+      .filter((doctor) => doctor && typeof doctor === 'object')
+      .map((doctor) => ({
+        id: Number(doctor.id || 0),
+        full_name: String(doctor.full_name || ''),
+        specialty: String(doctor.specialty || '')
+      }))
+      .filter((doctor) => doctor.id > 0);
+  } catch (error) {
+    state.doctors = [];
+    setStatus(String(error && error.message ? error.message : error), true);
+  }
+  populateScheduleDoctorOptions();
+}
 function setDeleteButtonDisabled(disabled) {
   const btn = document.getElementById('deleteBtn');
   if (!btn) return;
@@ -706,7 +793,7 @@ function setEditorVisible(visible, type = 'image') {
   const previewBox = el.previewImg ? el.previewImg.parentElement : null;
   if (el.previewTitle) {
     const label = viewType === 'text' ? 'Текст' : (viewType === 'html' ? 'HTML' : (viewType === 'video' ? 'Видео' : (viewType === 'ppt' ? 'Презентация' : 'Изображение')));
-    el.previewTitle.textContent = visible ? label : 'Тип контента';
+    el.previewTitle.textContent = visible ? (viewType === 'schedule' ? 'Расписание' : label) : 'Тип контента';
   }
   if (el.previewControls) el.previewControls.style.display = visible ? 'flex' : 'none';
   if (el.previewEmpty) el.previewEmpty.style.display = visible ? 'none' : 'block';
@@ -714,11 +801,12 @@ function setEditorVisible(visible, type = 'image') {
   if (el.editorEmpty) el.editorEmpty.style.display = visible ? 'none' : 'block';
   if (el.textControls) el.textControls.style.display = visible && viewType === 'text' ? 'block' : 'none';
   if (el.htmlControls) el.htmlControls.style.display = visible && viewType === 'html' ? 'block' : 'none';
+  if (el.scheduleControls) el.scheduleControls.style.display = visible && viewType === 'schedule' ? 'block' : 'none';
   if (el.imageControls) el.imageControls.style.display = visible && viewType === 'image' ? 'block' : 'none';
   if (el.videoControls) el.videoControls.style.display = visible && viewType === 'video' ? 'block' : 'none';
   if (el.pptControls) el.pptControls.style.display = visible && viewType === 'ppt' ? 'block' : 'none';
   if (el.htmlEditorWrap) el.htmlEditorWrap.style.display = visible && viewType === 'html' ? 'flex' : 'none';
-  if (previewBox) previewBox.style.display = visible && viewType !== 'html' && viewType !== 'text' ? 'flex' : 'none';
+  if (previewBox) previewBox.style.display = visible && viewType !== 'html' && viewType !== 'text' && viewType !== 'schedule' ? 'flex' : 'none';
   if (el.previewHtml) el.previewHtml.style.display = 'none';
 }
 function parseJsonSafe(v) {
@@ -993,6 +1081,7 @@ function buildTextDataJson() {
 function syncDataJson() {
   if (state.currentType === 'text') return JSON.stringify(buildTextDataJson());
   if (state.currentType === 'html') return JSON.stringify(buildHtmlDataJson());
+  if (state.currentType === 'schedule') return JSON.stringify(buildScheduleDataJson());
   if (state.currentType === 'video') return JSON.stringify(buildVideoDataJson());
   if (state.currentType === 'ppt') return JSON.stringify(buildPptDataJson());
   return JSON.stringify(buildImageDataJson());
@@ -1019,6 +1108,186 @@ function createTextRenderNode(text, rawData) {
   node.style.fontWeight = p.font_weight;
   node.style.lineHeight = String(p.line_height);
   node.style.padding = p.padding_px + 'px';
+  return node;
+}
+function getScheduleNowIso() {
+  return new Date().toISOString();
+}
+function createTestSchedulePayload(doctorId) {
+  const doctor = Math.max(1, Number(doctorId || 1));
+  return {
+    source: 'test_cache',
+    doctor_id: doctor,
+    days: [
+      {
+        day: 'Понедельник',
+        slots: [
+          { time: '09:00-09:15', status: 'free' },
+          { time: '09:15-09:30', status: 'busy' },
+          { time: '09:30-09:45', status: 'free' },
+          { time: '10:00-10:15', status: 'busy' }
+        ]
+      },
+      {
+        day: 'Вторник',
+        slots: [
+          { time: '11:00-11:15', status: 'free' },
+          { time: '11:15-11:30', status: 'free' },
+          { time: '12:00-12:15', status: 'busy' }
+        ]
+      },
+      {
+        day: 'Среда',
+        slots: [
+          { time: '13:00-13:15', status: 'busy' },
+          { time: '13:15-13:30', status: 'busy' },
+          { time: '14:00-14:15', status: 'free' }
+        ]
+      }
+    ]
+  };
+}
+function normalizeScheduleData(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const availableThemeIds = Array.isArray(SCHEDULE_THEMES) ? SCHEDULE_THEMES.map((theme) => String(theme.id || '')) : [];
+  const availableDoctorIds = Array.isArray(state.doctors)
+    ? state.doctors.map((doctor) => Number(doctor && doctor.id ? doctor.id : 0)).filter((id) => id > 0)
+    : [];
+  const themeIdRaw = String(src.theme_id || (availableThemeIds[0] || 'light_blue'));
+  const themeId = availableThemeIds.includes(themeIdRaw) ? themeIdRaw : (availableThemeIds[0] || 'light_blue');
+  const cacheTtlMinRaw = Number(src.cache_ttl_min || 15);
+  const cacheTtlAllowed = [5, 10, 15, 30, 60];
+  const cacheTtlMin = cacheTtlAllowed.includes(cacheTtlMinRaw) ? cacheTtlMinRaw : 15;
+  const doctorIdRaw = Number(src.doctor_id || 0);
+  const doctorId = availableDoctorIds.includes(doctorIdRaw) ? doctorIdRaw : (availableDoctorIds[0] || 1);
+  const cachedPayloadRaw = src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null;
+  const cachedPayload = cachedPayloadRaw || createTestSchedulePayload(doctorId);
+  const updatedAtRaw = String(src.cached_updated_at || '').trim();
+  const updatedAt = updatedAtRaw || getScheduleNowIso();
+  return {
+    doctor_id: doctorId,
+    cache_ttl_min: cacheTtlMin,
+    theme_id: themeId,
+    cached_payload: cachedPayload,
+    cached_updated_at: updatedAt
+  };
+}
+function getScheduleThemeById(themeId) {
+  const list = Array.isArray(SCHEDULE_THEMES) ? SCHEDULE_THEMES : [];
+  const fallback = list[0] || null;
+  const found = list.find((item) => String(item && item.id ? item.id : '') === String(themeId || ''));
+  return found || fallback || {
+    id: 'light_blue',
+    name: 'Светлая синяя',
+    colors: {
+      text: '#0f172a',
+      header_bg: '#dbeafe',
+      header_text: '#1e3a8a',
+      grid_line: '#bfdbfe',
+      busy_bg: '#fee2e2',
+      busy_text: '#991b1b',
+      free_bg: '#dcfce7',
+      free_text: '#166534'
+    }
+  };
+}
+function buildScheduleDataJson() {
+  const normalized = normalizeScheduleData({
+    doctor_id: Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 1),
+    cache_ttl_min: Number(el.pScheduleCacheTtlMin && el.pScheduleCacheTtlMin.value ? el.pScheduleCacheTtlMin.value : 15),
+    theme_id: String(el.pScheduleThemeId && el.pScheduleThemeId.value ? el.pScheduleThemeId.value : ''),
+    cached_payload: (window.__scheduleCachedPayload && typeof window.__scheduleCachedPayload === 'object') ? window.__scheduleCachedPayload : null,
+    cached_updated_at: String(window.__scheduleCachedUpdatedAt || '')
+  });
+  return { schedule: normalized };
+}
+function extractScheduleRows(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  const days = Array.isArray(payload.days) ? payload.days : [];
+  return days
+    .filter((day) => day && typeof day === 'object')
+    .map((day) => ({
+      label: String(day.day || day.label || ''),
+      slots: Array.isArray(day.slots) ? day.slots.filter((slot) => slot && typeof slot === 'object') : []
+    }));
+}
+function createSchedulePreviewNode(rawData) {
+  const schedule = normalizeScheduleData(rawData);
+  const theme = getScheduleThemeById(schedule.theme_id);
+  const colors = theme && typeof theme.colors === 'object' ? theme.colors : {};
+  const node = document.createElement('div');
+  node.style.width = '100%';
+  node.style.height = '100%';
+  node.style.boxSizing = 'border-box';
+  node.style.padding = '8px';
+  node.style.overflow = 'auto';
+  node.style.color = String(colors.text || '#0f172a');
+
+  const title = document.createElement('div');
+  title.style.fontSize = '12px';
+  title.style.fontWeight = '700';
+  title.style.marginBottom = '6px';
+  title.textContent = 'Расписание врача #' + String(schedule.doctor_id);
+  node.appendChild(title);
+
+  const rows = extractScheduleRows(schedule.cached_payload);
+  if (rows.length <= 0) {
+    const empty = document.createElement('div');
+    empty.style.fontSize = '12px';
+    empty.style.opacity = '0.8';
+    empty.textContent = 'Нет кэшированных данных расписания';
+    node.appendChild(empty);
+    return node;
+  }
+
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.fontSize = '11px';
+  table.style.tableLayout = 'fixed';
+
+  const tbody = document.createElement('tbody');
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.textContent = String(row.label || 'День');
+    th.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+    th.style.background = String(colors.header_bg || '#dbeafe');
+    th.style.color = String(colors.header_text || '#1e3a8a');
+    th.style.padding = '4px';
+    th.style.textAlign = 'left';
+    th.style.width = '28%';
+    tr.appendChild(th);
+
+    const td = document.createElement('td');
+    td.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
+    td.style.padding = '4px';
+    const slotsWrap = document.createElement('div');
+    slotsWrap.style.display = 'flex';
+    slotsWrap.style.flexWrap = 'wrap';
+    slotsWrap.style.gap = '4px';
+    for (const slot of row.slots) {
+      const status = String(slot.status || '').toLowerCase() === 'busy' ? 'busy' : 'free';
+      const chip = document.createElement('span');
+      chip.textContent = String(slot.time || '');
+      chip.style.display = 'inline-block';
+      chip.style.padding = '2px 6px';
+      chip.style.borderRadius = '999px';
+      chip.style.background = status === 'busy'
+        ? String(colors.busy_bg || '#fee2e2')
+        : String(colors.free_bg || '#dcfce7');
+      chip.style.color = status === 'busy'
+        ? String(colors.busy_text || '#991b1b')
+        : String(colors.free_text || '#166534');
+      chip.style.whiteSpace = 'nowrap';
+      slotsWrap.appendChild(chip);
+    }
+    td.appendChild(slotsWrap);
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  node.appendChild(table);
   return node;
 }
 function parseHexColor(value) {
@@ -1273,6 +1542,29 @@ function syncPreview() {
       el.previewHtml.style.animation = '';
       el.previewHtml.style.background = getTextPreviewBackground(textData);
       el.previewHtml.appendChild(createTextRenderNode(getTextValue(), textData));
+    }
+    return;
+  }
+  if (state.currentType === 'schedule') {
+    if (el.previewImg) el.previewImg.style.display = 'none';
+    if (el.previewVideo) {
+      el.previewVideo.style.display = 'none';
+      el.previewVideo.removeAttribute('src');
+      el.previewVideo.load();
+    }
+    if (el.previewPpt) {
+      el.previewPpt.style.display = 'none';
+      el.previewPpt.removeAttribute('src');
+    }
+    stopPptPreviewTimer();
+    if (el.previewHtml) {
+      const scheduleData = buildScheduleDataJson().schedule;
+      el.previewHtml.style.display = 'block';
+      el.previewHtml.innerHTML = '';
+      el.previewHtml.style.animation = '';
+      el.previewHtml.style.background = '';
+      el.previewHtml.style.color = '';
+      el.previewHtml.appendChild(createSchedulePreviewNode(scheduleData));
     }
     return;
   }
@@ -1651,12 +1943,22 @@ function nowDraft() {
   el.cMediaUrl.value = '';
   setTextValue('');
   setHtmlValue('');
+  window.__scheduleCachedPayload = null;
+  window.__scheduleCachedUpdatedAt = '';
   el.pTextFontSize.value = '64';
   el.pTextColor.value = '#ffffff';
   el.pTextAlign.value = 'left';
   el.pTextWeight.value = '700';
   el.pTextLineHeight.value = '1.1';
   el.pTextPadding.value = '0';
+  populateScheduleDoctorOptions();
+  const draftDoctorId = Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 1);
+  window.__scheduleCachedPayload = createTestSchedulePayload(draftDoctorId);
+  window.__scheduleCachedUpdatedAt = getScheduleNowIso();
+  if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.value = '15';
+  if (el.pScheduleThemeId && el.pScheduleThemeId.options.length > 0) {
+    el.pScheduleThemeId.selectedIndex = 0;
+  }
   el.pImageWidth.value = '';
   el.pImageHeight.value = '';
   el.pImageScale.value = '100';
@@ -2016,7 +2318,7 @@ function renderList() {
     const foreignOwned = isForeignOwned(row);
     d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive') + (foreignOwned ? ' itemForeign' : '');
     const t = String(row.type || 'image');
-    const labelMapSafe = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П' };
+    const labelMapSafe = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П', schedule: 'Р' };
     const safeLabel = labelMapSafe[t] || 'И';
     const wrap = document.createElement('div');
     wrap.className = 'listItemRow';
@@ -2080,6 +2382,7 @@ async function loadById(id) {
     const image = data.image && typeof data.image === 'object' ? data.image : {};
     const video = data.video && typeof data.video === 'object' ? data.video : {};
     const ppt = data.ppt && typeof data.ppt === 'object' ? data.ppt : {};
+    const schedule = normalizeScheduleData(data.schedule && typeof data.schedule === 'object' ? data.schedule : {});
     el.cAnimation.value = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(data.animation || ''))
       ? String(data.animation || 'none')
       : 'none';
@@ -2133,6 +2436,11 @@ async function loadById(id) {
     if (pptAnimMs) {
       pptAnimMs.value = String(Math.max(100, Math.min(5000, Number(ppt.animation_ms || 700))));
     }
+    populateScheduleDoctorOptions(schedule.doctor_id);
+    if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.value = String(schedule.cache_ttl_min);
+    if (el.pScheduleThemeId) el.pScheduleThemeId.value = String(schedule.theme_id);
+    window.__scheduleCachedPayload = schedule.cached_payload;
+    window.__scheduleCachedUpdatedAt = schedule.cached_updated_at;
 
     syncDataJson();
   setEditorVisible(true, state.currentType);
@@ -2151,7 +2459,7 @@ async function loadById(id) {
     }
     renderList();
     updateCurrentPermissions();
-    setStatus(state.currentType === 'text' ? 'Текст загружен' : (state.currentType === 'html' ? 'HTML загружен' : (state.currentType === 'video' ? 'Видео загружено' : (state.currentType === 'ppt' ? 'Презентация загружена' : 'Изображение загружено'))));
+    setStatus(state.currentType === 'text' ? 'Текст загружен' : (state.currentType === 'html' ? 'HTML загружен' : (state.currentType === 'video' ? 'Видео загружено' : (state.currentType === 'ppt' ? 'Презентация загружена' : (state.currentType === 'schedule' ? 'Расписание загружено' : 'Изображение загружено')))));
   } catch (e) {
     setStatus(String(e.message || e), true);
   }
@@ -2242,7 +2550,7 @@ async function saveCurrent() {
       content_id: state.currentId || 0,
       type: state.currentType,
       title: el.cTitle.value || '',
-      body: state.currentType === 'text' ? getTextValue() : (state.currentType === 'html' ? getHtmlValue() : ''),
+      body: state.currentType === 'text' ? getTextValue() : (state.currentType === 'html' ? getHtmlValue() : (state.currentType === 'schedule' ? 'schedule' : '')),
       media_url: (state.currentType === 'image' || state.currentType === 'video' || state.currentType === 'ppt') ? (el.cMediaUrl.value || '') : '',
       data_json: syncDataJson(),
       is_active: el.cActive.value,
@@ -2253,7 +2561,7 @@ async function saveCurrent() {
     state.currentId = Number(res.content_id);
     await reloadList();
     await loadById(state.currentId);
-    setStatus(state.currentType === 'text' ? 'Текст сохранен' : (state.currentType === 'html' ? 'HTML сохранен' : (state.currentType === 'video' ? 'Видео сохранено' : (state.currentType === 'ppt' ? 'Презентация сохранена' : 'Изображение сохранено'))));
+    setStatus(state.currentType === 'text' ? 'Текст сохранен' : (state.currentType === 'html' ? 'HTML сохранен' : (state.currentType === 'video' ? 'Видео сохранено' : (state.currentType === 'ppt' ? 'Презентация сохранена' : (state.currentType === 'schedule' ? 'Расписание сохранено' : 'Изображение сохранено')))));
   } catch (e) {
     setStatus(String(e.message || e), true);
   } finally {
@@ -2415,6 +2723,8 @@ document.getElementById('newTypeCreateBtn').onclick = () => {
       setStatus('Черновик: Текст');
     } else if (state.currentType === 'html') {
       setStatus('Черновик: HTML');
+    } else if (state.currentType === 'schedule') {
+      setStatus('Черновик: Расписание');
     } else if (state.currentType === 'video') {
       setStatus('Черновик: Видео');
     } else if (state.currentType === 'ppt') {
@@ -2471,6 +2781,9 @@ el.pTextAlign.addEventListener('change', () => { syncDataJson(); syncPreview(); 
 el.pTextWeight.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pTextLineHeight.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pTextPadding.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleDoctorId) el.pScheduleDoctorId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleThemeId) el.pScheduleThemeId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pImagePosition.addEventListener('change', () => { syncDataJson(); syncPreview(); });
@@ -2507,6 +2820,8 @@ if (el.cTextBody) {
 
 (async function boot() {
   removeLegacyContentMotionControls();
+  populateScheduleThemeOptions();
+  await reloadDoctors();
   normalizeInspectorTexts();
   updateOwnerFilterButton();
   resetEditor();

@@ -1,0 +1,15 @@
+{
+  "id": "brown",
+  "name": "Коричневая",
+  "colors": {
+    "background": "#faf7f2",
+    "text": "#3f2a1d",
+    "header_bg": "#d6b38b",
+    "header_text": "#422006",
+    "grid_line": "#c9a882",
+    "busy_bg": "#ef4444",
+    "busy_text": "#ffffff",
+    "free_bg": "#22c55e",
+    "free_text": "#052e16"
+  }
+}

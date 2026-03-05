@@ -1,0 +1,15 @@
+{
+  "id": "lilac",
+  "name": "Лиловая",
+  "colors": {
+    "background": "#faf5ff",
+    "text": "#1f2937",
+    "header_bg": "#e9d5ff",
+    "header_text": "#581c87",
+    "grid_line": "#d8b4fe",
+    "busy_bg": "#fecaca",
+    "busy_text": "#7f1d1d",
+    "free_bg": "#d9f99d",
+    "free_text": "#3f6212"
+  }
+}

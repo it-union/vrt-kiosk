@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/content_repository.php';
+require_once __DIR__ . '/../modules/doctor_repository.php';
 
 requireTemplateApiAuth();
 
@@ -22,7 +23,8 @@ $isActive = isset($_POST['is_active']) ? ((int)$_POST['is_active'] === 1 ? 1 : 0
 $publishFrom = trim((string)($_POST['publish_from'] ?? ''));
 $publishTo = trim((string)($_POST['publish_to'] ?? ''));
 
-$allowedTypes = ['text', 'image', 'html', 'video', 'ppt'];
+$allowedTypes = ['text', 'image', 'html', 'video', 'ppt', 'schedule'];
+$scheduleDoctorId = 0;
 if (!in_array($type, $allowedTypes, true)) {
     jsonResponse(['ok' => false, 'error' => 'Недопустимый type'], 400);
 }
@@ -44,10 +46,18 @@ if ($type === 'text' && $body === '') {
 if ($type === 'html' && $body === '') {
     jsonResponse(['ok' => false, 'error' => 'Для HTML нужен body'], 400);
 }
+if ($type === 'schedule') {
+    $scheduleData = $dataJson !== '' ? json_decode($dataJson, true) : [];
+    $scheduleNode = is_array($scheduleData) && is_array($scheduleData['schedule'] ?? null) ? $scheduleData['schedule'] : [];
+    $scheduleDoctorId = (int)($scheduleNode['doctor_id'] ?? 0);
+    if ($scheduleDoctorId <= 0) {
+        jsonResponse(['ok' => false, 'error' => 'Для расписания нужен doctor_id'], 400);
+    }
+}
 
 function ensureContentTypeEnum(PDO $pdo, string $value): void
 {
-    $allowed = ['text', 'image', 'html', 'video', 'ppt'];
+    $allowed = ['text', 'image', 'html', 'video', 'ppt', 'schedule'];
     if (!in_array($value, $allowed, true)) {
         return;
     }
@@ -111,6 +121,9 @@ try {
     $pdo = dbMysql();
     $currentUserId = authCurrentUserId();
     ensureContentTypeEnum($pdo, $type);
+    if ($type === 'schedule' && !doctorExists($pdo, $scheduleDoctorId)) {
+        jsonResponse(['ok' => false, 'error' => 'Указанный врач не найден'], 400);
+    }
     if ($id > 0) {
         $existing = contentGet($pdo, $id);
         if ($existing === null) {

@@ -1,0 +1,15 @@
+{
+  "id": "mint",
+  "name": "Мятная",
+  "colors": {
+    "background": "#f0fdfa",
+    "text": "#0f172a",
+    "header_bg": "#99f6e4",
+    "header_text": "#134e4a",
+    "grid_line": "#5eead4",
+    "busy_bg": "#fecdd3",
+    "busy_text": "#9f1239",
+    "free_bg": "#ccfbf1",
+    "free_text": "#115e59"
+  }
+}
