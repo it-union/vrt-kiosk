@@ -60,7 +60,8 @@ declare(strict_types=1);
         .inspectorPanel #htmlControls > button,
         .inspectorPanel #imageControls > button,
         .inspectorPanel #videoControls > button,
-        .inspectorPanel #pptControls > button { width: calc(100% - 150px); margin-left: 150px; }
+        .inspectorPanel #pptControls > button,
+        .inspectorPanel #scheduleControls > button { width: calc(100% - 150px); margin-left: 150px; }
         .hiddenFile { display: none !important; }
         .uploadTwoCols { display: grid; grid-template-columns: 1fr 180px; gap: 8px; align-items: end; }
         .uploadTwoCols .urlCol { min-width: 0; }
@@ -275,6 +276,7 @@ declare(strict_types=1);
                 <label>Врач
                     <select id="pScheduleDoctorId"></select>
                 </label>
+                <button type="button" id="scheduleFetchBtn">Получить данные</button>
                 <label>Кэш, минут
                     <select id="pScheduleCacheTtlMin">
                         <option value="5">5</option>
@@ -509,6 +511,7 @@ window.CKEDITOR_LOCAL = CKEDITOR;
 window.CKEDITOR_LOCAL_TRANSLATIONS = [ru];
 window.dispatchEvent(new Event('ckeditor-local-ready'));
 </script>
+<script src="/public/schedule_renderer.js"></script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -597,6 +600,7 @@ const el = {
   videoControls: document.getElementById('videoControls'),
   pptControls: document.getElementById('pptControls'),
   pScheduleDoctorId: document.getElementById('pScheduleDoctorId'),
+  scheduleFetchBtn: document.getElementById('scheduleFetchBtn'),
   pScheduleCacheTtlMin: document.getElementById('pScheduleCacheTtlMin'),
   pScheduleThemeId: document.getElementById('pScheduleThemeId'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
@@ -715,8 +719,6 @@ function populateScheduleThemeOptions() {
 }
 function formatDoctorLabel(doctor) {
   const fullName = String(doctor && doctor.full_name ? doctor.full_name : '').trim();
-  const specialty = String(doctor && doctor.specialty ? doctor.specialty : '').trim();
-  if (fullName && specialty) return fullName + ' (' + specialty + ')';
   if (fullName) return fullName;
   return 'Врач';
 }
@@ -747,9 +749,8 @@ async function reloadDoctors() {
     state.doctors = items
       .filter((doctor) => doctor && typeof doctor === 'object')
       .map((doctor) => ({
-        id: Number(doctor.id || 0),
-        full_name: String(doctor.full_name || ''),
-        specialty: String(doctor.specialty || '')
+        id: Number(doctor.doctor_id || 0),
+        full_name: String(doctor.full_name || '')
       }))
       .filter((doctor) => doctor.id > 0);
   } catch (error) {
@@ -1143,6 +1144,38 @@ function createTestSchedulePayload(doctorId) {
           { time: '13:15-13:30', status: 'busy' },
           { time: '14:00-14:15', status: 'free' }
         ]
+      },
+      {
+        day: 'Четверг',
+        slots: [
+          { time: '09:45-10:00', status: 'free' },
+          { time: '10:15-10:30', status: 'busy' },
+          { time: '10:30-10:45', status: 'free' }
+        ]
+      },
+      {
+        day: 'Пятница',
+        slots: [
+          { time: '12:15-12:30', status: 'busy' },
+          { time: '12:30-12:45', status: 'free' },
+          { time: '12:45-13:00', status: 'free' }
+        ]
+      },
+      {
+        day: 'Суббота',
+        slots: [
+          { time: '10:00-10:15', status: 'free' },
+          { time: '10:15-10:30', status: 'free' },
+          { time: '10:30-10:45', status: 'busy' }
+        ]
+      },
+      {
+        day: 'Воскресенье',
+        slots: [
+          { time: '11:30-11:45', status: 'busy' },
+          { time: '11:45-12:00', status: 'free' },
+          { time: '12:00-12:15', status: 'free' }
+        ]
       }
     ]
   };
@@ -1201,94 +1234,15 @@ function buildScheduleDataJson() {
   });
   return { schedule: normalized };
 }
-function extractScheduleRows(payload) {
-  if (!payload || typeof payload !== 'object') return [];
-  const days = Array.isArray(payload.days) ? payload.days : [];
-  return days
-    .filter((day) => day && typeof day === 'object')
-    .map((day) => ({
-      label: String(day.day || day.label || ''),
-      slots: Array.isArray(day.slots) ? day.slots.filter((slot) => slot && typeof slot === 'object') : []
-    }));
-}
 function createSchedulePreviewNode(rawData) {
   const schedule = normalizeScheduleData(rawData);
   const theme = getScheduleThemeById(schedule.theme_id);
-  const colors = theme && typeof theme.colors === 'object' ? theme.colors : {};
-  const node = document.createElement('div');
-  node.style.width = '100%';
-  node.style.height = '100%';
-  node.style.boxSizing = 'border-box';
-  node.style.padding = '8px';
-  node.style.overflow = 'auto';
-  node.style.color = String(colors.text || '#0f172a');
-
-  const title = document.createElement('div');
-  title.style.fontSize = '12px';
-  title.style.fontWeight = '700';
-  title.style.marginBottom = '6px';
-  title.textContent = 'Расписание врача #' + String(schedule.doctor_id);
-  node.appendChild(title);
-
-  const rows = extractScheduleRows(schedule.cached_payload);
-  if (rows.length <= 0) {
-    const empty = document.createElement('div');
-    empty.style.fontSize = '12px';
-    empty.style.opacity = '0.8';
-    empty.textContent = 'Нет кэшированных данных расписания';
-    node.appendChild(empty);
-    return node;
+  if (window.ScheduleRenderer && typeof window.ScheduleRenderer.render === 'function') {
+    return window.ScheduleRenderer.render({ schedule, theme, mode: 'content' });
   }
-
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  table.style.fontSize = '11px';
-  table.style.tableLayout = 'fixed';
-
-  const tbody = document.createElement('tbody');
-  for (const row of rows) {
-    const tr = document.createElement('tr');
-    const th = document.createElement('th');
-    th.textContent = String(row.label || 'День');
-    th.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
-    th.style.background = String(colors.header_bg || '#dbeafe');
-    th.style.color = String(colors.header_text || '#1e3a8a');
-    th.style.padding = '4px';
-    th.style.textAlign = 'left';
-    th.style.width = '28%';
-    tr.appendChild(th);
-
-    const td = document.createElement('td');
-    td.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
-    td.style.padding = '4px';
-    const slotsWrap = document.createElement('div');
-    slotsWrap.style.display = 'flex';
-    slotsWrap.style.flexWrap = 'wrap';
-    slotsWrap.style.gap = '4px';
-    for (const slot of row.slots) {
-      const status = String(slot.status || '').toLowerCase() === 'busy' ? 'busy' : 'free';
-      const chip = document.createElement('span');
-      chip.textContent = String(slot.time || '');
-      chip.style.display = 'inline-block';
-      chip.style.padding = '2px 6px';
-      chip.style.borderRadius = '999px';
-      chip.style.background = status === 'busy'
-        ? String(colors.busy_bg || '#fee2e2')
-        : String(colors.free_bg || '#dcfce7');
-      chip.style.color = status === 'busy'
-        ? String(colors.busy_text || '#991b1b')
-        : String(colors.free_text || '#166534');
-      chip.style.whiteSpace = 'nowrap';
-      slotsWrap.appendChild(chip);
-    }
-    td.appendChild(slotsWrap);
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  node.appendChild(table);
-  return node;
+  const fallback = document.createElement('div');
+  fallback.textContent = 'ScheduleRenderer не загружен';
+  return fallback;
 }
 function parseHexColor(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -2570,6 +2524,30 @@ async function saveCurrent() {
   }
 }
 
+async function fetchScheduleNow() {
+  const doctorId = Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 0);
+  if (doctorId <= 0) {
+    setStatus('Сначала выберите врача', true);
+    return;
+  }
+
+  if (el.scheduleFetchBtn) el.scheduleFetchBtn.disabled = true;
+  try {
+    const res = await apiPost('/api/schedule_fetch_now.php', { doctor_id: doctorId });
+    const payload = res && res.data ? res.data : {};
+
+    window.__scheduleCachedPayload = payload && typeof payload.payload === 'object' ? payload.payload : null;
+    window.__scheduleCachedUpdatedAt = String(payload && payload.updated_at ? payload.updated_at : '');
+    syncDataJson();
+    syncPreview();
+    setStatus('Данные расписания получены');
+  } catch (e) {
+    setStatus(String(e.message || e), true);
+  } finally {
+    if (el.scheduleFetchBtn) el.scheduleFetchBtn.disabled = false;
+  }
+}
+
 async function deleteCurrent() {
   if (state.currentId <= 0) { setStatus('Сначала выберите запись', true); return; }
   openDeleteContentModal();
@@ -2782,6 +2760,7 @@ el.pTextWeight.addEventListener('change', () => { syncDataJson(); syncPreview();
 el.pTextLineHeight.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pTextPadding.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleDoctorId) el.pScheduleDoctorId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.scheduleFetchBtn) el.scheduleFetchBtn.addEventListener('click', fetchScheduleNow);
 if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleThemeId) el.pScheduleThemeId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });

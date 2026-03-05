@@ -447,6 +447,7 @@ declare(strict_types=1);
     </div>
 </div>
 
+<script src="/public/schedule_renderer.js"></script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -734,109 +735,15 @@ function normalizeScheduleData(raw) {
     cached_payload: src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null
   };
 }
-function extractScheduleRows(payload) {
-  if (!payload || typeof payload !== 'object') return [];
-  const days = Array.isArray(payload.days) ? payload.days : [];
-  return days
-    .filter((day) => day && typeof day === 'object')
-    .map((day) => ({
-      label: String(day.day || day.label || ''),
-      slots: Array.isArray(day.slots) ? day.slots.filter((slot) => slot && typeof slot === 'object') : []
-    }));
-}
 function createScheduleRenderNode(rawData) {
   const schedule = normalizeScheduleData(rawData);
   const theme = getScheduleThemeById(schedule.theme_id);
-  const colors = theme && typeof theme.colors === 'object' ? theme.colors : {};
-
-  const wrap = document.createElement('div');
-  wrap.style.width = '100%';
-  wrap.style.height = '100%';
-  wrap.style.boxSizing = 'border-box';
-  wrap.style.padding = '8px';
-  wrap.style.overflow = 'auto';
-  wrap.style.color = String(colors.text || '#0f172a');
-
-  const title = document.createElement('div');
-  title.style.fontSize = '12px';
-  title.style.fontWeight = '700';
-  title.style.marginBottom = '6px';
-  title.textContent = 'Расписание врача #' + String(schedule.doctor_id);
-  wrap.appendChild(title);
-
-  const rows = extractScheduleRows(schedule.cached_payload);
-  if (rows.length <= 0) {
-    const empty = document.createElement('div');
-    empty.style.fontSize = '12px';
-    empty.style.opacity = '0.8';
-    empty.textContent = 'Нет кэшированных данных расписания';
-    wrap.appendChild(empty);
-    return wrap;
+  if (window.ScheduleRenderer && typeof window.ScheduleRenderer.render === 'function') {
+    return window.ScheduleRenderer.render({ schedule, theme, mode: 'template' });
   }
-
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  table.style.tableLayout = 'fixed';
-  table.style.fontSize = '11px';
-
-  const tbody = document.createElement('tbody');
-  for (const row of rows) {
-    const tr = document.createElement('tr');
-
-    const th = document.createElement('th');
-    th.textContent = String(row.label || 'День');
-    th.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
-    th.style.background = String(colors.header_bg || '#dbeafe');
-    th.style.color = String(colors.header_text || '#1e3a8a');
-    th.style.padding = '4px';
-    th.style.textAlign = 'left';
-    th.style.width = '28%';
-    tr.appendChild(th);
-
-    const td = document.createElement('td');
-    td.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
-    td.style.padding = '4px';
-    const slotsWrap = document.createElement('div');
-    slotsWrap.style.display = 'flex';
-    slotsWrap.style.flexWrap = 'wrap';
-    slotsWrap.style.gap = '4px';
-
-    for (const slot of row.slots) {
-      const badge = document.createElement('span');
-      const statusRaw = String(slot.status || slot.state || '').toLowerCase();
-      const isBusy = slot.busy === true || statusRaw === 'busy' || statusRaw === 'occupied';
-      const from = String(slot.from || '').trim();
-      const to = String(slot.to || '').trim();
-      const label = String(slot.time || slot.label || (from && to ? (from + '-' + to) : 'Слот'));
-      badge.textContent = label;
-      badge.style.display = 'inline-flex';
-      badge.style.alignItems = 'center';
-      badge.style.padding = '2px 6px';
-      badge.style.borderRadius = '999px';
-      badge.style.border = '1px solid ' + String(colors.grid_line || '#cbd5e1');
-      badge.style.fontSize = '10px';
-      badge.style.background = isBusy ? String(colors.busy_bg || '#fee2e2') : String(colors.free_bg || '#dcfce7');
-      badge.style.color = isBusy ? String(colors.busy_text || '#991b1b') : String(colors.free_text || '#166534');
-      slotsWrap.appendChild(badge);
-    }
-
-    if (slotsWrap.childElementCount === 0) {
-      const emptySlot = document.createElement('span');
-      emptySlot.textContent = 'Нет окон';
-      emptySlot.style.opacity = '0.75';
-      emptySlot.style.fontSize = '10px';
-      slotsWrap.appendChild(emptySlot);
-    }
-
-    td.appendChild(slotsWrap);
-    tr.appendChild(td);
-    tbody.appendChild(tr);
-  }
-
-  table.appendChild(tbody);
-  wrap.appendChild(table);
-  return wrap;
+  const fallback = document.createElement('div');
+  fallback.textContent = 'ScheduleRenderer не загружен';
+  return fallback;
 }
 function labelContentMode(v) {
   const map = { dynamic_current: 'Динамический', fixed: 'Фиксированный', empty: 'Пустой' };

@@ -126,6 +126,19 @@ function scheduleNormalizeApiPayload(array $decoded): array
     return $payload;
 }
 
+function scheduleFetchForDoctorId(array $apiConfig, int $doctorId): array
+{
+    if ($doctorId <= 0) {
+        throw new RuntimeException('doctor_id_missing');
+    }
+    if (trim((string)($apiConfig['endpoint'] ?? '')) === '') {
+        throw new RuntimeException('В config/schedule_api.php не заполнен endpoint');
+    }
+    $url = scheduleBuildRequestUrl((string)$apiConfig['endpoint'], (string)$apiConfig['doctor_id_param'], $doctorId);
+    $decoded = scheduleFetchHttpJson($url, (int)$apiConfig['timeout_sec'], is_array($apiConfig['headers']) ? $apiConfig['headers'] : []);
+    return scheduleNormalizeApiPayload($decoded);
+}
+
 function scheduleShouldRefresh(?string $updatedAtIso, int $ttlMin): bool
 {
     if ($ttlMin <= 0) {
@@ -165,9 +178,7 @@ function scheduleRefreshCacheForContent(PDO $pdo, array $apiConfig, array $conte
         return ['content_id' => $contentId, 'status' => 'skip', 'message' => 'cache_fresh'];
     }
 
-    $url = scheduleBuildRequestUrl((string)$apiConfig['endpoint'], (string)$apiConfig['doctor_id_param'], $doctorId);
-    $decoded = scheduleFetchHttpJson($url, (int)$apiConfig['timeout_sec'], is_array($apiConfig['headers']) ? $apiConfig['headers'] : []);
-    $payload = scheduleNormalizeApiPayload($decoded);
+    $payload = scheduleFetchForDoctorId($apiConfig, $doctorId);
 
     $schedule['cached_payload'] = $payload;
     $schedule['cached_updated_at'] = gmdate('c');
@@ -219,4 +230,3 @@ function scheduleRefreshCaches(PDO $pdo, bool $force = false, ?int $onlyContentI
     }
     return $results;
 }
-

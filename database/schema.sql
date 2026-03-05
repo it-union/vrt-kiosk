@@ -64,12 +64,13 @@ CREATE TABLE `app_settings` (
 
 CREATE TABLE `doctors` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `doctor_id` bigint(20) unsigned NOT NULL,
   `full_name` varchar(255) NOT NULL,
-  `specialty` varchar(120) DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_doctors_doctor_id` (`doctor_id`),
   KEY `idx_doctors_active` (`is_active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
