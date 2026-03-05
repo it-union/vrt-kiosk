@@ -398,11 +398,13 @@ function getScreenPayload(PDO $pdo, int $screenId): array
     $queueState = null;
     $manualCycleSec = 0;
     $stateRow = screenGetState($pdo, $screenId);
+    $kioskStatus = screenHeartbeatStatus($pdo, $screenId);
 
     if (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'fallback') {
         return [
             'screen_id' => $screenId,
             'source' => 'fallback',
+            'kiosk_status' => $kioskStatus,
             'template' => null,
             'screen_style' => fallbackScreenStyle(),
             'blocks' => [[
@@ -479,6 +481,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
         return [
             'screen_id' => $screenId,
             'source' => $source,
+            'kiosk_status' => $kioskStatus,
             'manual_cycle_sec' => 0,
             'template' => null,
             'screen_style' => defaultScreenStyle(),
@@ -535,6 +538,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
     return [
         'screen_id' => $screenId,
         'source' => $source,
+        'kiosk_status' => $kioskStatus,
         'screen_style' => extractScreenStyleFromLayout((string)($template['layout_json'] ?? '')),
         'manual_cycle_sec' => $manualCycleSec,
         'template' => [

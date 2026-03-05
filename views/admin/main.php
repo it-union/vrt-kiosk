@@ -424,6 +424,34 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             max-height: calc(82vh - 90px);
             overflow: auto;
         }
+        .alertModal {
+            width: min(460px, 100%);
+            border-color: #ef4444;
+            background: #fff5f5;
+        }
+        .alertModal .modalHead {
+            background: #fee2e2;
+            border-bottom-color: #fecaca;
+        }
+        .alertModal .modalHead h3 {
+            color: #991b1b;
+        }
+        .alertModal .modalBody {
+            color: #7f1d1d;
+            font-size: 15px;
+            line-height: 1.45;
+        }
+        .alertModalActions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 14px;
+        }
+        .alertOkBtn {
+            min-width: 96px;
+            border-color: #b91c1c;
+            background: #dc2626;
+            color: #fff;
+        }
         .templateList {
             display: grid;
             gap: 8px;
@@ -623,7 +651,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             </div>
             <div class="mirrorPanelBody">
                 <div class="mirrorFrame">
-                    <iframe id="mirrorFrame" class="mirror" src="/kiosk/" title="Экран"></iframe>
+                    <iframe id="mirrorFrame" class="mirror" src="/kiosk/?preview=1" title="Экран"></iframe>
                 </div>
             </div>
         </div>
@@ -666,6 +694,23 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
     </div>
 </div>
 
+<div id="heartbeatAlertModal" class="modalBack" aria-hidden="true">
+    <div class="modal alertModal">
+        <div class="modalHead">
+            <div>
+                <h3>Внимание</h3>
+                <p>Статус киоска</p>
+            </div>
+        </div>
+        <div class="modalBody">
+            <div>Нет связи с киоском!</div>
+            <div class="alertModalActions">
+                <button id="heartbeatAlertOkBtn" class="btn alertOkBtn" type="button">Ок</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 const queueStatus = document.getElementById('queueStatus');
 const screenStatus = document.getElementById('screenStatus');
@@ -681,8 +726,12 @@ const queuePreviewCaption = document.getElementById('queuePreviewCaption');
 const queuePreviewList = document.getElementById('queuePreviewList');
 const manualModal = document.getElementById('manualModal');
 const manualModalClose = document.getElementById('manualModalClose');
+const heartbeatAlertModal = document.getElementById('heartbeatAlertModal');
+const heartbeatAlertOkBtn = document.getElementById('heartbeatAlertOkBtn');
 const showTemplateButtons = Array.from(document.querySelectorAll('.js-show-template'));
 let screenStatusTimer = null;
+let heartbeatWasOnline = true;
+let heartbeatOfflineAcknowledged = false;
 const queueOptions = <?= json_encode(array_values($mainQueues), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const queuePreviewData = {
     'main-kiosk': {
@@ -705,7 +754,7 @@ function getPreviewDeviceKey() {
 
 function syncMirrorFrame() {
     if (!mirrorFrame) return;
-    mirrorFrame.src = getPreviewDeviceKey() === 'test-kiosk' ? '/kiosk/test/' : '/kiosk/';
+    mirrorFrame.src = getPreviewDeviceKey() === 'test-kiosk' ? '/kiosk/test/?preview=1' : '/kiosk/?preview=1';
 }
 
 function getPreviewQueueData() {
@@ -884,6 +933,20 @@ function closeManualModal() {
     manualModal.classList.remove('open');
     manualModal.setAttribute('aria-hidden', 'true');
 }
+function openHeartbeatAlertModal() {
+    if (!heartbeatAlertModal) return;
+    if (heartbeatOfflineAcknowledged) return;
+    heartbeatAlertModal.classList.add('open');
+    heartbeatAlertModal.setAttribute('aria-hidden', 'false');
+}
+function closeHeartbeatAlertModal(markAcknowledged = false) {
+    if (!heartbeatAlertModal) return;
+    heartbeatAlertModal.classList.remove('open');
+    heartbeatAlertModal.setAttribute('aria-hidden', 'true');
+    if (markAcknowledged) {
+        heartbeatOfflineAcknowledged = true;
+    }
+}
 
 async function refreshScreenStatus() {
     try {
@@ -893,22 +956,41 @@ async function refreshScreenStatus() {
         const source = String(payload?.data?.source || '');
         const templateId = Number(payload?.data?.template?.id || 0);
         const queueState = payload?.data?.queue_state || null;
+        const kioskStatus = payload?.data?.kiosk_status || null;
+        const isOnline = Boolean(kioskStatus && kioskStatus.is_online === true);
+        const ageSec = Number(kioskStatus && kioskStatus.age_sec !== null ? kioskStatus.age_sec : -1);
         markCurrentQueueTemplate(templateId, source);
         setQueueProgress(queueState, source);
         setModeButtons(source);
+        if (!isOnline) {
+            if (heartbeatWasOnline) {
+                heartbeatOfflineAcknowledged = false;
+            }
+            heartbeatWasOnline = false;
+            openHeartbeatAlertModal();
+            setScreenStatus('Киоск офлайн (нет связи)', true);
+            return;
+        }
+        heartbeatWasOnline = true;
+        heartbeatOfflineAcknowledged = false;
+        closeHeartbeatAlertModal(false);
+        const ageText = ageSec >= 0 ? (' • ' + ageSec + ' сек назад') : '';
         if (source === 'schedule') {
-            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск работает' : 'Очередь работает', false);
+            setScreenStatus((previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск онлайн' : 'Киоск онлайн') + ageText, false);
         } else if (source === 'fallback') {
-            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск остановлен' : 'Очередь остановлена', true);
+            setScreenStatus((previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск онлайн, очередь остановлена' : 'Киоск онлайн, очередь остановлена') + ageText, true);
         } else if (source === 'manual') {
-            setScreenStatus(previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск в ручном режиме' : 'Ручной режим', false);
+            setScreenStatus((previewDeviceKey === 'test-kiosk' ? 'Тестовый киоск онлайн, ручной режим' : 'Киоск онлайн, ручной режим') + ageText, false);
         } else {
-            setScreenStatus('', false);
+            setScreenStatus('Киоск онлайн' + ageText, false);
         }
     } catch (error) {
         markCurrentQueueTemplate(0, '');
         setQueueProgress(null, '');
         setModeButtons('');
+        heartbeatWasOnline = true;
+        heartbeatOfflineAcknowledged = false;
+        closeHeartbeatAlertModal(false);
         setScreenStatus('Нет связи с экраном', true);
     }
 }
@@ -970,6 +1052,18 @@ if (manualModal) {
     manualModal.addEventListener('click', (event) => {
         if (event.target === manualModal) {
             closeManualModal();
+        }
+    });
+}
+if (heartbeatAlertOkBtn) {
+    heartbeatAlertOkBtn.addEventListener('click', () => {
+        closeHeartbeatAlertModal(true);
+    });
+}
+if (heartbeatAlertModal) {
+    heartbeatAlertModal.addEventListener('click', (event) => {
+        if (event.target === heartbeatAlertModal) {
+            closeHeartbeatAlertModal(true);
         }
     });
 }

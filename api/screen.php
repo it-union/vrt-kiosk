@@ -26,6 +26,12 @@ try {
             'screen_id' => $screenId,
             'device_key' => $deviceKey,
             'source' => 'fallback',
+            'kiosk_status' => [
+                'last_seen_at' => null,
+                'age_sec' => null,
+                'online_timeout_sec' => 15,
+                'is_online' => false,
+            ],
             'template' => null,
             'screen_style' => [
                 'mode' => 'color',

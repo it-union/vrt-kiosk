@@ -223,3 +223,53 @@ function screenStopQueueState(PDO $pdo, int $screenId): void
     $stmt = $pdo->prepare("INSERT INTO screen_state (screen_id, source, rule_id, command_id, template_id, content_id, applied_at, expires_at, updated_at) VALUES (:screen_id, 'fallback', NULL, NULL, NULL, NULL, NOW(), NULL, NOW()) ON DUPLICATE KEY UPDATE source='fallback', rule_id=NULL, command_id=NULL, template_id=NULL, content_id=NULL, expires_at=NULL, updated_at=NOW()");
     $stmt->execute(['screen_id' => $screenId]);
 }
+
+function screenTouchHeartbeat(PDO $pdo, int $screenId, ?string $ipAddress = null, string $appVersion = '', ?array $payload = null): void
+{
+    $screenStorageId = resolveScreenStorageId($pdo, $screenId);
+    $safeIp = trim((string)$ipAddress);
+    if ($safeIp === '') {
+        $safeIp = null;
+    }
+    $safeVersion = trim($appVersion);
+    $payloadJson = null;
+    if (is_array($payload)) {
+        $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (is_string($encoded) && $encoded !== '') {
+            $payloadJson = $encoded;
+        }
+    }
+
+    $update = $pdo->prepare("UPDATE screens SET last_seen_at = NOW(), updated_at = NOW() WHERE id = :id");
+    $update->execute([':id' => $screenStorageId]);
+
+    $insert = $pdo->prepare("
+        INSERT INTO screen_heartbeat (screen_id, ip_address, app_version, payload_json, created_at)
+        VALUES (:screen_id, :ip_address, :app_version, :payload_json, NOW())
+    ");
+    $insert->execute([
+        ':screen_id' => $screenStorageId,
+        ':ip_address' => $safeIp,
+        ':app_version' => $safeVersion !== '' ? $safeVersion : null,
+        ':payload_json' => $payloadJson,
+    ]);
+}
+
+function screenHeartbeatStatus(PDO $pdo, int $screenId, int $onlineTimeoutSec = 15): array
+{
+    $screenStorageId = resolveScreenStorageId($pdo, $screenId);
+    $stmt = $pdo->prepare("SELECT last_seen_at FROM screens WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $screenStorageId]);
+    $row = $stmt->fetch();
+    $lastSeenAt = is_array($row) ? trim((string)($row['last_seen_at'] ?? '')) : '';
+    $lastSeenTs = $lastSeenAt !== '' ? strtotime($lastSeenAt) : false;
+    $ageSec = $lastSeenTs === false ? null : max(0, time() - (int)$lastSeenTs);
+    $timeout = max(5, $onlineTimeoutSec);
+
+    return [
+        'last_seen_at' => $lastSeenAt !== '' ? $lastSeenAt : null,
+        'age_sec' => $ageSec,
+        'online_timeout_sec' => $timeout,
+        'is_online' => $ageSec !== null && $ageSec <= $timeout,
+    ];
+}

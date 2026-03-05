@@ -96,6 +96,10 @@ function clearMediaTimers() {
         clearTimeout(id);
     }
 }
+function registerMediaTimer(id) {
+    activeMediaTimers.push(id);
+    return id;
+}
 function parseDataJson(value) {
     if (value && typeof value === 'object') return value;
     if (typeof value !== 'string' || value.trim() === '') return null;
@@ -283,6 +287,108 @@ function applyTimedAppearance(target, animationName, animationMs, delayMs) {
     };
     target.style.animation = map[name] || '';
 }
+function buildShowAnimation(animationName, animationMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    if (name === 'none') {
+        return { value: '', duration: ms, name: 'none' };
+    }
+    const map = {
+        fade_in: `fadeInBlock ${ms}ms ease 0ms both`,
+        slide_up: `slideUpBlock ${ms}ms ease 0ms both`,
+        slide_left: `slideLeftBlock ${ms}ms ease 0ms both`,
+        zoom_in: `zoomInBlock ${ms}ms ease 0ms both`
+    };
+    return { value: map[name] || '', duration: ms, name };
+}
+function buildHideAnimation(animationName, animationMs) {
+    const name = ['none', 'fade_in', 'slide_up', 'slide_left', 'zoom_in'].includes(String(animationName || ''))
+        ? String(animationName || 'none')
+        : 'none';
+    const ms = Math.max(100, Math.min(5000, Number(animationMs || 700)));
+    if (name === 'none') {
+        return { value: '', duration: ms, name: 'none' };
+    }
+    const map = {
+        fade_in: `fadeInBlock ${ms}ms ease 0ms reverse both`,
+        slide_up: `slideUpBlock ${ms}ms ease 0ms reverse both`,
+        slide_left: `slideLeftBlock ${ms}ms ease 0ms reverse both`,
+        zoom_in: `zoomInBlock ${ms}ms ease 0ms reverse both`
+    };
+    return { value: map[name] || '', duration: ms, name };
+}
+function startPreviewContentCycle(target, animationName, animationMs, delayOnMs, delayOffMs) {
+    if (!target) return;
+
+    const show = buildShowAnimation(animationName, animationMs);
+    const hide = buildHideAnimation(animationName, animationMs);
+    const onMs = Math.max(0, Number(delayOnMs || 0));
+    const offMs = Math.max(0, Number(delayOffMs || 0));
+    const showStartMs = onMs;
+    const showEndMs = showStartMs + (show.name === 'none' ? 0 : show.duration);
+    const hideStartMs = offMs > 0 ? Math.max(showEndMs, offMs) : null;
+    const initialDisplay = target.style.display || '';
+
+    const showDisplayState = () => {
+        target.style.display = initialDisplay;
+    };
+    const hideDisplayState = () => {
+        target.style.display = 'none';
+    };
+    const runShow = () => {
+        if (!target.isConnected) return;
+        showDisplayState();
+        target.style.visibility = 'visible';
+        target.style.pointerEvents = '';
+        if (show.name === 'none') {
+            target.style.opacity = '1';
+            target.style.animation = '';
+            return;
+        }
+        target.style.animation = 'none';
+        void target.offsetWidth;
+        target.style.animation = show.value;
+    };
+    const runHide = () => {
+        if (!target.isConnected) return;
+        if (hide.name === 'none') {
+            target.style.opacity = '0';
+            target.style.visibility = 'hidden';
+            target.style.pointerEvents = 'none';
+            hideDisplayState();
+            return;
+        }
+        target.style.animation = 'none';
+        void target.offsetWidth;
+        target.style.animation = hide.value;
+        registerMediaTimer(setTimeout(() => {
+            if (!target.isConnected) return;
+            target.style.animation = '';
+            target.style.opacity = '0';
+            target.style.visibility = 'hidden';
+            target.style.pointerEvents = 'none';
+            hideDisplayState();
+        }, hide.duration));
+    };
+
+    target.style.animation = '';
+    target.style.opacity = '';
+    target.style.visibility = '';
+    target.style.pointerEvents = '';
+    showDisplayState();
+    if (onMs > 0 || show.name !== 'none') {
+        target.style.opacity = '0';
+        target.style.visibility = 'hidden';
+        hideDisplayState();
+    }
+
+    registerMediaTimer(setTimeout(runShow, Math.max(0, showStartMs)));
+    if (hideStartMs !== null) {
+        registerMediaTimer(setTimeout(runHide, hideStartMs));
+    }
+}
 
 function appendTitleBody(root, title, body) {
     const h = document.createElement('h3');
@@ -389,7 +495,6 @@ function buildImageElement(src, title, imageData, className) {
     } else {
         setImageMask(img, fadeMode, fade);
     }
-    applyImageAnimation(wrap, p);
     return wrap;
 }
 function applyImageAnimation(target, imageData) {
@@ -591,7 +696,7 @@ async function renderBlock(blockRaw, contentMap) {
             el.style.display = 'flex';
             el.style.justifyContent = justify;
             el.style.alignItems = align;
-            const img = buildImageElement(mediaUrl, title, { ...p, animation: motion.animation, animation_ms: motion.animation_ms, delay_on_ms: motion.delay_on_ms, delay_off_ms: motion.delay_off_ms }, 'media', el);
+            const img = buildImageElement(mediaUrl, title, { ...p, animation: 'none' }, 'media', el);
             if (fluid) {
                 img.style.width = '100%';
                 img.style.height = '100%';
@@ -602,6 +707,7 @@ async function renderBlock(blockRaw, contentMap) {
             img.style.transform = rotateDeg !== 0 ? ('rotate(' + rotateDeg + 'deg)') : 'none';
             img.style.transformOrigin = 'center center';
             el.appendChild(img);
+            startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         } else {
             appendTitleBody(el, title, 'Для изображения не задан media_url');
         }
@@ -621,7 +727,7 @@ async function renderBlock(blockRaw, contentMap) {
             htmlInner.innerHTML = html;
             htmlInner.style.zoom = scalePct + '%';
             el.appendChild(htmlInner);
-            applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
+            startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         }
         return el;
     }
@@ -634,7 +740,7 @@ async function renderBlock(blockRaw, contentMap) {
             appendTitleBody(el, title, 'Для текста не задан body');
         } else {
             el.appendChild(createTextRenderNode(text, p));
-            applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
+            startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         }
         return el;
     }
@@ -643,13 +749,14 @@ async function renderBlock(blockRaw, contentMap) {
         const p = data && typeof data.schedule === 'object' ? data.schedule : {};
         const motion = normalizeBlockBackground(block.style);
         el.appendChild(createScheduleRenderNode(p));
-        applyTimedAppearance(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0);
+        startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         return el;
     }
 
     if (type === 'video') {
         if (mediaUrl) {
             const p = data && typeof data.video === 'object' ? data.video : {};
+            const motion = normalizeBlockBackground(block.style);
             const map = {
                 center: ['center', 'center'],
                 top_left: ['flex-start', 'flex-start'],
@@ -686,6 +793,7 @@ async function renderBlock(blockRaw, contentMap) {
                 video.style.height = heightPx > 0 ? (heightPx + 'px') : 'auto';
             }
             el.appendChild(video);
+            startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         } else {
             appendTitleBody(el, title, 'Для видео не задан media_url');
         }
@@ -694,6 +802,7 @@ async function renderBlock(blockRaw, contentMap) {
     if (type === 'ppt') {
         if (mediaUrl) {
             const p = data && typeof data.ppt === 'object' ? data.ppt : {};
+            const motion = normalizeBlockBackground(block.style);
             const [justify, align] = resolvePosition(p.position);
             const widthPx = Math.max(0, Number(p.width_px || 0));
             const heightPx = Math.max(0, Number(p.height_px || 0));
@@ -811,6 +920,7 @@ async function renderBlock(blockRaw, contentMap) {
                 const firstTimerId = setTimeout(tick, intervalSec * 1000);
                 activeMediaTimers.push(firstTimerId);
             }
+            startPreviewContentCycle(el, motion.animation || 'none', motion.animation_ms || 700, motion.delay_on_ms || 0, motion.delay_off_ms || 0);
         } else {
             appendTitleBody(el, title, 'PPT requires media_url');
         }

@@ -57,11 +57,51 @@ const stage = document.getElementById('stage');
 const fallbackScreenTemplate = document.getElementById('fallbackScreenTemplate');
 const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' };
 const DEVICE_KEY = <?= json_encode((string)($kioskDeviceKey ?? 'main-kiosk'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const KIOSK_APP_VERSION = <?= json_encode((string)($projectVersion ?? '0.0.0-dev'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
 let screenTransitionClipCounter = 0;
+let heartbeatTimer = null;
+let heartbeatSource = '';
+let heartbeatTemplateId = 0;
+const IS_PREVIEW_MODE = new URL(window.location.href).searchParams.get('preview') === '1';
+const previewVideoPositions = new Map();
+const PREVIEW_VIDEO_STORAGE_KEY = 'kiosk_preview_video_positions_v1';
+
+function loadPreviewVideoPositionsFromStorage() {
+    if (!IS_PREVIEW_MODE) return;
+    try {
+        const raw = sessionStorage.getItem(PREVIEW_VIDEO_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') return;
+        Object.keys(parsed).forEach((key) => {
+            const value = Number(parsed[key]);
+            if (Number.isFinite(value) && value >= 0) {
+                previewVideoPositions.set(String(key), value);
+            }
+        });
+    } catch (_) {
+        // Игнорируем ошибки доступа к storage.
+    }
+}
+function savePreviewVideoPositionsToStorage() {
+    if (!IS_PREVIEW_MODE) return;
+    try {
+        const data = {};
+        previewVideoPositions.forEach((value, key) => {
+            const safe = Number(value);
+            if (Number.isFinite(safe) && safe >= 0) {
+                data[String(key)] = safe;
+            }
+        });
+        sessionStorage.setItem(PREVIEW_VIDEO_STORAGE_KEY, JSON.stringify(data));
+    } catch (_) {
+        // Игнорируем ошибки доступа к storage.
+    }
+}
 
 function clamp(v, min, max) {
     const n = Number(v);
@@ -117,6 +157,55 @@ function clearMediaTimers() {
 function registerMediaTimer(id) {
     activeMediaTimers.push(id);
     return id;
+}
+function collectPreviewVideoPositions() {
+    if (!IS_PREVIEW_MODE) return;
+    const nodes = stage.querySelectorAll('video[data-preview-video-key]');
+    nodes.forEach((node) => {
+        const key = String(node.getAttribute('data-preview-video-key') || '').trim();
+        if (key === '') return;
+        const duration = Number(node.duration || 0);
+        const currentTime = Math.max(0, Number(node.currentTime || 0));
+        if (duration > 0 && Number.isFinite(duration)) {
+            previewVideoPositions.set(key, currentTime % duration);
+        } else {
+            previewVideoPositions.set(key, currentTime);
+        }
+    });
+    savePreviewVideoPositionsToStorage();
+}
+function bindPreviewVideoPosition(video, key) {
+    if (!IS_PREVIEW_MODE || !video || key === '') return;
+    video.setAttribute('data-preview-video-key', key);
+
+    const restore = () => {
+        const saved = Number(previewVideoPositions.get(key));
+        if (!Number.isFinite(saved) || saved <= 0) return;
+        const duration = Number(video.duration || 0);
+        const targetTime = duration > 0 && Number.isFinite(duration) ? Math.min(saved, Math.max(0, duration - 0.2)) : saved;
+        if (targetTime <= 0) return;
+        try {
+            video.currentTime = targetTime;
+        } catch (_) {
+            // Для некоторых потоков/кодеков seek может быть недоступен.
+        }
+    };
+    const save = () => {
+        const duration = Number(video.duration || 0);
+        const currentTime = Math.max(0, Number(video.currentTime || 0));
+        if (duration > 0 && Number.isFinite(duration)) {
+            previewVideoPositions.set(key, currentTime % duration);
+        } else {
+            previewVideoPositions.set(key, currentTime);
+        }
+        savePreviewVideoPositionsToStorage();
+    };
+
+    if (video.readyState >= 1) {
+        restore();
+    }
+    video.addEventListener('loadedmetadata', restore);
+    video.addEventListener('timeupdate', save);
 }
 function shuffleList(items) {
     const list = Array.isArray(items) ? items.slice() : [];
@@ -566,19 +655,6 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
         hideDisplayState();
     };
 
-    if (!shouldLoop) {
-        resetForCycle();
-        if (showStartMs > 0) {
-            registerMediaTimer(setTimeout(runShow, showStartMs));
-        } else {
-            runShow();
-        }
-        if (offMs > 0) {
-            registerMediaTimer(setTimeout(runHide, hideStartMs));
-        }
-        return true;
-    }
-
     const scheduleCycle = (offsetMs) => {
         const safeOffset = Math.max(0, Math.min(cycleDurationMs, Number(offsetMs || 0)));
         resetForCycle();
@@ -617,6 +693,15 @@ function startContentCycle(target, animationName, animationMs, delayOnMs, delayO
 
         hideFinalState();
     };
+
+    if (!shouldLoop) {
+        if (cycleDurationMs > 0) {
+            scheduleCycle(cycleOffsetMs);
+        } else {
+            scheduleCycle(0);
+        }
+        return true;
+    }
 
     scheduleCycle(cycleOffsetMs);
     registerMediaTimer(setTimeout(function repeatCycle() {
@@ -1070,6 +1155,10 @@ async function renderBlock(blockRaw, runtime = null) {
             video.loop = loop;
             video.playsInline = true;
             video.controls = false;
+            if (IS_PREVIEW_MODE) {
+                const previewVideoKey = String(runtime && Number(runtime.templateId || 0) > 0 ? runtime.templateId : 0) + '|' + String(block.key || '') + '|' + String(mediaUrl || '');
+                bindPreviewVideoPosition(video, previewVideoKey);
+            }
             if (fluid) {
                 video.style.width = '100%';
                 video.style.height = 'auto';
@@ -1269,6 +1358,8 @@ async function loadScreen() {
         if (!payload.ok) throw new Error(payload.error || 'Ошибка API');
 
         const data = payload.data || {};
+        heartbeatSource = String(data.source || '');
+        heartbeatTemplateId = Number(data?.template?.id || 0);
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];
         const screenStyle = normalizeScreenStyle(data.screen_style || DEFAULT_SCREEN_STYLE);
         const transition = buildScreenTransition(screenStyle);
@@ -1279,6 +1370,7 @@ async function loadScreen() {
         const runtime = {
             source: String(data.source || ''),
             queueState,
+            templateId: Number(data?.template?.id || 0),
             cycleDurationMs: String(data.source || '') === 'manual' ? manualCycleMs : scheduleDurationMs,
             cycleOffsetMs: String(data.source || '') === 'schedule' ? scheduleOffsetMs : 0,
             loopCurrentTemplate:
@@ -1298,6 +1390,7 @@ async function loadScreen() {
         }
         lastScreenSignature = signature;
 
+        collectPreviewVideoPositions();
         clearMediaTimers();
         if (String(data.source || '') === 'fallback') {
             applyBackgroundStyle(document.body, { mode: 'none' }, '#ffffff');
@@ -1344,8 +1437,40 @@ async function loadScreen() {
     }
 }
 
+async function sendHeartbeat() {
+    if (IS_PREVIEW_MODE) return;
+    try {
+        const body = new URLSearchParams();
+        body.set('device_key', DEVICE_KEY);
+        body.set('app_version', KIOSK_APP_VERSION);
+        if (heartbeatSource !== '') {
+            body.set('source', heartbeatSource);
+        }
+        if (heartbeatTemplateId > 0) {
+            body.set('template_id', String(heartbeatTemplateId));
+        }
+        await fetch('/api/kiosk_heartbeat.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        });
+    } catch (_) {
+        // Ошибки heartbeat не должны ломать рендер киоска.
+    }
+}
+
+loadPreviewVideoPositionsFromStorage();
 loadScreen();
 setInterval(loadScreen, 5000);
+if (!IS_PREVIEW_MODE) {
+    sendHeartbeat();
+    heartbeatTimer = setInterval(sendHeartbeat, 5000);
+    window.addEventListener('beforeunload', () => {
+        if (heartbeatTimer !== null) {
+            clearInterval(heartbeatTimer);
+        }
+    });
+}
 </script>
 </body>
 </html>
