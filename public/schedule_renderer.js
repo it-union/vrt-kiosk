@@ -51,7 +51,7 @@
       tableBorderColor: '',
       dayWidth: '16%',
       dayPadding: '8px',
-      dayFontSize: '16px',
+      dayFontSize: '26px',
       cellPadding: '18px',
       slotGap: '7px',
       slotMinHeight: '30px',
@@ -72,7 +72,7 @@
       tableBorderColor: '',
       dayWidth: '16%',
       dayPadding: '8px',
-      dayFontSize: '16px',
+      dayFontSize: '26px',
       cellPadding: '18px',
       slotGap: '7px',
       slotMinHeight: '30px',
@@ -127,7 +127,8 @@
     const y = Number(m[1]);
     const mm = Number(m[2]);
     const d = Number(m[3]);
-    if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d)) return raw;
+    if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d))
+      return raw;
     const dt = new Date(y, mm - 1, d);
     if (Number.isNaN(dt.getTime())) return raw;
     return dt.toLocaleDateString('ru-RU');
@@ -204,7 +205,7 @@
         colors.header_text || FALLBACK_COLORS.header_text,
       );
       th.style.padding = p.dayPadding;
-      th.style.textAlign = 'left';
+      th.style.textAlign = 'center';
       th.style.width = p.dayWidth;
       th.style.fontSize = p.dayFontSize;
       th.style.lineHeight = '1.2';

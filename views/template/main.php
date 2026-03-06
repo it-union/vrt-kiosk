@@ -447,7 +447,7 @@ declare(strict_types=1);
     </div>
 </div>
 
-<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)($projectVersion ?? '0.0.0-dev')) ?>"></script>
+<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)(@filemtime(__DIR__ . '/../../public/schedule_renderer.js') ?: ($projectVersion ?? '0.0.0-dev'))) ?>"></script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;

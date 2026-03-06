@@ -39,7 +39,7 @@ declare(strict_types=1);
 <body>
 <div id="stage"></div>
 <div class="meta" id="meta">Предпросмотр шаблона</div>
-<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)($projectVersion ?? '0.0.0-dev')) ?>"></script>
+<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)(@filemtime(__DIR__ . '/../../public/schedule_renderer.js') ?: ($projectVersion ?? '0.0.0-dev'))) ?>"></script>
 <script>
 const stage = document.getElementById('stage');
 const meta = document.getElementById('meta');
