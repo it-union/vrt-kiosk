@@ -28,8 +28,10 @@ foreach ($items as $item) {
     if ($templateId <= 0 || $durationSec <= 0) {
         continue;
     }
+    $isActive = array_key_exists('is_active', $item) ? ((int)$item['is_active'] === 1 ? 1 : 0) : 1;
     $normalized[] = [
         'template_id' => $templateId,
+        'is_active' => $isActive,
         'duration_sec' => $durationSec,
     ];
 }

@@ -268,12 +268,18 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             border-bottom: 1px solid #e7edf4;
             background: #fff;
         }
+        .queueListItem.inactive {
+            background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%);
+        }
         .queueListItem:last-child {
             border-bottom: 0;
         }
         .queueListItem.current {
             background: #ecfdf3;
             box-shadow: inset 4px 0 0 #16a34a;
+        }
+        .queueListItem.inactive.current {
+            background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(236, 253, 243, 1) 34%);
         }
         .queueListName {
             margin: 0 0 4px;
@@ -792,7 +798,7 @@ function renderQueuePreview() {
     }
 
     queuePreviewList.innerHTML = '<div class="queueList">' + items.map((item, index) => `
-        <div class="queueListItem" data-template-id="${Number(item.template_id || 0)}">
+        <div class="queueListItem${Number(item.is_active ?? 1) === 1 ? '' : ' inactive'}" data-template-id="${Number(item.template_id || 0)}">
             <p class="queueListName">${escapeHtml(String(item.template_name || 'Шаблон'))}</p>
             <p class="queueListMeta">Позиция: ${index + 1} • Время показа: ${Math.max(1, Number(item.duration_sec || 1))} сек</p>
             <div class="queueProgress"><div class="queueProgressBar"></div></div>

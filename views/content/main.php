@@ -62,6 +62,7 @@ declare(strict_types=1);
         .inspectorPanel #videoControls > button,
         .inspectorPanel #pptControls > button,
         .inspectorPanel #scheduleControls > button { width: calc(100% - 150px); margin-left: 150px; }
+        #scheduleFetchBtn:disabled { opacity: .6; cursor: not-allowed; pointer-events: none; }
         .hiddenFile { display: none !important; }
         .uploadTwoCols { display: grid; grid-template-columns: 1fr 180px; gap: 8px; align-items: end; }
         .uploadTwoCols .urlCol { min-width: 0; }
@@ -277,13 +278,17 @@ declare(strict_types=1);
                     <select id="pScheduleDoctorId"></select>
                 </label>
                 <button type="button" id="scheduleFetchBtn">Получить данные</button>
-                <label>Кэш, минут
-                    <select id="pScheduleCacheTtlMin">
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="15" selected>15</option>
-                        <option value="30">30</option>
-                        <option value="60">60</option>
+                <label>Глубина, суток <input id="pScheduleDays" type="number" min="1" max="31" step="1" value="7"></label>
+                <label>Филиал
+                    <select id="pSchedulePoint">
+                        <option value="0">Центр ЭКО</option>
+                        <option value="1">Глобус</option>
+                    </select>
+                </label>
+                <label>Показывать занятые
+                    <select id="pScheduleShowBusy">
+                        <option value="1">Да</option>
+                        <option value="0">Нет</option>
                     </select>
                 </label>
                 <label>Тема
@@ -511,11 +516,11 @@ window.CKEDITOR_LOCAL = CKEDITOR;
 window.CKEDITOR_LOCAL_TRANSLATIONS = [ru];
 window.dispatchEvent(new Event('ckeditor-local-ready'));
 </script>
-<script src="/public/schedule_renderer.js"></script>
+<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)($projectVersion ?? '0.0.0-dev')) ?>"></script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const state = { list: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
+const state = { list: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, scheduleFetchInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
 let selectedLibraryUrl = '';
 let selectedLibraryName = '';
 let imageBaseWidth = 0;
@@ -601,7 +606,9 @@ const el = {
   pptControls: document.getElementById('pptControls'),
   pScheduleDoctorId: document.getElementById('pScheduleDoctorId'),
   scheduleFetchBtn: document.getElementById('scheduleFetchBtn'),
-  pScheduleCacheTtlMin: document.getElementById('pScheduleCacheTtlMin'),
+  pScheduleDays: document.getElementById('pScheduleDays'),
+  pSchedulePoint: document.getElementById('pSchedulePoint'),
+  pScheduleShowBusy: document.getElementById('pScheduleShowBusy'),
   pScheduleThemeId: document.getElementById('pScheduleThemeId'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
   htmlEditorContrastToggle: document.getElementById('htmlEditorContrastToggle'),
@@ -1188,18 +1195,21 @@ function normalizeScheduleData(raw) {
     : [];
   const themeIdRaw = String(src.theme_id || (availableThemeIds[0] || 'light_blue'));
   const themeId = availableThemeIds.includes(themeIdRaw) ? themeIdRaw : (availableThemeIds[0] || 'light_blue');
-  const cacheTtlMinRaw = Number(src.cache_ttl_min || 15);
-  const cacheTtlAllowed = [5, 10, 15, 30, 60];
-  const cacheTtlMin = cacheTtlAllowed.includes(cacheTtlMinRaw) ? cacheTtlMinRaw : 15;
   const doctorIdRaw = Number(src.doctor_id || 0);
   const doctorId = availableDoctorIds.includes(doctorIdRaw) ? doctorIdRaw : (availableDoctorIds[0] || 1);
-  const cachedPayloadRaw = src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null;
-  const cachedPayload = cachedPayloadRaw || createTestSchedulePayload(doctorId);
+  const days = Math.max(1, Math.min(31, Math.floor(Number(src.days || 7))));
+  const pointRaw = Number(src.point || 0);
+  const point = [0, 1].includes(pointRaw) ? pointRaw : 0;
+  const showBusyRaw = src.show_busy;
+  const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
+  const cachedPayload = src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null;
   const updatedAtRaw = String(src.cached_updated_at || '').trim();
-  const updatedAt = updatedAtRaw || getScheduleNowIso();
+  const updatedAt = updatedAtRaw;
   return {
     doctor_id: doctorId,
-    cache_ttl_min: cacheTtlMin,
+    days,
+    point,
+    show_busy: showBusy,
     theme_id: themeId,
     cached_payload: cachedPayload,
     cached_updated_at: updatedAt
@@ -1227,7 +1237,9 @@ function getScheduleThemeById(themeId) {
 function buildScheduleDataJson() {
   const normalized = normalizeScheduleData({
     doctor_id: Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 1),
-    cache_ttl_min: Number(el.pScheduleCacheTtlMin && el.pScheduleCacheTtlMin.value ? el.pScheduleCacheTtlMin.value : 15),
+    days: Number(el.pScheduleDays && el.pScheduleDays.value ? el.pScheduleDays.value : 7),
+    point: Number(el.pSchedulePoint && el.pSchedulePoint.value ? el.pSchedulePoint.value : 0),
+    show_busy: Number(el.pScheduleShowBusy && el.pScheduleShowBusy.value ? el.pScheduleShowBusy.value : 1) === 1,
     theme_id: String(el.pScheduleThemeId && el.pScheduleThemeId.value ? el.pScheduleThemeId.value : ''),
     cached_payload: (window.__scheduleCachedPayload && typeof window.__scheduleCachedPayload === 'object') ? window.__scheduleCachedPayload : null,
     cached_updated_at: String(window.__scheduleCachedUpdatedAt || '')
@@ -1906,10 +1918,11 @@ function nowDraft() {
   el.pTextLineHeight.value = '1.1';
   el.pTextPadding.value = '0';
   populateScheduleDoctorOptions();
-  const draftDoctorId = Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 1);
-  window.__scheduleCachedPayload = createTestSchedulePayload(draftDoctorId);
-  window.__scheduleCachedUpdatedAt = getScheduleNowIso();
-  if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.value = '15';
+  window.__scheduleCachedPayload = null;
+  window.__scheduleCachedUpdatedAt = '';
+  if (el.pScheduleDays) el.pScheduleDays.value = '7';
+  if (el.pSchedulePoint) el.pSchedulePoint.value = '0';
+  if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = '1';
   if (el.pScheduleThemeId && el.pScheduleThemeId.options.length > 0) {
     el.pScheduleThemeId.selectedIndex = 0;
   }
@@ -2391,7 +2404,9 @@ async function loadById(id) {
       pptAnimMs.value = String(Math.max(100, Math.min(5000, Number(ppt.animation_ms || 700))));
     }
     populateScheduleDoctorOptions(schedule.doctor_id);
-    if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.value = String(schedule.cache_ttl_min);
+    if (el.pScheduleDays) el.pScheduleDays.value = String(schedule.days);
+    if (el.pSchedulePoint) el.pSchedulePoint.value = String(schedule.point);
+    if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = schedule.show_busy === false ? '0' : '1';
     if (el.pScheduleThemeId) el.pScheduleThemeId.value = String(schedule.theme_id);
     window.__scheduleCachedPayload = schedule.cached_payload;
     window.__scheduleCachedUpdatedAt = schedule.cached_updated_at;
@@ -2525,16 +2540,23 @@ async function saveCurrent() {
 }
 
 async function fetchScheduleNow() {
+  if (state.scheduleFetchInProgress) return;
   const doctorId = Number(el.pScheduleDoctorId && el.pScheduleDoctorId.value ? el.pScheduleDoctorId.value : 0);
   if (doctorId <= 0) {
     setStatus('Сначала выберите врача', true);
     return;
   }
 
-  if (el.scheduleFetchBtn) el.scheduleFetchBtn.disabled = true;
+  state.scheduleFetchInProgress = true;
+  if (el.scheduleFetchBtn) {
+    el.scheduleFetchBtn.disabled = true;
+    el.scheduleFetchBtn.setAttribute('aria-busy', 'true');
+  }
+  setStatus('Получение данных расписания...');
   try {
-    const res = await apiPost('/api/schedule_fetch_now.php', { doctor_id: doctorId });
-    const payload = res && res.data ? res.data : {};
+    const days = Number(el.pScheduleDays && el.pScheduleDays.value ? el.pScheduleDays.value : 7);
+    const point = Number(el.pSchedulePoint && el.pSchedulePoint.value ? el.pSchedulePoint.value : 0);
+    const payload = await apiPost('/api/schedule_fetch_now.php', { doctor_id: doctorId, days, point });
 
     window.__scheduleCachedPayload = payload && typeof payload.payload === 'object' ? payload.payload : null;
     window.__scheduleCachedUpdatedAt = String(payload && payload.updated_at ? payload.updated_at : '');
@@ -2544,7 +2566,11 @@ async function fetchScheduleNow() {
   } catch (e) {
     setStatus(String(e.message || e), true);
   } finally {
-    if (el.scheduleFetchBtn) el.scheduleFetchBtn.disabled = false;
+    state.scheduleFetchInProgress = false;
+    if (el.scheduleFetchBtn) {
+      el.scheduleFetchBtn.disabled = false;
+      el.scheduleFetchBtn.removeAttribute('aria-busy');
+    }
   }
 }
 
@@ -2761,7 +2787,9 @@ el.pTextLineHeight.addEventListener('input', () => { syncDataJson(); syncPreview
 el.pTextPadding.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleDoctorId) el.pScheduleDoctorId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.scheduleFetchBtn) el.scheduleFetchBtn.addEventListener('click', fetchScheduleNow);
-if (el.pScheduleCacheTtlMin) el.pScheduleCacheTtlMin.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleDays) el.pScheduleDays.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+if (el.pSchedulePoint) el.pSchedulePoint.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleShowBusy) el.pScheduleShowBusy.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleThemeId) el.pScheduleThemeId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });

@@ -25,6 +25,10 @@ $publishTo = trim((string)($_POST['publish_to'] ?? ''));
 
 $allowedTypes = ['text', 'image', 'html', 'video', 'ppt', 'schedule'];
 $scheduleDoctorId = 0;
+$schedulePoint = 0;
+$scheduleDays = 7;
+$scheduleData = [];
+
 if (!in_array($type, $allowedTypes, true)) {
     jsonResponse(['ok' => false, 'error' => 'Недопустимый type'], 400);
 }
@@ -52,6 +56,14 @@ if ($type === 'schedule') {
     $scheduleDoctorId = (int)($scheduleNode['doctor_id'] ?? 0);
     if ($scheduleDoctorId <= 0) {
         jsonResponse(['ok' => false, 'error' => 'Для расписания нужен doctor_id'], 400);
+    }
+    $schedulePoint = (int)($scheduleNode['point'] ?? 0);
+    if (!in_array($schedulePoint, [0, 1], true)) {
+        jsonResponse(['ok' => false, 'error' => 'Некорректное значение point'], 400);
+    }
+    $scheduleDays = (int)($scheduleNode['days'] ?? 7);
+    if ($scheduleDays < 1 || $scheduleDays > 31) {
+        jsonResponse(['ok' => false, 'error' => 'Некорректное значение days'], 400);
     }
 }
 
@@ -97,6 +109,23 @@ if ($dataJson !== '') {
         jsonResponse(['ok' => false, 'error' => 'data_json должен быть корректным JSON'], 400);
     }
     $dataJsonValue = $dataJson;
+}
+if ($type === 'schedule') {
+    if (!is_array($scheduleData)) {
+        $scheduleData = [];
+    }
+    if (!is_array($scheduleData['schedule'] ?? null)) {
+        $scheduleData['schedule'] = [];
+    }
+    $scheduleData['schedule']['doctor_id'] = $scheduleDoctorId;
+    $scheduleData['schedule']['point'] = $schedulePoint;
+    $scheduleData['schedule']['days'] = $scheduleDays;
+
+    $encodedScheduleData = json_encode($scheduleData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($encodedScheduleData)) {
+        jsonResponse(['ok' => false, 'error' => 'Не удалось сформировать data_json для расписания'], 400);
+    }
+    $dataJsonValue = $encodedScheduleData;
 }
 
 $toSqlDateTime = static function (string $v): ?string {

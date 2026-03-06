@@ -32,6 +32,9 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
         .item:last-child { border-bottom: 0; }
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
+        .item.itemInactive { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
+        .item.itemInactive:hover { background: linear-gradient(90deg, rgba(254, 226, 226, 0.92) 0%, rgba(248, 250, 252, 1) 34%); }
+        .item.itemInactive.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
         .item.dragging { opacity: 0.45; }
         .item.dropBefore { box-shadow: inset 0 2px 0 #1d5fbf; }
         .item.dropAfter { box-shadow: inset 0 -2px 0 #1d5fbf; }
@@ -152,6 +155,12 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
             <details class="fold" open>
                 <summary>Параметры элемента очереди</summary>
                 <div class="foldBody">
+                    <label>Активно
+                        <select id="qIsActive">
+                            <option value="1">Да</option>
+                            <option value="0">Нет</option>
+                        </select>
+                    </label>
                     <label>Время показа, сек <input id="qDurationSec" type="number" min="1" step="1"></label>
                 </div>
             </details>
@@ -189,6 +198,7 @@ const el = {
     queueType: document.getElementById('queueType'),
     inspectorEmpty: document.getElementById('inspectorEmpty'),
     inspectorControls: document.getElementById('inspectorControls'),
+    qIsActive: document.getElementById('qIsActive'),
     qDurationSec: document.getElementById('qDurationSec'),
     removeQueueItemBtn: document.getElementById('removeQueueItemBtn')
 };
@@ -263,6 +273,7 @@ async function loadQueue(queueId = 0) {
             id: uniqueQueueId(),
             template_id: Number(item.template_id || 0),
             template_name: String(item.template_name || 'Шаблон'),
+            is_active: Number(item.is_active ?? 1) === 1 ? 1 : 0,
             duration_sec: Math.max(1, Number(item.duration_sec || DEFAULT_DURATION_SEC))
         })).filter((item) => item.template_id > 0);
         state.selectedId = state.queue[0]?.id || null;
@@ -280,11 +291,13 @@ function showInspector(item) {
     if (!item) {
         el.inspectorEmpty.style.display = '';
         el.inspectorControls.style.display = 'none';
+        el.qIsActive.value = '1';
         el.qDurationSec.value = '';
         return;
     }
     el.inspectorEmpty.style.display = 'none';
     el.inspectorControls.style.display = '';
+    el.qIsActive.value = item.is_active === 0 ? '0' : '1';
     el.qDurationSec.value = String(item.duration_sec);
 }
 
@@ -302,13 +315,15 @@ function renderQueue() {
 
     state.queue.forEach((item, index) => {
         const node = document.createElement('div');
-        node.className = 'item' + (state.selectedId === item.id ? ' active' : '');
+        node.className = 'item'
+            + (item.is_active === 0 ? ' itemInactive' : '')
+            + (state.selectedId === item.id ? ' active' : '');
         node.draggable = true;
         node.dataset.queueItem = '1';
         node.dataset.queueId = item.id;
         node.innerHTML = `
             <p class="itemTitle">${escapeHtml(item.template_name)}</p>
-            <p class="itemMeta">Позиция: ${index + 1} • Время показа: ${item.duration_sec} сек</p>
+            <p class="itemMeta">Позиция: ${index + 1} • Активно: ${item.is_active === 1 ? 'Да' : 'Нет'} • Время показа: ${item.duration_sec} сек</p>
         `;
         node.addEventListener('click', () => {
             state.selectedId = item.id;
@@ -364,6 +379,7 @@ function insertTemplateToQueue(templateId, templateName, atIndex = null) {
         id: uniqueQueueId(),
         template_id: Number(templateId),
         template_name: String(templateName || 'Шаблон'),
+        is_active: 1,
         duration_sec: DEFAULT_DURATION_SEC
     };
     if (atIndex === null || atIndex < 0 || atIndex > state.queue.length) {
@@ -415,6 +431,7 @@ async function saveQueueDraft() {
         body.set('queue_type', String(state.queueType || 'archive'));
         body.set('items_json', JSON.stringify(state.queue.map((item) => ({
             template_id: item.template_id,
+            is_active: item.is_active,
             duration_sec: item.duration_sec
         }))));
 
@@ -550,6 +567,12 @@ el.qDurationSec.addEventListener('input', () => {
     const item = queueItemById(state.selectedId);
     if (!item) return;
     item.duration_sec = Math.max(1, Number(el.qDurationSec.value || DEFAULT_DURATION_SEC));
+    renderQueue();
+});
+el.qIsActive.addEventListener('change', () => {
+    const item = queueItemById(state.selectedId);
+    if (!item) return;
+    item.is_active = Number(el.qIsActive.value || 1) === 1 ? 1 : 0;
     renderQueue();
 });
 

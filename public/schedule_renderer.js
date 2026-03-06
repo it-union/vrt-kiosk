@@ -120,6 +120,24 @@
       .filter((row) => row && String(row.label || '').trim() !== '');
   }
 
+  function formatRuDateLabel(value) {
+    const raw = String(value || '').trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (!m) return raw;
+    const y = Number(m[1]);
+    const mm = Number(m[2]);
+    const d = Number(m[3]);
+    if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d)) return raw;
+    const dt = new Date(y, mm - 1, d);
+    if (Number.isNaN(dt.getTime())) return raw;
+    return dt.toLocaleDateString('ru-RU');
+  }
+
+  function limitRowsByDepth(rows, depthDays) {
+    const depth = Math.max(1, Math.min(31, Number(depthDays || 7)));
+    return rows.slice(0, depth);
+  }
+
   function render(params) {
     const input = params && typeof params === 'object' ? params : {};
     const schedule =
@@ -142,6 +160,8 @@
     )
       ? String(p.badgeStrikeMode || 'none')
       : 'none';
+    const showBusyRaw = schedule.show_busy;
+    const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
 
     const wrap = document.createElement('div');
     wrap.style.width = '100%';
@@ -151,7 +171,10 @@
     wrap.style.overflow = 'auto';
     wrap.style.color = String(colors.text || FALLBACK_COLORS.text);
 
-    const rows = extractRows(schedule.cached_payload);
+    const rows = limitRowsByDepth(
+      extractRows(schedule.cached_payload),
+      Number(schedule.days || 7),
+    );
     if (rows.length <= 0) {
       const empty = document.createElement('div');
       empty.style.fontSize = p.emptyFontSize;
@@ -172,7 +195,7 @@
       const tr = document.createElement('tr');
 
       const th = document.createElement('th');
-      th.textContent = String(row.label || '');
+      th.textContent = formatRuDateLabel(String(row.label || ''));
       th.style.border = borderStyle;
       th.style.background = String(
         colors.header_bg || FALLBACK_COLORS.header_bg,
@@ -203,6 +226,9 @@
           slot.busy === true ||
           statusRaw === 'busy' ||
           statusRaw === 'occupied';
+        if (!showBusy && isBusy) {
+          continue;
+        }
         const from = String(slot.from || '').trim();
         const to = String(slot.to || '').trim();
         const label = String(

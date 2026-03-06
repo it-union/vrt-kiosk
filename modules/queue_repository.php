@@ -48,6 +48,7 @@ function queueEnsureSchema(PDO $pdo): void
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             queue_id bigint(20) unsigned NOT NULL,
             template_id bigint(20) unsigned NOT NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 1,
             duration_sec int(10) unsigned NOT NULL DEFAULT 15,
             sort_order int(10) unsigned NOT NULL DEFAULT 100,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +60,11 @@ function queueEnsureSchema(PDO $pdo): void
             CONSTRAINT fk_display_queue_items_template FOREIGN KEY (template_id) REFERENCES templates (id) ON DELETE CASCADE ON UPDATE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+
+    $itemActiveColumn = $pdo->query("SHOW COLUMNS FROM display_queue_items LIKE 'is_active'");
+    if ($itemActiveColumn && !$itemActiveColumn->fetch()) {
+        $pdo->exec("ALTER TABLE display_queue_items ADD COLUMN is_active tinyint(1) NOT NULL DEFAULT 1 AFTER template_id");
+    }
 
     $columnStmt = $pdo->query("SHOW COLUMNS FROM display_queues LIKE 'queue_type'");
     if ($columnStmt && !$columnStmt->fetch()) {
@@ -212,7 +218,7 @@ function queueGetItems(PDO $pdo, int $queueId): array
 {
     queueEnsureSchema($pdo);
     $stmt = $pdo->prepare("
-        SELECT qi.id, qi.queue_id, qi.template_id, qi.duration_sec, qi.sort_order,
+        SELECT qi.id, qi.queue_id, qi.template_id, qi.is_active, qi.duration_sec, qi.sort_order,
                t.name AS template_name, t.status AS template_status, t.updated_at AS template_updated_at
         FROM display_queue_items qi
         INNER JOIN templates t ON t.id = qi.template_id
@@ -281,14 +287,16 @@ function queueSaveItems(PDO $pdo, int $queueId, array $items): void
         $delete->execute([':queue_id' => $queueId]);
 
         $insert = $pdo->prepare("
-            INSERT INTO display_queue_items (queue_id, template_id, duration_sec, sort_order, created_at, updated_at)
-            VALUES (:queue_id, :template_id, :duration_sec, :sort_order, NOW(), NOW())
+            INSERT INTO display_queue_items (queue_id, template_id, is_active, duration_sec, sort_order, created_at, updated_at)
+            VALUES (:queue_id, :template_id, :is_active, :duration_sec, :sort_order, NOW(), NOW())
         ");
 
         foreach ($items as $index => $item) {
+            $isActive = array_key_exists('is_active', $item) ? ((int)$item['is_active'] === 1 ? 1 : 0) : 1;
             $insert->execute([
                 ':queue_id' => $queueId,
                 ':template_id' => (int)$item['template_id'],
+                ':is_active' => $isActive,
                 ':duration_sec' => max(1, (int)$item['duration_sec']),
                 ':sort_order' => $index + 1,
             ]);

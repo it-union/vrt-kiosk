@@ -39,7 +39,7 @@ declare(strict_types=1);
 <body>
 <div id="stage"></div>
 <div class="meta" id="meta">Предпросмотр шаблона</div>
-<script src="/public/schedule_renderer.js"></script>
+<script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)($projectVersion ?? '0.0.0-dev')) ?>"></script>
 <script>
 const stage = document.getElementById('stage');
 const meta = document.getElementById('meta');
@@ -243,9 +243,14 @@ function getScheduleThemeById(themeId) {
 }
 function normalizeScheduleData(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
+    const showBusyRaw = src.show_busy;
+    const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
+    const days = Math.max(1, Math.min(31, Number(src.days || 7)));
     return {
         doctor_id: Math.max(1, Number(src.doctor_id || 1)),
+        days,
         theme_id: String(src.theme_id || ''),
+        show_busy: showBusy,
         cached_payload: src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null
     };
 }

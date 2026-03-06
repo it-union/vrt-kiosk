@@ -242,7 +242,10 @@ function resolveQueueTemplateForScreen(PDO $pdo, int $screenId, ?array $stateRow
         return null;
     }
 
-    $items = queueGetItems($pdo, (int)$queue['id']);
+    $items = array_values(array_filter(
+        queueGetItems($pdo, (int)$queue['id']),
+        static fn(array $item): bool => (int)($item['is_active'] ?? 1) === 1
+    ));
     if (count($items) === 0) {
         return [
             'id' => 0,
@@ -311,7 +314,10 @@ function resolveQueueStateForScreen(PDO $pdo, int $screenId, ?array $stateRow): 
         return null;
     }
 
-    $items = queueGetItems($pdo, (int)$queue['id']);
+    $items = array_values(array_filter(
+        queueGetItems($pdo, (int)$queue['id']),
+        static fn(array $item): bool => (int)($item['is_active'] ?? 1) === 1
+    ));
     if (count($items) === 0) {
         return [
             'queue_id' => (int)$queue['id'],
@@ -379,7 +385,10 @@ function resolveManualTemplateDurationSec(PDO $pdo, int $templateId): int
         return 0;
     }
 
-    $items = queueGetItems($pdo, (int)$queue['id']);
+    $items = array_values(array_filter(
+        queueGetItems($pdo, (int)$queue['id']),
+        static fn(array $item): bool => (int)($item['is_active'] ?? 1) === 1
+    ));
     foreach ($items as $item) {
         if ((int)($item['template_id'] ?? 0) !== $templateId) {
             continue;

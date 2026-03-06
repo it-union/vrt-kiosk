@@ -17,6 +17,12 @@ $doctorId = isset($_POST['doctor_id']) ? (int)$_POST['doctor_id'] : 0;
 if ($doctorId <= 0) {
     jsonResponse(['ok' => false, 'error' => 'Некорректный doctor_id'], 400);
 }
+$point = isset($_POST['point']) ? (int)$_POST['point'] : 0;
+if (!in_array($point, [0, 1], true)) {
+    $point = 0;
+}
+$days = isset($_POST['days']) ? (int)$_POST['days'] : 7;
+$days = max(1, min(31, $days));
 
 try {
     $pdo = dbMysql();
@@ -25,13 +31,15 @@ try {
     }
 
     $apiConfig = scheduleApiLoadConfig();
-    $payload = scheduleFetchForDoctorId($apiConfig, $doctorId);
+    $payload = scheduleFetchForDoctorId($apiConfig, $doctorId, $point, $days);
     $updatedAt = gmdate('c');
 
     jsonResponse([
         'ok' => true,
         'data' => [
             'doctor_id' => $doctorId,
+            'point' => $point,
+            'days' => $days,
             'payload' => $payload,
             'updated_at' => $updatedAt,
         ],
@@ -43,4 +51,3 @@ try {
     }
     jsonResponse(['ok' => false, 'error' => $message], 500);
 }
-
