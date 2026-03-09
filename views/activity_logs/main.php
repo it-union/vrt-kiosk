@@ -26,7 +26,7 @@ declare(strict_types=1);
             font-family: Tahoma, sans-serif;
         }
         .page {
-            max-width: 1600px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 22px;
             min-height: 100vh;
@@ -103,10 +103,10 @@ declare(strict_types=1);
         }
         .filters {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-            padding: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 12px;
             background: #f8fafc;
             border-radius: 12px;
         }
@@ -114,7 +114,7 @@ declare(strict_types=1);
             display: flex;
             flex-direction: column;
             gap: 4px;
-            font-size: 12px;
+            font-size: 11px;
             color: var(--muted);
         }
         .filters select,
@@ -173,7 +173,16 @@ declare(strict_types=1);
             font-size: 12px;
             text-align: left;
             vertical-align: top;
+            white-space: nowrap;
         }
+        th:nth-child(5), td:nth-child(5) {
+            white-space: normal;
+            width: auto;
+        }
+        th:nth-child(1), td:nth-child(1) { width: 1%; }
+        th:nth-child(2), td:nth-child(2) { width: 1%; }
+        th:nth-child(3), td:nth-child(3) { width: 1%; }
+        th:nth-child(4), td:nth-child(4) { width: 1%; }
         th {
             color: var(--muted);
             font-weight: 400;
@@ -234,6 +243,13 @@ declare(strict_types=1);
             background: #eff6ff;
             color: #1d5fbf;
             border: 1px solid #bfdbfe;
+        }
+        .pageFooter {
+            margin-top: 18px;
+            color: #fff;
+            font-size: 12px;
+            border-top: 1px solid rgba(255,255,255,0.16);
+            padding-top: 10px;
         }
         @media (min-width: 761px) {
             html, body { overflow: hidden; }
@@ -358,16 +374,22 @@ declare(strict_types=1);
                                 <td>
                                     <?php if ($log['entity_type']): ?>
                                         <?= h($log['entity_type']) ?>
-                                        <?php if ($log['content_type']): ?>
-                                            <br><small style="color:#64748b;"><?= h('[' . $log['content_type'] . '] ' . ($log['entity_name'] ?? '')) ?></small>
-                                        <?php elseif ($log['entity_name']): ?>
-                                            <br><small style="color:#64748b;"><?= h($log['entity_name']) ?></small>
-                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span style="color:#99a3af;">—</span>
                                     <?php endif; ?>
                                 </td>
-                                <td><?= h($log['action_description'] ?: '—') ?></td>
+                                <td>
+                                    <?= h($log['action_description'] ?: '—') ?>
+                                    <?php if ($log['entity_name']): ?>
+                                        <br><small style="color:#64748b;">
+                                            <?php if ($log['content_type']): ?>
+                                                <?= h('[' . $log['content_type'] . '] ' . $log['entity_name']) ?>
+                                            <?php else: ?>
+                                                <?= h($log['entity_name']) ?>
+                                            <?php endif; ?>
+                                        </small>
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -401,23 +423,64 @@ declare(strict_types=1);
         </section>
     </div>
 
-    <p style="margin:18px 0 0;color:#667085;font-size:12px;">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></p>
+    <div class="pageFooter">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></div>
 </div>
 
+<div class="modalBack" id="clearLogsModal">
+    <div class="modal" role="dialog" aria-modal="true">
+        <h3 id="clearLogsTitle">Очистка журнала активности</h3>
+        <p style="margin:0 0 12px;color:#334155;">Удалить все записи журнала активности?</p>
+        <div class="row">
+            <button type="button" id="clearLogsCancelBtn">Отмена</button>
+            <button type="button" id="clearLogsConfirmBtn" class="danger">Удалить</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modalBack.open { display: flex; }
+    .modal { width: min(400px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 16px; }
+    .modal h3 { margin: 0 0 10px; font-size: 16px; }
+    .modal .row { display: flex; gap: 10px; justify-content: flex-end; }
+    .modal button { padding: 8px 16px; border: 1px solid #c8ced6; background: #fff; border-radius: 10px; cursor: pointer; }
+    .modal button.danger { border-color: #b91c1c; color: #b91c1c; }
+</style>
+
 <script>
+const clearLogsModal = document.getElementById('clearLogsModal');
+const clearLogsCancelBtn = document.getElementById('clearLogsCancelBtn');
+const clearLogsConfirmBtn = document.getElementById('clearLogsConfirmBtn');
+
+if (clearLogsCancelBtn) {
+    clearLogsCancelBtn.onclick = () => clearLogsModal.classList.remove('open');
+}
+
+if (clearLogsModal) {
+    clearLogsModal.onclick = (event) => {
+        if (event.target === clearLogsModal) clearLogsModal.classList.remove('open');
+    };
+}
+
 document.getElementById('clearLogsBtn').onclick = function() {
-    if (!confirm('Вы уверены, что хотите очистить все логи? Это действие необратимо.')) return;
-    fetch('/api/activity_log_clear.php', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                window.location.href = '/activity_logs/?cleared=1';
-            } else {
-                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
-            }
-        })
-        .catch(e => alert('Ошибка: ' + e.message));
+    clearLogsModal.classList.add('open');
 };
+
+if (clearLogsConfirmBtn) {
+    clearLogsConfirmBtn.onclick = function() {
+        fetch('/api/activity_log_clear.php', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    clearLogsModal.classList.remove('open');
+                    window.location.href = '/log/?cleared=1';
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(e => alert('Ошибка: ' + e.message));
+    };
+}
 </script>
 </body>
 </html>
