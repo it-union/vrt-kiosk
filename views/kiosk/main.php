@@ -434,6 +434,11 @@ function getPreviewTextScale() {
     const stageWidth = Math.max(1, Number(stage && stage.clientWidth ? stage.clientWidth : (window.innerWidth || 1)));
     return Math.max(0.1, Math.min(1, stageWidth / PREVIEW_TEXT_BASE_WIDTH_PX));
 }
+function getPreviewScheduleScale() {
+    if (!IS_PREVIEW_MODE) return 1;
+    const stageWidth = Math.max(1, Number(stage && stage.clientWidth ? stage.clientWidth : (window.innerWidth || 1)));
+    return Math.max(0.1, Math.min(1, stageWidth / PREVIEW_TEXT_BASE_WIDTH_PX));
+}
 function createTextRenderNode(text, rawData) {
     const p = normalizeTextData(rawData);
     const scale = getPreviewTextScale();
@@ -484,7 +489,8 @@ function createScheduleRenderNode(rawData) {
     const schedule = normalizeScheduleData(rawData);
     const theme = getScheduleThemeById(schedule.theme_id);
     if (window.ScheduleRenderer && typeof window.ScheduleRenderer.render === 'function') {
-        return window.ScheduleRenderer.render({ schedule, theme, mode: 'kiosk' });
+        const scale = getPreviewScheduleScale();
+        return window.ScheduleRenderer.render({ schedule, theme, mode: 'kiosk', scale });
     }
     const fallback = document.createElement('div');
     fallback.textContent = 'ScheduleRenderer не загружен';

@@ -150,6 +150,7 @@
     const colors =
       theme.colors && typeof theme.colors === 'object' ? theme.colors : {};
     const mode = String(input.mode || 'content');
+    const scale = Number(input.scale || 1);
     const p = PRESETS[mode] || PRESETS.content;
     const borderColor = String(
       p.tableBorderColor || colors.grid_line || FALLBACK_COLORS.grid_line,
@@ -164,11 +165,19 @@
     const showBusyRaw = schedule.show_busy;
     const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
 
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    const scalePx = (value) => {
+      const num = parseFloat(value);
+      if (Number.isNaN(num)) return value;
+      const unit = String(value).replace(/[\d.]+/, '');
+      return (num * safeScale) + unit;
+    };
+
     const wrap = document.createElement('div');
     wrap.style.width = '100%';
     wrap.style.height = '100%';
     wrap.style.boxSizing = 'border-box';
-    wrap.style.padding = p.padding;
+    wrap.style.padding = scalePx(p.padding);
     wrap.style.overflow = 'auto';
     wrap.style.color = String(colors.text || FALLBACK_COLORS.text);
 
@@ -178,7 +187,7 @@
     );
     if (rows.length <= 0) {
       const empty = document.createElement('div');
-      empty.style.fontSize = p.emptyFontSize;
+      empty.style.fontSize = scalePx(p.emptyFontSize);
       empty.style.opacity = '0.8';
       empty.textContent = 'Нет кэшированных данных расписания';
       wrap.appendChild(empty);
@@ -189,7 +198,7 @@
     table.style.width = '100%';
     table.style.borderCollapse = 'collapse';
     table.style.tableLayout = 'fixed';
-    table.style.fontSize = p.tableFontSize;
+    table.style.fontSize = scalePx(p.tableFontSize);
 
     const tbody = document.createElement('tbody');
     for (const row of rows) {
@@ -204,21 +213,21 @@
       th.style.color = String(
         colors.header_text || FALLBACK_COLORS.header_text,
       );
-      th.style.padding = p.dayPadding;
+      th.style.padding = scalePx(p.dayPadding);
       th.style.textAlign = 'center';
       th.style.width = p.dayWidth;
-      th.style.fontSize = p.dayFontSize;
+      th.style.fontSize = scalePx(p.dayFontSize);
       th.style.lineHeight = '1.2';
       tr.appendChild(th);
 
       const td = document.createElement('td');
       td.style.border = borderStyle;
-      td.style.padding = p.cellPadding;
+      td.style.padding = scalePx(p.cellPadding);
       const slotsWrap = document.createElement('div');
       slotsWrap.style.display = 'flex';
       slotsWrap.style.flexWrap = 'wrap';
-      slotsWrap.style.gap = p.slotGap;
-      slotsWrap.style.minHeight = p.slotMinHeight;
+      slotsWrap.style.gap = scalePx(p.slotGap);
+      slotsWrap.style.minHeight = scalePx(p.slotMinHeight);
 
       for (const slot of row.slots) {
         const badge = document.createElement('span');
@@ -238,10 +247,10 @@
         badge.textContent = label;
         badge.style.display = 'inline-flex';
         badge.style.alignItems = 'center';
-        badge.style.padding = p.badgePadding;
-        badge.style.borderRadius = p.badgeBorderRadius;
+        badge.style.padding = scalePx(p.badgePadding);
+        badge.style.borderRadius = scalePx(p.badgeBorderRadius);
         badge.style.border = borderStyle;
-        badge.style.fontSize = p.badgeFontSize;
+        badge.style.fontSize = scalePx(p.badgeFontSize);
         const busyBg = String(
           p.busyBadgeBg || colors.busy_bg || FALLBACK_COLORS.busy_bg,
         );
@@ -268,7 +277,7 @@
         const emptySlot = document.createElement('span');
         emptySlot.textContent = 'Нет окон';
         emptySlot.style.opacity = '0.75';
-        emptySlot.style.fontSize = p.badgeFontSize;
+        emptySlot.style.fontSize = scalePx(p.badgeFontSize);
         slotsWrap.appendChild(emptySlot);
       }
 

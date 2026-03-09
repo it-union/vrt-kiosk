@@ -1250,7 +1250,7 @@ function createSchedulePreviewNode(rawData) {
   const schedule = normalizeScheduleData(rawData);
   const theme = getScheduleThemeById(schedule.theme_id);
   if (window.ScheduleRenderer && typeof window.ScheduleRenderer.render === 'function') {
-    return window.ScheduleRenderer.render({ schedule, theme, mode: 'content' });
+    return window.ScheduleRenderer.render({ schedule, theme, mode: 'template' });
   }
   const fallback = document.createElement('div');
   fallback.textContent = 'ScheduleRenderer не загружен';
