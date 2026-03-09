@@ -104,18 +104,25 @@ declare(strict_types=1);
         .previewPanel .preview { margin-top: 0; height: auto; min-height: 0; flex: 1; }
         .libraryHead { display: flex; align-items: center; gap: 8px; margin-top: 0; margin-bottom: 8px; }
         .libraryBtn { min-width: 38px; width: 38px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-        .libraryGrid { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 8px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; align-content: start; align-items: start; }
+        .libraryGrid { border: 1px solid #e2e8f0; border-radius: 10px; background: #f0f0f0; padding: 8px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; align-content: start; align-items: start; }
         .libraryUploadBtn { width: 140px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
         .libraryDeleteBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; border-color: #b91c1c; color: #b91c1c; }
-        .librarySelectBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
         .libraryCloseBtn { margin-left: auto; min-width: 34px; width: 34px; height: 30px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
         .uploadProgressWrap { display: none; align-items: center; gap: 8px; margin: 0 0 8px; }
         .uploadProgressTrack { flex: 1; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
         .uploadProgressBar { width: 0%; height: 100%; background: #1d5fbf; transition: width .15s linear; }
         .uploadProgressText { min-width: 44px; text-align: right; font-size: 12px; color: #334155; }
-        .libraryItem { border: 1px solid #d8dee8; border-radius: 10px; padding: 6px; cursor: pointer; background: #f8fafc; align-self: start; }
+        .libraryItem { border: 1px solid #d8dee8; border-radius: 10px; padding: 6px; cursor: pointer; background: #fff; align-self: start; position: relative; }
         .libraryItem.active { border-color: #1d5fbf; box-shadow: 0 0 0 1px #1d5fbf inset; background: #eef5ff; }
-        .libraryItem img { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; display: block; background: #e8edf5; }
+        .libraryItem img, .libraryItem video { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; display: block; background: #e8edf5; }
+        .libraryItem .itemActions { position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+        .libraryItem:hover .itemActions { opacity: 1; }
+        .libraryItem .itemActionBtn { width: 26px; height: 26px; min-width: 26px; min-height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #c8ced6; background: rgba(255,255,255,0.95); color: #334155; cursor: pointer; font-size: 14px; line-height: 1; }
+        .libraryItem .itemActionBtn:hover { background: #eef5ff; border-color: #1d5fbf; }
+        .libraryItem .itemActionBtn.deleteBtn { color: #b91c1c; border-color: #fca5a5; }
+        .libraryItem .itemActionBtn.deleteBtn:hover { background: #fef2f2; }
+        .libraryItem .itemActionBtn.selectBtn { color: #1d5fbf; border-color: #93c5fd; }
+        .libraryItem .itemActionBtn.selectBtn:hover { background: #eff6ff; }
         .libraryName { margin-top: 4px; font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .footer { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
         @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
@@ -133,6 +140,13 @@ declare(strict_types=1);
         .typeBtn { padding: 10px; border: 1px solid #c9d2de; border-radius: 10px; background: #fff; cursor: pointer; text-align: left; }
         .typeBtn.active { border-color: #1d5fbf; box-shadow: 0 0 0 1px #1d5fbf inset; }
         .typeBtn.disabled { opacity: .5; cursor: not-allowed; }
+        #libraryViewModal .modal { width: 90vw; height: 90vh; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; min-height: 0; }
+        #libraryViewModal .viewContent { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; background: #0f172a; border-radius: 8px; margin-bottom: 10px; }
+        #libraryViewModal .viewContent img, #libraryViewModal .viewContent video { max-width: 100%; max-height: 100%; object-fit: contain; }
+        #libraryViewModal .viewHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        #libraryViewModal .viewTitle { flex: 1; font-size: 14px; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #libraryViewModal .viewAuthor { font-size: 12px; color: #64748b; white-space: nowrap; }
+        #libraryViewModal .viewCloseBtn { min-width: 34px; width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: auto; }
     </style>
 </head>
 <body>
@@ -467,8 +481,6 @@ declare(strict_types=1);
         <div class="libraryHead">
             <button type="button" id="reloadLibraryBtn" class="libraryBtn" title="Обновить библиотеку">&#x21bb;</button>
             <button type="button" id="libraryUploadBtn" class="libraryUploadBtn" title="Загрузить файл">Загрузка</button>
-            <button type="button" id="libraryDeleteBtn" class="libraryDeleteBtn" title="Удалить файл">Удалить</button>
-            <button type="button" id="librarySelectBtn" class="librarySelectBtn" title="Выбрать изображение">Выбрать</button>
             <button type="button" id="closeLibraryBtn" class="libraryCloseBtn" title="Закрыть" aria-label="Закрыть">&times;</button>
         </div>
         <div id="libraryUploadProgressWrap" class="uploadProgressWrap">
@@ -478,6 +490,16 @@ declare(strict_types=1);
         <div id="imageLibrary" class="libraryGrid"></div>
     </div>
 </div>
+<div class="modalBack" id="libraryViewModal">
+    <div class="modal" role="dialog" aria-modal="true">
+        <div class="viewHead">
+            <span class="viewTitle" id="libraryViewTitle">Просмотр</span>
+            <span class="viewAuthor" id="libraryViewAuthor"></span>
+            <button type="button" id="libraryViewCloseBtn" class="viewCloseBtn" title="Закрыть" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="viewContent" id="libraryViewContent"></div>
+    </div>
+</div>
 <div class="modalBack" id="deleteImageModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteImageTitle">
         <h3 id="deleteImageTitle">Удаление изображения</h3>
@@ -485,6 +507,16 @@ declare(strict_types=1);
         <div class="row">
             <button type="button" id="deleteImageCancelBtn">Отена</button>
             <button type="button" id="deleteImageConfirmBtn" class="libraryDeleteBtn">Удалить</button>
+        </div>
+    </div>
+</div>
+<div class="modalBack" id="deleteLibraryItemModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteLibraryItemTitle">
+        <h3 id="deleteLibraryItemTitle">Удаление файла</h3>
+        <p id="deleteLibraryItemText" style="margin:0 0 12px;color:#334155;">Удалить файл?</p>
+        <div class="row">
+            <button type="button" id="deleteLibraryItemCancelBtn">Отена</button>
+            <button type="button" id="deleteLibraryItemConfirmBtn" class="libraryDeleteBtn">Удалить</button>
         </div>
     </div>
 </div>
@@ -1981,11 +2013,17 @@ function renderLibrary() {
     return;
   }
   const currentUrl = selectedLibraryUrl || String(el.cMediaUrl.value || '').trim();
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
   for (const item of state.library) {
     const card = document.createElement('div');
     card.className = 'libraryItem' + (currentUrl === String(item.url || '') ? ' active' : '');
     card.title = String(item.name || '');
-    card.onclick = () => {
+    const canDelete = isAdmin || (item.created_by && Number(item.created_by) === Number(CURRENT_USER.id || 0));
+    card.onclick = (event) => {
+      const target = event.target;
+      if (target && (target.closest('.itemActions') || target.closest('.itemActionBtn'))) {
+        return;
+      }
       selectedLibraryUrl = String(item.url || '');
       selectedLibraryName = String(item.name || '');
       renderLibrary();
@@ -2030,6 +2068,61 @@ function renderLibrary() {
       img.alt = String(item.name || '');
       card.appendChild(img);
     }
+    const actions = document.createElement('div');
+    actions.className = 'itemActions';
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button';
+    viewBtn.className = 'itemActionBtn';
+    viewBtn.title = 'Просмотр';
+    viewBtn.innerHTML = '&#128065;';
+    viewBtn.onclick = (event) => {
+      event.stopPropagation();
+      openLibraryViewModal(item);
+    };
+    actions.appendChild(viewBtn);
+    const selectBtn = document.createElement('button');
+    selectBtn.type = 'button';
+    selectBtn.className = 'itemActionBtn selectBtn';
+    selectBtn.title = 'Выбрать';
+    selectBtn.innerHTML = '&#10003;';
+    selectBtn.onclick = (event) => {
+      event.stopPropagation();
+      selectedLibraryUrl = String(item.url || '');
+      selectedLibraryName = String(item.name || '');
+      el.cMediaUrl.value = selectedLibraryUrl;
+      closeLibraryModal();
+      if (state.libraryMode === 'image') {
+        setDimensionsFromImage(selectedLibraryUrl, true);
+      } else if (state.libraryMode === 'video') {
+        setDimensionsFromVideo(selectedLibraryUrl, true);
+      } else if (state.libraryMode === 'ppt') {
+        setDimensionsFromPpt(selectedLibraryUrl, true);
+      }
+      syncDataJson();
+      syncPreview();
+      renderLibrary();
+      if (state.libraryMode === 'video') {
+        setStatus('Видео выбрано из библиотеки');
+      } else if (state.libraryMode === 'ppt') {
+        setStatus('Презентация выбрана из библиотеки');
+      } else {
+        setStatus('Изображение выбрано из библиотеки');
+      }
+    };
+    actions.appendChild(selectBtn);
+    if (canDelete) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'itemActionBtn deleteBtn';
+      deleteBtn.title = 'Удалить';
+      deleteBtn.innerHTML = '&#128465;';
+      deleteBtn.onclick = (event) => {
+        event.stopPropagation();
+        confirmDeleteLibraryItem(item);
+      };
+      actions.appendChild(deleteBtn);
+    }
+    card.appendChild(actions);
     const name = document.createElement('div');
     name.className = 'libraryName';
     name.textContent = String(item.name || '');
@@ -2040,11 +2133,7 @@ function renderLibrary() {
 function openLibraryModal() {
   const modal = document.getElementById('imageLibraryModal');
   const uploadBtn = document.getElementById('libraryUploadBtn');
-  const deleteBtn = document.getElementById('libraryDeleteBtn');
-  const selectBtn = document.getElementById('librarySelectBtn');
   if (uploadBtn) uploadBtn.textContent = state.libraryMode === 'video' ? 'Загрузка видео' : 'Загрузка';
-  if (deleteBtn) deleteBtn.textContent = 'Удалить';
-  if (selectBtn) selectBtn.textContent = 'Выбрать';
   const baseUrl = state.libraryMode === 'html_insert' ? '' : String(el.cMediaUrl.value || '').trim();
   selectedLibraryUrl = baseUrl;
   const selected = state.library.find((i) => String(i.url || '') === baseUrl);
@@ -2055,6 +2144,108 @@ function closeLibraryModal() {
   const modal = document.getElementById('imageLibraryModal');
   if (modal) modal.classList.remove('open');
   state.libraryMode = 'image';
+}
+function openLibraryViewModal(item) {
+  const modal = document.getElementById('libraryViewModal');
+  const content = document.getElementById('libraryViewContent');
+  const title = document.getElementById('libraryViewTitle');
+  const authorLabel = document.getElementById('libraryViewAuthor');
+  if (!modal || !content) return;
+  content.innerHTML = '';
+  const name = String(item.name || '');
+  const url = String(item.url || '');
+  const author = String(item.author || 'Админ');
+  if (title) title.textContent = name || 'Просмотр';
+  if (authorLabel) authorLabel.textContent = '(Автор: ' + author + ')';
+  if (state.libraryMode === 'video') {
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.autoplay = false;
+    video.preload = 'metadata';
+    video.style.maxWidth = '100%';
+    video.style.maxHeight = '100%';
+    content.appendChild(video);
+  } else if (state.libraryMode === 'ppt') {
+    const previewUrl = String(item.preview_url || '').trim();
+    if (previewUrl) {
+      const img = document.createElement('img');
+      img.src = previewUrl;
+      img.alt = name;
+      content.appendChild(img);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.style.color = '#fff';
+      placeholder.style.fontSize = '24px';
+      placeholder.textContent = 'PPT/PDF: ' + name;
+      content.appendChild(placeholder);
+    }
+  } else {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = name;
+    content.appendChild(img);
+  }
+  modal.classList.add('open');
+}
+function closeLibraryViewModal() {
+  const modal = document.getElementById('libraryViewModal');
+  const content = document.getElementById('libraryViewContent');
+  const authorLabel = document.getElementById('libraryViewAuthor');
+  if (modal) modal.classList.remove('open');
+  if (content) content.innerHTML = '';
+  if (authorLabel) authorLabel.textContent = '';
+}
+function confirmDeleteLibraryItem(item) {
+  const modal = document.getElementById('deleteLibraryItemModal');
+  const title = document.getElementById('deleteLibraryItemTitle');
+  const text = document.getElementById('deleteLibraryItemText');
+  if (!modal || !text) return;
+  const name = String(item.name || '');
+  const typeLabel = state.libraryMode === 'video' ? 'видео' : (state.libraryMode === 'ppt' ? 'презентацию' : 'изображение');
+  if (title) title.textContent = 'Удаление ' + typeLabel;
+  if (text) text.textContent = 'Удалить ' + typeLabel + (name ? ' "' + name + '"' : '') + '?';
+  modal.dataset.itemId = JSON.stringify({ name: item.name, url: item.url });
+  modal.classList.add('open');
+}
+function closeDeleteLibraryItemModal() {
+  const modal = document.getElementById('deleteLibraryItemModal');
+  if (modal) {
+    modal.classList.remove('open');
+    delete modal.dataset.itemId;
+  }
+}
+function deleteLibraryItemFromModal() {
+  const modal = document.getElementById('deleteLibraryItemModal');
+  if (!modal || !modal.dataset.itemId) return;
+  const item = JSON.parse(modal.dataset.itemId);
+  closeDeleteLibraryItemModal();
+  deleteLibraryItemById(item);
+}
+async function deleteLibraryItemById(item) {
+  const url = String(item.url || '');
+  if (!url) {
+    setStatus('Не удалось определить URL файла', true);
+    return;
+  }
+  try {
+    const endpoint = state.libraryMode === 'video' ? '/api/content_video_library.php' : (state.libraryMode === 'ppt' ? '/api/content_ppt_library.php' : '/api/content_image_library.php');
+    const body = new FormData();
+    body.append('delete', url);
+    const result = await apiPost(endpoint, body);
+    if (result && result.ok) {
+      setStatus(state.libraryMode === 'video' ? 'Видео удалено' : (state.libraryMode === 'ppt' ? 'Презентация удалена' : 'Изображение удалено'));
+      await reloadLibrary();
+      if (selectedLibraryUrl === url) {
+        selectedLibraryUrl = '';
+        selectedLibraryName = '';
+      }
+    } else {
+      setStatus(String(result && result.error ? result.error : 'Ошибка при удалении'), true);
+    }
+  } catch (error) {
+    setStatus(String(error.message || error), true);
+  }
 }
 function insertHtmlImageToEditor(url) {
   const src = String(url || '').trim();
@@ -2245,8 +2436,6 @@ function uploadWithProgress(url, formData, onProgress) {
 function setLibraryUploadState(inProgress, text = '') {
   const uploadBtn = document.getElementById('libraryUploadBtn');
   const reloadBtn = document.getElementById('reloadLibraryBtn');
-  const delBtn = document.getElementById('libraryDeleteBtn');
-  const selectBtn = document.getElementById('librarySelectBtn');
   const closeBtn = document.getElementById('closeLibraryBtn');
   const progressWrap = document.getElementById('libraryUploadProgressWrap');
   const progressBar = document.getElementById('libraryUploadProgressBar');
@@ -2260,8 +2449,6 @@ function setLibraryUploadState(inProgress, text = '') {
     uploadBtn.textContent = uploadBtn.dataset.defaultLabel;
   }
   if (reloadBtn) reloadBtn.disabled = active;
-  if (delBtn) delBtn.disabled = active;
-  if (selectBtn) selectBtn.disabled = active;
   if (closeBtn) closeBtn.disabled = active;
 
   if (progressWrap) progressWrap.style.display = active ? 'flex' : 'none';
@@ -2324,7 +2511,13 @@ async function reloadList() {
 async function reloadLibrary() {
   try {
     const endpoint = state.libraryMode === 'video' ? '/api/content_video_library.php' : (state.libraryMode === 'ppt' ? '/api/content_ppt_library.php' : '/api/content_image_library.php');
-    state.library = await apiGet(endpoint);
+    const result = await apiGet(endpoint);
+    const data = Array.isArray(result) ? result : [];
+    state.library = data.map((item) => ({
+      ...item,
+      author: 'Админ',
+      created_by: null
+    }));
     renderLibrary();
   } catch (e) {
     setStatus(String(e.message || e), true);
@@ -2652,49 +2845,12 @@ document.getElementById('openHtmlLibraryBtn').onclick = async () => {
   openLibraryModal();
 };
 document.getElementById('libraryUploadBtn').onclick = () => { if (libraryUploadInProgress) return; el.uploadFile.click(); };
-document.getElementById('libraryDeleteBtn').onclick = () => {
-  if (!selectedLibraryUrl) {
-    setStatus(state.libraryMode === 'video' ? 'Сначала выберите видео' : (state.libraryMode === 'ppt' ? 'Сначала выберите презентацию' : 'Сначала выберите изображение'), true);
-    return;
-  }
-  openDeleteImageModal();
-};
-document.getElementById('librarySelectBtn').onclick = () => {
-  const pickedMode = state.libraryMode;
-  if (!selectedLibraryUrl) {
-    setStatus(pickedMode === 'video' ? 'Сначала выберите видео' : (pickedMode === 'ppt' ? 'Сначала выберите презентацию' : 'Сначала выберите изображение'), true);
-    return;
-  }
-  if (pickedMode === 'html_insert') {
-    insertHtmlImageToEditor(selectedLibraryUrl);
-    syncPreview();
-  } else {
-    el.cMediaUrl.value = selectedLibraryUrl;
-    syncPreview();
-    if (pickedMode === 'image') {
-      setDimensionsFromImage(selectedLibraryUrl, true);
-    } else if (pickedMode === 'video') {
-      setDimensionsFromVideo(selectedLibraryUrl, true);
-    } else if (pickedMode === 'ppt') {
-      setDimensionsFromPpt(selectedLibraryUrl, true);
-    }
-  }
-  closeLibraryModal();
-  renderLibrary();
-  if (pickedMode === 'html_insert') {
-    setStatus('Изображение вставлено в HTML');
-  } else if (pickedMode === 'video') {
-    setStatus('Видео выбрано из библиотеки');
-  } else if (pickedMode === 'ppt') {
-    setStatus('Презентация выбрана из библиотеки');
-  } else {
-    setStatus('Изображение выбрано из библиотеки');
-  }
-  state.libraryMode = 'image';
-};
 document.getElementById('closeLibraryBtn').onclick = closeLibraryModal;
+document.getElementById('libraryViewCloseBtn').onclick = closeLibraryViewModal;
 document.getElementById('deleteImageCancelBtn').onclick = closeDeleteImageModal;
 document.getElementById('deleteImageConfirmBtn').onclick = deleteLibraryImage;
+document.getElementById('deleteLibraryItemCancelBtn').onclick = closeDeleteLibraryItemModal;
+document.getElementById('deleteLibraryItemConfirmBtn').onclick = deleteLibraryItemFromModal;
 document.getElementById('deleteContentCancelBtn').onclick = closeDeleteContentModal;
 document.getElementById('deleteContentConfirmBtn').onclick = confirmDeleteCurrent;
 document.getElementById('duplicateContentCancelBtn').onclick = closeDuplicateContentModal;
@@ -2704,6 +2860,12 @@ document.getElementById('imageLibraryModal').onclick = (event) => {
 };
 document.getElementById('deleteImageModal').onclick = (event) => {
   if (event.target && event.target.id === 'deleteImageModal') closeDeleteImageModal();
+};
+document.getElementById('libraryViewModal').onclick = (event) => {
+  if (event.target && event.target.id === 'libraryViewModal') closeLibraryViewModal();
+};
+document.getElementById('deleteLibraryItemModal').onclick = (event) => {
+  if (event.target && event.target.id === 'deleteLibraryItemModal') closeDeleteLibraryItemModal();
 };
 document.getElementById('deleteContentModal').onclick = (event) => {
   if (event.target && event.target.id === 'deleteContentModal') closeDeleteContentModal();

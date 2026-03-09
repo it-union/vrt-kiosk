@@ -81,6 +81,14 @@ function authCurrentUser(): ?array
         return null;
     }
 
+    // Обновляем last_activity_at раз в 5 минут
+    $now = time();
+    $lastTouch = isset($_SESSION['auth_activity_touch']) ? (int)$_SESSION['auth_activity_touch'] : 0;
+    if ($now - $lastTouch > 300) {
+        userTouchActivity($pdo, $userId);
+        $_SESSION['auth_activity_touch'] = $now;
+    }
+
     $cached = true;
     $user = $row;
     return $user;

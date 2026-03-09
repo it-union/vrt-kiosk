@@ -242,6 +242,7 @@ declare(strict_types=1);
                     <th>Логин</th>
                     <th>Роль</th>
                     <th>Статус</th>
+                    <th>Активность</th>
                     <th></th>
                 </tr>
                 </thead>
@@ -256,6 +257,17 @@ declare(strict_types=1);
                             <span class="badge <?= $isActive ? 'active' : 'inactive' ?>">
                                 <?= $isActive ? 'Активен' : 'Отключён' ?>
                             </span>
+                        </td>
+                        <td>
+                            <?php
+                            $lastActivity = $userRow['last_activity_at'] ?? null;
+                            if ($lastActivity):
+                                $dt = new DateTime($lastActivity);
+                                echo h($dt->format('d.m.Y H:i'));
+                            else:
+                                echo '<span style="color:#99a3af;">—</span>';
+                            endif;
+                            ?>
                         </td>
                         <td><a href="/users/?edit=<?= (int)$userRow['id'] ?>">Изменить</a></td>
                     </tr>

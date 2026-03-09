@@ -16,12 +16,20 @@ function userEnsureSchema(PDO $pdo): void
             full_name varchar(255) NOT NULL,
             is_active tinyint(1) NOT NULL DEFAULT 1,
             last_login_at datetime DEFAULT NULL,
+            last_activity_at datetime DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uk_users_login (login)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+
+    // Добавляем поле last_activity_at если его нет
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN last_activity_at datetime DEFAULT NULL AFTER last_login_at");
+    } catch (\Throwable $e) {
+        // Игнорируем ошибку если колонка уже существует
+    }
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS roles (
@@ -80,7 +88,7 @@ function userFindByLogin(PDO $pdo, string $login): ?array
 {
     userEnsureSchema($pdo);
     $stmt = $pdo->prepare("
-        SELECT u.id, u.login, u.password_hash, u.full_name, u.is_active, u.last_login_at,
+        SELECT u.id, u.login, u.password_hash, u.full_name, u.is_active, u.last_login_at, u.last_activity_at,
                r.code AS role_code, r.name AS role_name
         FROM users u
         LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -97,7 +105,7 @@ function userFindById(PDO $pdo, int $userId): ?array
 {
     userEnsureSchema($pdo);
     $stmt = $pdo->prepare("
-        SELECT u.id, u.login, u.password_hash, u.full_name, u.is_active, u.last_login_at,
+        SELECT u.id, u.login, u.password_hash, u.full_name, u.is_active, u.last_login_at, u.last_activity_at,
                u.created_at, u.updated_at, r.code AS role_code, r.name AS role_name
         FROM users u
         LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -114,7 +122,7 @@ function userListAllWithRole(PDO $pdo): array
 {
     userEnsureSchema($pdo);
     $stmt = $pdo->query("
-        SELECT u.id, u.login, u.full_name, u.is_active, u.last_login_at, u.created_at,
+        SELECT u.id, u.login, u.full_name, u.is_active, u.last_login_at, u.last_activity_at, u.created_at,
                r.code AS role_code, r.name AS role_name
         FROM users u
         LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -225,6 +233,13 @@ function userUpdate(PDO $pdo, int $userId, array $payload): void
 function userTouchLastLogin(PDO $pdo, int $userId): void
 {
     userEnsureSchema($pdo);
-    $stmt = $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = :id');
+    $stmt = $pdo->prepare('UPDATE users SET last_login_at = NOW(), last_activity_at = NOW() WHERE id = :id');
+    $stmt->execute([':id' => $userId]);
+}
+
+function userTouchActivity(PDO $pdo, int $userId): void
+{
+    userEnsureSchema($pdo);
+    $stmt = $pdo->prepare('UPDATE users SET last_activity_at = NOW() WHERE id = :id');
     $stmt->execute([':id' => $userId]);
 }
