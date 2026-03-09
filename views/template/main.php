@@ -695,17 +695,23 @@ function normalizeTextData(raw) {
     padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
   };
 }
-function createTextRenderNode(text, rawData) {
+const TEMPLATE_TEXT_BASE_WIDTH_PX = 1920;
+function getTemplateTextPreviewScale() {
+  const canvasWidth = Math.max(1, Number(el.canvas && el.canvas.clientWidth ? el.canvas.clientWidth : 960));
+  return Math.max(0.1, Math.min(1, canvasWidth / TEMPLATE_TEXT_BASE_WIDTH_PX));
+}
+function createTextRenderNode(text, rawData, scale = 1) {
   const p = normalizeTextData(rawData);
+  const safeScale = Math.max(0.1, Math.min(1, Number(scale || 1)));
   const node = document.createElement('div');
   node.className = 'textRenderContent';
   node.textContent = String(text || '');
-  node.style.fontSize = p.font_size_px + 'px';
+  node.style.fontSize = (p.font_size_px * safeScale) + 'px';
   node.style.color = p.color;
   node.style.textAlign = p.align;
   node.style.fontWeight = p.font_weight;
   node.style.lineHeight = String(p.line_height);
-  node.style.padding = p.padding_px + 'px';
+  node.style.padding = (p.padding_px * safeScale) + 'px';
   return node;
 }
 function getScheduleThemeById(themeId) {
@@ -1008,7 +1014,7 @@ function renderBlockContentPreview(blockEl, block) {
 
   if (type === 'text') {
     const textData = data && typeof data.text === 'object' ? data.text : {};
-    wrap.appendChild(createTextRenderNode(String(item.body || ''), textData));
+    wrap.appendChild(createTextRenderNode(String(item.body || ''), textData, getTemplateTextPreviewScale()));
     applyTimedAppearance(
       wrap,
       state.disablePreviewAnimation ? 'none' : (blockStyle.animation || 'none'),

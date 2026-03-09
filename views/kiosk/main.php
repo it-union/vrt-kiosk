@@ -67,6 +67,7 @@ let heartbeatTimer = null;
 let heartbeatSource = '';
 let heartbeatTemplateId = 0;
 const IS_PREVIEW_MODE = new URL(window.location.href).searchParams.get('preview') === '1';
+const PREVIEW_TEXT_BASE_WIDTH_PX = 1920;
 const previewVideoPositions = new Map();
 const PREVIEW_VIDEO_STORAGE_KEY = 'kiosk_preview_video_positions_v1';
 
@@ -428,17 +429,23 @@ function normalizeTextData(raw) {
         padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
     };
 }
+function getPreviewTextScale() {
+    if (!IS_PREVIEW_MODE) return 1;
+    const stageWidth = Math.max(1, Number(stage && stage.clientWidth ? stage.clientWidth : (window.innerWidth || 1)));
+    return Math.max(0.1, Math.min(1, stageWidth / PREVIEW_TEXT_BASE_WIDTH_PX));
+}
 function createTextRenderNode(text, rawData) {
     const p = normalizeTextData(rawData);
+    const scale = getPreviewTextScale();
     const node = document.createElement('div');
     node.className = 'textRenderContent';
     node.textContent = String(text || '');
-    node.style.fontSize = p.font_size_px + 'px';
+    node.style.fontSize = (p.font_size_px * scale) + 'px';
     node.style.color = p.color;
     node.style.textAlign = p.align;
     node.style.fontWeight = p.font_weight;
     node.style.lineHeight = String(p.line_height);
-    node.style.padding = p.padding_px + 'px';
+    node.style.padding = (p.padding_px * scale) + 'px';
     return node;
 }
 function getScheduleThemeById(themeId) {
