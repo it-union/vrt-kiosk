@@ -179,7 +179,8 @@ try {
     // Логирование
     $userId = (int)($currentUser['id'] ?? 0);
     $actionType = $id > 0 ? 'content_save' : 'content_create';
-    $description = $id > 0 ? 'Сохранение контента' : 'Создание контента';
+    $contentTypeLabel = $type ? '[' . $type . ']' : '';
+    $description = ($id > 0 ? 'Сохранение контента' : 'Создание контента') . ($contentTypeLabel ? ' ' . $contentTypeLabel : '');
     activityLogCreate($pdo, $userId, $actionType, $description, 'content', $contentId, $title, $type);
 
     jsonResponse(['ok' => true, 'data' => ['content_id' => $contentId]]);

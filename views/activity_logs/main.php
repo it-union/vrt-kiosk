@@ -358,7 +358,9 @@ declare(strict_types=1);
                                 <td>
                                     <?php if ($log['entity_type']): ?>
                                         <?= h($log['entity_type']) ?>
-                                        <?php if ($log['entity_name']): ?>
+                                        <?php if ($log['content_type']): ?>
+                                            <br><small style="color:#64748b;"><?= h('[' . $log['content_type'] . '] ' . ($log['entity_name'] ?? '')) ?></small>
+                                        <?php elseif ($log['entity_name']): ?>
                                             <br><small style="color:#64748b;"><?= h($log['entity_name']) ?></small>
                                         <?php endif; ?>
                                     <?php else: ?>
