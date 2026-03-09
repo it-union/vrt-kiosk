@@ -11,12 +11,14 @@ $route = defined('ROUTE_OVERRIDE') ? ROUTE_OVERRIDE : null;
 if ($route === null) {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     $path = is_string($path) ? trim($path, '/') : '';
+    // Убираем trailing slash
+    $path = rtrim($path, '/');
 
     if (isset($_GET['route'])) {
         $route = strtolower(trim((string)$_GET['route']));
     } elseif ($path === '' || $path === 'index.php') {
         $route = 'promo';
-    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings'], true)) {
+    } elseif (in_array($path, ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings', 'activity_logs', 'log'], true)) {
         $route = $path;
     } else {
         http_response_code(404);
@@ -25,7 +27,7 @@ if ($route === null) {
     }
 }
 
-$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings'];
+$allowedRoutes = ['admin', 'template', 'kiosk', 'preview', 'content', 'login', 'logout', 'users', 'promo', 'queue', 'settings', 'activity_logs', 'log'];
 if (!in_array($route, $allowedRoutes, true)) {
     http_response_code(404);
     echo 'Маршрут не найден';
@@ -67,6 +69,12 @@ switch ($route) {
     case 'settings':
         requireAdministratorRole();
         require __DIR__ . '/controllers/settings.php';
+        break;
+
+    case 'activity_logs':
+    case 'log':
+        requireAdministratorRole();
+        require __DIR__ . '/controllers/activity_logs.php';
         break;
 
     case 'template':

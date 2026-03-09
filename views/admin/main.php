@@ -595,6 +595,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         <?php endif; ?>
         <div class="navRowRight">
             <?php if ($canManageAccounts): ?>
+                <a class="btn navIconBtn" href="/log/" title="Журнал активности" aria-label="Журнал активности">&#128203;</a>
                 <a class="btn navIconBtn" href="/settings/" title="Настройки проекта" aria-label="Настройки проекта">&#9881;</a>
             <?php endif; ?>
             <a class="btn navIconBtn" href="/kiosk/" target="_blank" rel="noopener" title="Киоск" aria-label="Киоск">&#128187;</a>

@@ -6,8 +6,11 @@ require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/content_repository.php';
 require_once __DIR__ . '/../modules/doctor_repository.php';
+require_once __DIR__ . '/../modules/activity_log_repository.php';
 
 requireTemplateApiAuth();
+
+$currentUser = authCurrentUser();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
@@ -172,6 +175,12 @@ try {
         $payload['updated_by'] = $currentUserId > 0 ? $currentUserId : null;
         $contentId = contentCreate($pdo, $payload);
     }
+
+    // Логирование
+    $userId = (int)($currentUser['id'] ?? 0);
+    $actionType = $id > 0 ? 'content_save' : 'content_create';
+    $description = $id > 0 ? 'Сохранение контента' : 'Создание контента';
+    activityLogCreate($pdo, $userId, $actionType, $description, 'content', $contentId, $title, $type);
 
     jsonResponse(['ok' => true, 'data' => ['content_id' => $contentId]]);
 } catch (Throwable $e) {

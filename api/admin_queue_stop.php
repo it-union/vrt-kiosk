@@ -5,8 +5,11 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/screen_service.php';
+require_once __DIR__ . '/../modules/activity_log_repository.php';
 
 requirePanelApiAuth();
+
+$currentUser = authCurrentUser();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
@@ -23,11 +26,17 @@ if ($screenId < 0) {
 
 $deviceKey = deviceKeyByPublicScreenId($screenId);
 $pdo = dbMysql();
+activityLogEnsureSchema($pdo);
 
 try {
     $pdo->beginTransaction();
     stopQueue($pdo, $screenId);
     $pdo->commit();
+
+    // Логирование
+    $userId = (int)($currentUser['id'] ?? 0);
+    activityLogCreate($pdo, $userId, 'queue_stop', 'Остановка очереди', 'queue', $screenId);
+
     jsonResponse(['ok' => true, 'data' => ['screen_id' => $screenId, 'device_key' => $deviceKey, 'source' => 'fallback']]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

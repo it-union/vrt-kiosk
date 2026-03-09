@@ -5,8 +5,11 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/template_service.php';
+require_once __DIR__ . '/../modules/activity_log_repository.php';
 
 requireTemplateApiAuth();
+
+$currentUser = authCurrentUser();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'Метод не поддерживается'], 405);
@@ -95,6 +98,13 @@ try {
         }
     }
     $templateId = saveTemplate($pdo, $id, $name, $description, $status, $blocks, $screenStyle, $currentUserId > 0 ? $currentUserId : null);
+
+    // Логирование
+    $userId = (int)($currentUser['id'] ?? 0);
+    $actionType = $id > 0 ? 'template_save' : 'template_create';
+    $descriptionLog = $id > 0 ? 'Сохранение шаблона' : 'Создание шаблона';
+    activityLogCreate($pdo, $userId, $actionType, $descriptionLog, 'template', $templateId, $name);
+
     jsonResponse(['ok' => true, 'data' => ['template_id' => $templateId]]);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'template_not_found') {
