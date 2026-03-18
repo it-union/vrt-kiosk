@@ -63,7 +63,9 @@ const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
 const mediaResolveCache = new Map();
+const mediaWarmCacheTasks = new Map();
 const activeObjectUrls = [];
+let clientMediaCacheEnabled = true;
 let screenTransitionClipCounter = 0;
 let heartbeatTimer = null;
 let heartbeatSource = '';
@@ -167,6 +169,7 @@ function clearResolvedObjectUrls() {
 async function resolveMediaUrlForKioskCache(mediaType, content) {
     const sourceUrl = String(content?.media_url || '').trim();
     if (sourceUrl === '') return '';
+    if (!clientMediaCacheEnabled) return sourceUrl;
 
     const cacheKey = String(content?.cache_key || '').trim();
     if (cacheKey === '') return sourceUrl;
@@ -191,16 +194,26 @@ async function resolveMediaUrlForKioskCache(mediaType, content) {
                 return blobUrl;
             }
 
-            const response = await fetch(sourceUrl, { cache: 'no-store' });
-            if (!response.ok) {
-                return sourceUrl;
+            if (!mediaWarmCacheTasks.has(cacheEntryKey)) {
+                const warmTask = (async () => {
+                    try {
+                        const response = await fetch(sourceUrl, { cache: 'no-store' });
+                        if (!response.ok) {
+                            return;
+                        }
+                        await storage.put(requestKey, response.clone());
+                    } catch (_) {
+                        // ignore
+                    }
+                })();
+                mediaWarmCacheTasks.set(cacheEntryKey, warmTask);
+                warmTask.finally(() => {
+                    mediaWarmCacheTasks.delete(cacheEntryKey);
+                });
             }
 
-            await storage.put(requestKey, response.clone());
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            rememberObjectUrl(blobUrl);
-            return blobUrl;
+            // Первый показ не блокируем ожиданием кэша.
+            return sourceUrl;
         } catch (_) {
             return sourceUrl;
         }
@@ -1443,6 +1456,7 @@ async function loadScreen() {
         if (!payload.ok) throw new Error(payload.error || 'Ошибка API');
 
         const data = payload.data || {};
+        clientMediaCacheEnabled = Number(data.client_media_cache_enabled || 0) === 1;
         heartbeatSource = String(data.source || '');
         heartbeatTemplateId = Number(data?.template?.id || 0);
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];

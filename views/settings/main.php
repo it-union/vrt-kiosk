@@ -358,6 +358,13 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                         HTML tune, %
                         <input id="htmlTemplatePreviewTunePct" type="number" min="25" max="400" step="1" value="<?= (int)($kioskDisplaySettings['html_template_preview_tune_pct'] ?? 100) ?>">
                     </label>
+                    <label>
+                        Кеширование на стороне клиента
+                        <select id="clientMediaCacheEnabled">
+                            <option value="1" <?= ((int)($kioskDisplaySettings['client_media_cache_enabled'] ?? 1) === 1) ? 'selected' : '' ?>>Вкл</option>
+                            <option value="0" <?= ((int)($kioskDisplaySettings['client_media_cache_enabled'] ?? 1) === 0) ? 'selected' : '' ?>>Выкл</option>
+                        </select>
+                    </label>
                 </div>
                 <div class="settingsActions">
                     <button id="saveKioskSettingsBtn" class="btnGhost" type="button">Сохранить</button>
@@ -430,6 +437,7 @@ const tabDoctors = document.getElementById('tabDoctors');
 const kioskWidthPxInput = document.getElementById('kioskWidthPx');
 const kioskHeightPxInput = document.getElementById('kioskHeightPx');
 const htmlTemplatePreviewTunePctInput = document.getElementById('htmlTemplatePreviewTunePct');
+const clientMediaCacheEnabledInput = document.getElementById('clientMediaCacheEnabled');
 const saveKioskSettingsBtn = document.getElementById('saveKioskSettingsBtn');
 const kioskSettingsStatus = document.getElementById('kioskSettingsStatus');
 
@@ -472,6 +480,7 @@ function applyKioskSettingsInputs(settings) {
     if (kioskWidthPxInput) kioskWidthPxInput.value = String(settings.kiosk_width_px || 1920);
     if (kioskHeightPxInput) kioskHeightPxInput.value = String(settings.kiosk_height_px || 1080);
     if (htmlTemplatePreviewTunePctInput) htmlTemplatePreviewTunePctInput.value = String(settings.html_template_preview_tune_pct || 100);
+    if (clientMediaCacheEnabledInput) clientMediaCacheEnabledInput.value = String(Number(settings.client_media_cache_enabled || 0) === 1 ? 1 : 0);
 }
 
 function doctorResetForm() {
@@ -526,7 +535,7 @@ async function fetchJson(url, options) {
 }
 
 async function saveKioskSettings() {
-    if (!kioskWidthPxInput || !kioskHeightPxInput || !htmlTemplatePreviewTunePctInput || !saveKioskSettingsBtn) return;
+    if (!kioskWidthPxInput || !kioskHeightPxInput || !htmlTemplatePreviewTunePctInput || !clientMediaCacheEnabledInput || !saveKioskSettingsBtn) return;
     saveKioskSettingsBtn.disabled = true;
     setKioskSettingsStatus('Сохранение...', false);
     try {
@@ -534,6 +543,7 @@ async function saveKioskSettings() {
         body.set('kiosk_width_px', String(kioskWidthPxInput.value || '1920'));
         body.set('kiosk_height_px', String(kioskHeightPxInput.value || '1080'));
         body.set('html_template_preview_tune_pct', String(htmlTemplatePreviewTunePctInput.value || '100'));
+        body.set('client_media_cache_enabled', String(clientMediaCacheEnabledInput.value === '0' ? '0' : '1'));
         const data = await fetchJson('/api/app_settings_save.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/screen_service.php';
+require_once __DIR__ . '/../modules/app_settings.php';
 
 $deviceKey = isset($_GET['device_key']) ? normalizeScreenDeviceKey((string)$_GET['device_key']) : '';
 $screenId = isset($_GET['screen_id']) ? (int)$_GET['screen_id'] : 1;
@@ -16,7 +17,10 @@ if ($deviceKey !== '') {
 $deviceKey = deviceKeyByPublicScreenId($screenId);
 
 try {
-    $payload = getScreenPayload(dbMysql(), $screenId);
+    $pdo = dbMysql();
+    $payload = getScreenPayload($pdo, $screenId);
+    $kioskDisplaySettings = appSettingsGetKioskDisplay($pdo);
+    $payload['client_media_cache_enabled'] = (int)($kioskDisplaySettings['client_media_cache_enabled'] ?? 1) === 1 ? 1 : 0;
     $payload['device_key'] = $deviceKey;
     jsonResponse(['ok' => true, 'data' => $payload]);
 } catch (Throwable $e) {
@@ -26,6 +30,7 @@ try {
             'screen_id' => $screenId,
             'device_key' => $deviceKey,
             'source' => 'fallback',
+            'client_media_cache_enabled' => 1,
             'kiosk_status' => [
                 'last_seen_at' => null,
                 'age_sec' => null,
