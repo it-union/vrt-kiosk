@@ -227,12 +227,36 @@ function buildRenderedBlocks(PDO $pdo, array $templateBlocks, ?array $currentCon
                 'body' => $content['body'] ?? '',
                 'media_url' => $content['media_url'] ?? null,
                 'data_json' => $content['data_json'] ?? null,
+                'updated_at' => $content['updated_at'] ?? null,
+                'cache_key' => buildContentCacheKey($content),
             ],
             'style' => $style,
         ];
     }
 
     return $rendered;
+}
+
+function buildContentCacheKey(?array $content): string
+{
+    if (!is_array($content)) {
+        return '';
+    }
+
+    $contentId = (int)($content['id'] ?? 0);
+    $updatedAt = trim((string)($content['updated_at'] ?? ''));
+    if ($contentId <= 0 && $updatedAt === '') {
+        return '';
+    }
+
+    $timePart = $updatedAt !== '' ? preg_replace('/[^0-9]/', '', $updatedAt) : '';
+    if (!is_string($timePart) || $timePart === '') {
+        $timePart = substr(sha1((string)($content['media_url'] ?? '')), 0, 12);
+    } else {
+        $timePart = substr($timePart, 0, 14);
+    }
+
+    return (string)$contentId . '_' . $timePart;
 }
 
 function resolveQueueTemplateForScreen(PDO $pdo, int $screenId, ?array $stateRow): ?array
@@ -453,6 +477,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                 'media_url' => $manual['media_url'] ?? null,
                 'type' => $manual['type'] ?? null,
                 'data_json' => $manual['data_json'] ?? null,
+                'updated_at' => $manual['updated_at'] ?? null,
             ];
         }
     } else {
@@ -468,6 +493,7 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                     'media_url' => $rule['media_url'] ?? null,
                     'type' => $rule['type'] ?? null,
                     'data_json' => $rule['data_json'] ?? null,
+                    'updated_at' => $rule['updated_at'] ?? null,
                 ];
             }
         } elseif (is_array($stateRow) && (string)($stateRow['source'] ?? '') === 'schedule') {
@@ -511,6 +537,8 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                     'body' => $currentContent['body'] ?? 'Создайте и активируйте шаблон или заполните очередь показа.',
                     'media_url' => $currentContent['media_url'] ?? null,
                     'data_json' => null,
+                    'updated_at' => $currentContent['updated_at'] ?? null,
+                    'cache_key' => buildContentCacheKey($currentContent),
                 ],
                 'style' => null,
             ]],
@@ -539,6 +567,8 @@ function getScreenPayload(PDO $pdo, int $screenId): array
                 'body' => '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:Tahoma,sans-serif;font-size:36px;color:#475569;">' . resolveQueueLabelForScreen($screenId) . ' пуста</div>',
                 'media_url' => null,
                 'data_json' => null,
+                'updated_at' => null,
+                'cache_key' => '',
             ],
             'style' => null,
         ]]

@@ -125,7 +125,7 @@ function contentFindManyByIds(PDO $pdo, array $ids): array
     }
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $stmt = $pdo->prepare("SELECT id, type, title, body, media_url, data_json, created_by, updated_by FROM content_items WHERE id IN ($placeholders)");
+    $stmt = $pdo->prepare("SELECT id, type, title, body, media_url, data_json, updated_at, created_by, updated_by FROM content_items WHERE id IN ($placeholders)");
     $stmt->execute($ids);
 
     $rows = $stmt->fetchAll();

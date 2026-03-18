@@ -92,7 +92,7 @@ function resolveScreenStorageId(PDO $pdo, int $screenId): int
 function screenFindActiveManual(PDO $pdo, int $screenId): ?array
 {
     $screenId = resolveScreenStorageId($pdo, $screenId);
-    $sql = "SELECT sc.screen_id, sc.id AS command_id, sc.template_id, sc.content_id, sc.ends_at, sc.command_type, ci.type, ci.title, ci.body, ci.media_url, ci.data_json FROM screen_commands sc LEFT JOIN content_items ci ON ci.id = sc.content_id WHERE sc.screen_id = :screen_id AND sc.is_active = 1 AND sc.command_type IN ('show_content', 'show_template') AND sc.starts_at <= NOW() AND (sc.ends_at IS NULL OR sc.ends_at > NOW()) ORDER BY sc.starts_at DESC, sc.id DESC LIMIT 1";
+    $sql = "SELECT sc.screen_id, sc.id AS command_id, sc.template_id, sc.content_id, sc.ends_at, sc.command_type, ci.type, ci.title, ci.body, ci.media_url, ci.data_json, ci.updated_at FROM screen_commands sc LEFT JOIN content_items ci ON ci.id = sc.content_id WHERE sc.screen_id = :screen_id AND sc.is_active = 1 AND sc.command_type IN ('show_content', 'show_template') AND sc.starts_at <= NOW() AND (sc.ends_at IS NULL OR sc.ends_at > NOW()) ORDER BY sc.starts_at DESC, sc.id DESC LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['screen_id' => $screenId]);
     $row = $stmt->fetch();
@@ -111,7 +111,7 @@ function screenGetState(PDO $pdo, int $screenId): ?array
 function screenFindActiveSchedule(PDO $pdo, int $screenId): ?array
 {
     $screenId = resolveScreenStorageId($pdo, $screenId);
-    $sql = "SELECT sr.id AS rule_id, sr.template_id, sr.content_id, ci.type, ci.title, ci.body, ci.media_url, ci.data_json FROM schedule_rules sr LEFT JOIN content_items ci ON ci.id = sr.content_id WHERE sr.is_active = 1 AND (sr.screen_id = :screen_id OR sr.screen_id IS NULL) AND (sr.date_from IS NULL OR sr.date_from <= CURDATE()) AND (sr.date_to IS NULL OR sr.date_to >= CURDATE()) AND (sr.time_from IS NULL OR sr.time_from <= CURTIME()) AND (sr.time_to IS NULL OR sr.time_to >= CURTIME()) AND (sr.days_mask & (1 << WEEKDAY(NOW()))) > 0 ORDER BY sr.priority DESC, sr.id DESC LIMIT 1";
+    $sql = "SELECT sr.id AS rule_id, sr.template_id, sr.content_id, ci.type, ci.title, ci.body, ci.media_url, ci.data_json, ci.updated_at FROM schedule_rules sr LEFT JOIN content_items ci ON ci.id = sr.content_id WHERE sr.is_active = 1 AND (sr.screen_id = :screen_id OR sr.screen_id IS NULL) AND (sr.date_from IS NULL OR sr.date_from <= CURDATE()) AND (sr.date_to IS NULL OR sr.date_to >= CURDATE()) AND (sr.time_from IS NULL OR sr.time_from <= CURTIME()) AND (sr.time_to IS NULL OR sr.time_to >= CURTIME()) AND (sr.days_mask & (1 << WEEKDAY(NOW()))) > 0 ORDER BY sr.priority DESC, sr.id DESC LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['screen_id' => $screenId]);
     $row = $stmt->fetch();

@@ -62,6 +62,8 @@ const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSO
 const activeMediaTimers = [];
 let lastScreenSignature = '';
 const pptPreviewCache = new Map();
+const mediaResolveCache = new Map();
+const activeObjectUrls = [];
 let screenTransitionClipCounter = 0;
 let heartbeatTimer = null;
 let heartbeatSource = '';
@@ -143,6 +145,69 @@ async function getPptPreviewPages(mediaUrl) {
         pptPreviewCache.set(src, []);
         return [];
     }
+}
+function mediaResolveCacheKey(mediaType, mediaUrl, cacheKey) {
+    return String(mediaType || '') + '|' + String(cacheKey || '') + '|' + String(mediaUrl || '');
+}
+function rememberObjectUrl(url) {
+    if (typeof url !== 'string' || !url.startsWith('blob:')) return;
+    activeObjectUrls.push(url);
+}
+function clearResolvedObjectUrls() {
+    while (activeObjectUrls.length > 0) {
+        const url = activeObjectUrls.pop();
+        try {
+            URL.revokeObjectURL(url);
+        } catch (_) {
+            // ignore
+        }
+    }
+    mediaResolveCache.clear();
+}
+async function resolveMediaUrlForKioskCache(mediaType, content) {
+    const sourceUrl = String(content?.media_url || '').trim();
+    if (sourceUrl === '') return '';
+
+    const cacheKey = String(content?.cache_key || '').trim();
+    if (cacheKey === '') return sourceUrl;
+
+    const cacheEntryKey = mediaResolveCacheKey(mediaType, sourceUrl, cacheKey);
+    if (mediaResolveCache.has(cacheEntryKey)) {
+        return mediaResolveCache.get(cacheEntryKey);
+    }
+
+    const promise = (async () => {
+        try {
+            if (typeof caches === 'undefined') {
+                return sourceUrl;
+            }
+            const storage = await caches.open('vrt-kiosk-media-v1');
+            const requestKey = '/__kiosk_cache__/' + encodeURIComponent(String(mediaType || 'media')) + '/' + encodeURIComponent(cacheKey);
+            const matched = await storage.match(requestKey);
+            if (matched) {
+                const blob = await matched.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                rememberObjectUrl(blobUrl);
+                return blobUrl;
+            }
+
+            const response = await fetch(sourceUrl, { cache: 'no-store' });
+            if (!response.ok) {
+                return sourceUrl;
+            }
+
+            await storage.put(requestKey, response.clone());
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            rememberObjectUrl(blobUrl);
+            return blobUrl;
+        } catch (_) {
+            return sourceUrl;
+        }
+    })();
+
+    mediaResolveCache.set(cacheEntryKey, promise);
+    return promise;
 }
 function clearMediaTimers() {
     while (activeMediaTimers.length > 0) {
@@ -1022,6 +1087,7 @@ async function renderBlock(blockRaw, runtime = null) {
 
     if (type === 'image') {
         if (mediaUrl) {
+            const resolvedMediaUrl = await resolveMediaUrlForKioskCache('image', content);
             const p = data && typeof data.image === 'object' ? data.image : {};
             const motion = normalizeBlockBackground(block.style);
             const [justify, align] = resolvePosition(p.position);
@@ -1034,7 +1100,7 @@ async function renderBlock(blockRaw, runtime = null) {
             el.style.alignItems = align;
             const hasOwnAnimation = String(motion.animation || 'none') !== 'none';
             const img = buildImageElement(
-                mediaUrl,
+                resolvedMediaUrl,
                 title,
                 {
                     ...p,
@@ -1144,6 +1210,7 @@ async function renderBlock(blockRaw, runtime = null) {
 
     if (type === 'video') {
         if (mediaUrl) {
+            const resolvedMediaUrl = await resolveMediaUrlForKioskCache('video', content);
             const p = data && typeof data.video === 'object' ? data.video : {};
             const map = {
                 center: ['center', 'center'],
@@ -1167,7 +1234,7 @@ async function renderBlock(blockRaw, runtime = null) {
             el.style.alignItems = align;
             const video = document.createElement('video');
             video.className = 'media';
-            video.src = mediaUrl;
+            video.src = resolvedMediaUrl;
             video.autoplay = true;
             video.muted = !sound;
             video.loop = loop;
@@ -1409,6 +1476,7 @@ async function loadScreen() {
         lastScreenSignature = signature;
 
         collectPreviewVideoPositions();
+        clearResolvedObjectUrls();
         clearMediaTimers();
         if (String(data.source || '') === 'fallback') {
             applyBackgroundStyle(document.body, { mode: 'none' }, '#ffffff');
@@ -1433,6 +1501,7 @@ async function loadScreen() {
 
     } catch (e) {
         lastScreenSignature = '';
+        clearResolvedObjectUrls();
         stage.innerHTML = '';
         const block = document.createElement('div');
         block.className = 'block';
