@@ -8,7 +8,7 @@ declare(strict_types=1);
     <title><?= h($pageTitle) ?></title>
     <style>
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #334155; color: #1a1a1a; }
-        #stage { position: relative; width: 100vw; height: calc(100vh - 32px); }
+        #stage { position: relative; width: 100vw; height: 100vh; }
         .block { position: absolute; box-sizing: border-box; border: 1px solid rgba(26,26,26,0.12); overflow: hidden; padding: 0; }
         @keyframes fadeInBlock { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUpBlock { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
@@ -31,18 +31,15 @@ declare(strict_types=1);
         .htmlRenderContent blockquote { margin: 0; }
         .htmlRenderContent ul,
         .htmlRenderContent ol { padding-left: 1.2em; }
-        .meta { height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: #f3f4f6; font-size: 12px; border-top: 1px solid #d7dbe0; }
         .ok { color: #95d17b; }
         .warn { color: #f1c27d; }
     </style>
 </head>
 <body>
 <div id="stage"></div>
-<div class="meta" id="meta">Предпросмотр шаблона</div>
 <script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)(@filemtime(__DIR__ . '/../../public/schedule_renderer.js') ?: ($projectVersion ?? '0.0.0-dev'))) ?>"></script>
 <script>
 const stage = document.getElementById('stage');
-const meta = document.getElementById('meta');
 const url = new URL(window.location.href);
 const templateId = Number(url.searchParams.get('template_id') || 0);
 const DEFAULT_SCREEN_STYLE = { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' };
@@ -200,11 +197,31 @@ function normalizeBlock(raw) {
 }
 function normalizeTextData(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
+    const normalizeBool = (value, fallback = false) => {
+        if (value === true || value === 1 || value === '1') return true;
+        if (value === false || value === 0 || value === '0') return false;
+        return !!fallback;
+    };
+    const allowedFamilies = [
+        'Tahoma, sans-serif',
+        'Arial, sans-serif',
+        'Verdana, sans-serif',
+        '"Trebuchet MS", sans-serif',
+        '"Segoe UI", sans-serif',
+        'Georgia, serif',
+        '"Times New Roman", serif',
+        '"Courier New", monospace'
+    ];
+    const rawFamily = String(src.font_family || '').trim();
+    const fallbackBold = ['700', '800'].includes(String(src.font_weight || '700'));
     return {
         font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
         color: String(src.color || '#ffffff').trim() || '#ffffff',
         align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
-        font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+        font_weight: normalizeBool(src.font_style_bold, fallbackBold) ? '700' : '400',
+        font_family: allowedFamilies.includes(rawFamily) ? rawFamily : 'Tahoma, sans-serif',
+        font_style_italic: normalizeBool(src.font_style_italic, false),
+        font_style_underline: normalizeBool(src.font_style_underline, false),
         line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
         padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
     };
@@ -218,6 +235,9 @@ function createTextRenderNode(text, rawData) {
     node.style.color = p.color;
     node.style.textAlign = p.align;
     node.style.fontWeight = p.font_weight;
+    node.style.fontFamily = p.font_family;
+    node.style.fontStyle = p.font_style_italic ? 'italic' : 'normal';
+    node.style.textDecoration = p.font_style_underline ? 'underline' : 'none';
     node.style.lineHeight = String(p.line_height);
     node.style.padding = p.padding_px + 'px';
     return node;
@@ -951,7 +971,7 @@ async function loadAllContentMap() {
 
 async function loadTemplatePreview() {
     if (templateId <= 0) {
-        meta.innerHTML = '<span class="warn">Укажите template_id в адресе.</span> Пример: /preview/?template_id=1';
+        stage.innerHTML = '<div style="padding:20px;color:#f1c27d;font:16px Tahoma,sans-serif;">Укажите template_id в адресе. Пример: /preview/?template_id=1</div>';
         return;
     }
 
@@ -974,10 +994,9 @@ async function loadTemplatePreview() {
             stage.appendChild(await renderBlock(block, contentMap));
         }
 
-        meta.innerHTML = `<span class="ok">Предпросмотр</span> Шаблон: ${tpl.name || '-'} | ID: ${tpl.id || '-'} | Блоков: ${blocks.length} | Версия проекта: <?= h($projectVersion ?? '0.0.0-dev') ?>`;
     } catch (e) {
         stage.innerHTML = '';
-        meta.innerHTML = '<span class="warn">Ошибка предпросмотра:</span> ' + String(e.message || e);
+        stage.innerHTML = '<div style="padding:20px;color:#f1c27d;font:16px Tahoma,sans-serif;">Ошибка предпросмотра: ' + String(e.message || e) + '</div>';
     }
 }
 

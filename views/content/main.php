@@ -257,15 +257,41 @@ declare(strict_types=1);
                             <option value="right">справа</option>
                         </select>
                     </label>
-                    <label>Насыщенность
+                    <label>Жирный
                         <select id="pTextWeight">
-                            <option value="400">400</option>
-                            <option value="500">500</option>
-                            <option value="600">600</option>
-                            <option value="700">700</option>
-                            <option value="800">800</option>
+                            <option value="0">нет</option>
+                            <option value="1">да</option>
                         </select>
                     </label>
+                </div>
+                <div class="row">
+                    <label>Шрифт
+                        <select id="pTextFontFamily">
+                            <option value="Tahoma, sans-serif">Tahoma</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                            <option value="&quot;Trebuchet MS&quot;, sans-serif">Trebuchet MS</option>
+                            <option value="&quot;Segoe UI&quot;, sans-serif">Segoe UI</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="&quot;Times New Roman&quot;, serif">Times New Roman</option>
+                            <option value="&quot;Courier New&quot;, monospace">Courier New</option>
+                        </select>
+                    </label>
+                    <label>Курсив
+                        <select id="pTextItalic">
+                            <option value="0">нет</option>
+                            <option value="1">да</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <label>Подчеркнутый
+                        <select id="pTextUnderline">
+                            <option value="0">нет</option>
+                            <option value="1">да</option>
+                        </select>
+                    </label>
+                    <div></div>
                 </div>
                 <div class="row">
                     <label>Межстрочный интервал <input id="pTextLineHeight" type="number" min="0.8" max="3" step="0.05" value="1.1"></label>
@@ -594,6 +620,9 @@ const el = {
   pTextColor: document.getElementById('pTextColor'),
   pTextAlign: document.getElementById('pTextAlign'),
   pTextWeight: document.getElementById('pTextWeight'),
+  pTextFontFamily: document.getElementById('pTextFontFamily'),
+  pTextItalic: document.getElementById('pTextItalic'),
+  pTextUnderline: document.getElementById('pTextUnderline'),
   pTextLineHeight: document.getElementById('pTextLineHeight'),
   pTextPadding: document.getElementById('pTextPadding'),
   pImageWidth: document.getElementById('pImageWidth'),
@@ -1096,15 +1125,36 @@ function buildHtmlDataJson() {
     }
   };
 }
+const TEXT_FONT_FAMILIES = [
+  'Tahoma, sans-serif',
+  'Arial, sans-serif',
+  'Verdana, sans-serif',
+  '"Trebuchet MS", sans-serif',
+  '"Segoe UI", sans-serif',
+  'Georgia, serif',
+  '"Times New Roman", serif',
+  '"Courier New", monospace'
+];
+function normalizeTextFontFamily(value) {
+  const raw = String(value || '').trim();
+  return TEXT_FONT_FAMILIES.includes(raw) ? raw : 'Tahoma, sans-serif';
+}
+function normalizeBoolFlag(value, fallback = false) {
+  if (value === true || value === 1 || value === '1') return true;
+  if (value === false || value === 0 || value === '0') return false;
+  return !!fallback;
+}
 function buildTextDataJson() {
   const fontSizePx = Math.max(8, Math.min(400, Number(el.pTextFontSize.value || 64)));
   const color = String(el.pTextColor.value || '#ffffff').trim() || '#ffffff';
   const align = ['left', 'center', 'right'].includes(String(el.pTextAlign.value || ''))
     ? String(el.pTextAlign.value || 'left')
     : 'left';
-  const fontWeight = ['400', '500', '600', '700', '800'].includes(String(el.pTextWeight.value || ''))
-    ? String(el.pTextWeight.value || '700')
-    : '700';
+  const isBold = String(el.pTextWeight.value || '0') === '1';
+  const isItalic = String(el.pTextItalic?.value || '0') === '1';
+  const isUnderline = String(el.pTextUnderline?.value || '0') === '1';
+  const fontWeight = isBold ? '700' : '400';
+  const fontFamily = normalizeTextFontFamily(el.pTextFontFamily?.value || 'Tahoma, sans-serif');
   const lineHeight = Math.max(0.8, Math.min(3, Number(el.pTextLineHeight.value || 1.1)));
   const paddingPx = Math.max(0, Math.min(300, Number(el.pTextPadding.value || 0)));
   return {
@@ -1113,6 +1163,10 @@ function buildTextDataJson() {
       color: color,
       align: align,
       font_weight: fontWeight,
+      font_family: fontFamily,
+      font_style_bold: isBold,
+      font_style_italic: isItalic,
+      font_style_underline: isUnderline,
       line_height: lineHeight,
       padding_px: paddingPx
     }
@@ -1128,11 +1182,15 @@ function syncDataJson() {
 }
 function normalizeTextData(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
+  const fallbackBold = ['700', '800'].includes(String(src.font_weight || '700'));
   return {
     font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
     color: String(src.color || '#ffffff').trim() || '#ffffff',
     align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
-    font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+    font_weight: normalizeBoolFlag(src.font_style_bold, fallbackBold) ? '700' : '400',
+    font_family: normalizeTextFontFamily(src.font_family || 'Tahoma, sans-serif'),
+    font_style_italic: normalizeBoolFlag(src.font_style_italic, false),
+    font_style_underline: normalizeBoolFlag(src.font_style_underline, false),
     line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
     padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
   };
@@ -1146,6 +1204,9 @@ function createTextRenderNode(text, rawData) {
   node.style.color = p.color;
   node.style.textAlign = p.align;
   node.style.fontWeight = p.font_weight;
+  node.style.fontFamily = p.font_family;
+  node.style.fontStyle = p.font_style_italic ? 'italic' : 'normal';
+  node.style.textDecoration = p.font_style_underline ? 'underline' : 'none';
   node.style.lineHeight = String(p.line_height);
   node.style.padding = p.padding_px + 'px';
   return node;
@@ -1946,7 +2007,10 @@ function nowDraft() {
   el.pTextFontSize.value = '64';
   el.pTextColor.value = '#ffffff';
   el.pTextAlign.value = 'left';
-  el.pTextWeight.value = '700';
+  el.pTextWeight.value = '0';
+  if (el.pTextFontFamily) el.pTextFontFamily.value = 'Tahoma, sans-serif';
+  if (el.pTextItalic) el.pTextItalic.value = '0';
+  if (el.pTextUnderline) el.pTextUnderline.value = '0';
   el.pTextLineHeight.value = '1.1';
   el.pTextPadding.value = '0';
   populateScheduleDoctorOptions();
@@ -2549,7 +2613,11 @@ async function loadById(id) {
     el.pTextFontSize.value = String(Math.max(8, Math.min(400, Number(text.font_size_px || 64))));
     el.pTextColor.value = String(text.color || '#ffffff').trim() || '#ffffff';
     el.pTextAlign.value = ['left', 'center', 'right'].includes(String(text.align || '')) ? String(text.align || 'left') : 'left';
-    el.pTextWeight.value = ['400', '500', '600', '700', '800'].includes(String(text.font_weight || '')) ? String(text.font_weight || '700') : '700';
+    const textBold = normalizeBoolFlag(text.font_style_bold, ['700', '800'].includes(String(text.font_weight || '700')));
+    el.pTextWeight.value = textBold ? '1' : '0';
+    if (el.pTextFontFamily) el.pTextFontFamily.value = normalizeTextFontFamily(text.font_family || 'Tahoma, sans-serif');
+    if (el.pTextItalic) el.pTextItalic.value = normalizeBoolFlag(text.font_style_italic, false) ? '1' : '0';
+    if (el.pTextUnderline) el.pTextUnderline.value = normalizeBoolFlag(text.font_style_underline, false) ? '1' : '0';
     el.pTextLineHeight.value = String(Math.max(0.8, Math.min(3, Number(text.line_height || 1.1))));
     el.pTextPadding.value = String(Math.max(0, Math.min(300, Number(text.padding_px || 0))));
     el.pHtmlScale.value = String(Math.max(1, Math.min(500, Number(html.scale_pct || 100))));
@@ -2945,6 +3013,9 @@ el.pTextFontSize.addEventListener('input', () => { syncDataJson(); syncPreview()
 el.pTextColor.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pTextAlign.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pTextWeight.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pTextFontFamily) el.pTextFontFamily.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pTextItalic) el.pTextItalic.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pTextUnderline) el.pTextUnderline.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pTextLineHeight.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pTextPadding.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleDoctorId) el.pScheduleDoctorId.addEventListener('change', () => { syncDataJson(); syncPreview(); });

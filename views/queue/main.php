@@ -63,7 +63,14 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
         button.primary { background: transparent; color: #1d5fbf; }
         button.danger { border-color: #b91c1c; color: #b91c1c; }
         button.iconBtn { width: 34px; height: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
+        #clearQueueBtn { display: none; }
         input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
+        .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 70; }
+        .modalBack.open { display: flex; }
+        .modal { width: min(420px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22); }
+        .modal h3 { margin: 0 0 10px; font-size: 18px; }
+        .modal p { margin: 0 0 14px; color: #475569; font-size: 14px; }
+        .modal .row { display: flex; justify-content: flex-end; gap: 8px; }
         .pageFooter { margin-top: 18px; color: #fff; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 10px; flex: 0 0 auto; }
         @media (min-width: 761px) { html, body { overflow: hidden; } .page { height: 100vh; } }
         @media (max-width: 1180px) { .wrap { grid-template-columns: 280px 1fr; } .panel.inspectorPanel { grid-column: 1 / -1; } }
@@ -116,6 +123,7 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
         <div class="queueHeaderBar">
             <div class="toolbar">
                 <button id="createQueueBtn" type="button" class="iconBtn" title="Создать очередь" aria-label="Создать очередь">&#x2795;</button>
+                <button id="deleteQueueBtn" type="button" class="danger iconBtn" title="Удалить очередь" aria-label="Удалить очередь">&#x1F5D1;</button>
                 <button id="saveQueueBtn" type="button" class="primary iconBtn" title="Сохранить очередь" aria-label="Сохранить очередь">&#x1F4BE;</button>
                 <button id="clearQueueBtn" type="button" class="danger iconBtn" title="Очистить очередь" aria-label="Очистить очередь">&#x1F5D1;</button>
             </div>
@@ -173,6 +181,16 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
 
     <div class="pageFooter">Версия проекта: <strong><?= h($projectVersion ?? '0.0.0-dev') ?></strong></div>
 </div>
+<div class="modalBack" id="deleteQueueModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteQueueTitle">
+        <h3 id="deleteQueueTitle">Удаление очереди</h3>
+        <p id="deleteQueueText">Удалить выбранную очередь?</p>
+        <div class="row">
+            <button class="secondary" type="button" id="deleteQueueCancelBtn">Отмена</button>
+            <button class="danger" type="button" id="deleteQueueConfirmBtn">Удалить</button>
+        </div>
+    </div>
+</div>
 
 <script>
 const DEFAULT_DURATION_SEC = 15;
@@ -191,6 +209,7 @@ const el = {
     queueList: document.getElementById('queueList'),
     queueSelect: document.getElementById('queueSelect'),
     createQueueBtn: document.getElementById('createQueueBtn'),
+    deleteQueueBtn: document.getElementById('deleteQueueBtn'),
     queueStatus: document.getElementById('queueStatus'),
     clearQueueBtn: document.getElementById('clearQueueBtn'),
     saveQueueBtn: document.getElementById('saveQueueBtn'),
@@ -200,7 +219,11 @@ const el = {
     inspectorControls: document.getElementById('inspectorControls'),
     qIsActive: document.getElementById('qIsActive'),
     qDurationSec: document.getElementById('qDurationSec'),
-    removeQueueItemBtn: document.getElementById('removeQueueItemBtn')
+    removeQueueItemBtn: document.getElementById('removeQueueItemBtn'),
+    deleteQueueModal: document.getElementById('deleteQueueModal'),
+    deleteQueueText: document.getElementById('deleteQueueText'),
+    deleteQueueCancelBtn: document.getElementById('deleteQueueCancelBtn'),
+    deleteQueueConfirmBtn: document.getElementById('deleteQueueConfirmBtn')
 };
 
 function queueTypeLabel(type) {
@@ -488,6 +511,51 @@ async function createQueue() {
     }
 }
 
+function openDeleteQueueModal() {
+    if (!el.deleteQueueModal) return;
+    const queueName = String(state.queueName || 'Очередь');
+    const queueType = queueTypeLabel(state.queueType || 'archive');
+    if (el.deleteQueueText) {
+        el.deleteQueueText.textContent = `Удалить очередь "${queueName}" [${queueType}]?`;
+    }
+    el.deleteQueueModal.classList.add('open');
+}
+
+function closeDeleteQueueModal() {
+    if (!el.deleteQueueModal) return;
+    el.deleteQueueModal.classList.remove('open');
+}
+
+async function deleteQueue() {
+    const queueId = Number(state.queueId || 0);
+    if (queueId <= 0) {
+        setStatus('Сначала выберите очередь.', true);
+        closeDeleteQueueModal();
+        return;
+    }
+    try {
+        const body = new URLSearchParams();
+        body.set('queue_id', String(queueId));
+        const res = await fetch('/api/queue_delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) ? String(payload.error) : 'Не удалось удалить очередь');
+        }
+        closeDeleteQueueModal();
+        const nextQueueId = Number(payload.data?.next_queue_id || 0);
+        await loadQueue(nextQueueId);
+        setStatus('Очередь удалена.', false);
+    } catch (error) {
+        closeDeleteQueueModal();
+        const message = error instanceof Error ? error.message : 'Не удалось удалить очередь';
+        setStatus(message, true);
+    }
+}
+
 function escapeHtml(value) {
     return String(value)
         .replaceAll('&', '&amp;')
@@ -523,6 +591,7 @@ el.queueSelect.addEventListener('change', () => {
 });
 
 el.createQueueBtn.addEventListener('click', createQueue);
+el.deleteQueueBtn.addEventListener('click', openDeleteQueueModal);
 el.queueName.addEventListener('input', () => {
     state.queueName = String(el.queueName.value || '');
 });
@@ -593,6 +662,13 @@ el.clearQueueBtn.addEventListener('click', () => {
 });
 
 el.saveQueueBtn.addEventListener('click', saveQueueDraft);
+if (el.deleteQueueCancelBtn) el.deleteQueueCancelBtn.addEventListener('click', closeDeleteQueueModal);
+if (el.deleteQueueConfirmBtn) el.deleteQueueConfirmBtn.addEventListener('click', deleteQueue);
+if (el.deleteQueueModal) {
+    el.deleteQueueModal.addEventListener('click', (event) => {
+        if (event.target === el.deleteQueueModal) closeDeleteQueueModal();
+    });
+}
 
 syncQueueInspector();
 loadQueue();

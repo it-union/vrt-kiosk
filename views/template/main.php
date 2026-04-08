@@ -409,6 +409,16 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+<div class="modalBack" id="deleteBlockModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteBlockTitle">
+        <h3 id="deleteBlockTitle">Удаление блока</h3>
+        <p id="deleteBlockText">Удалить выбранный блок с контентом?</p>
+        <div class="row">
+            <button class="secondary" type="button" id="deleteBlockCancelBtn">Отмена</button>
+            <button type="button" id="deleteBlockConfirmBtn">Удалить</button>
+        </div>
+    </div>
+</div>
 <div class="modalBack" id="duplicateTemplateModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="duplicateTemplateTitle">
         <h3 id="duplicateTemplateTitle">Дублирование шаблона</h3>
@@ -459,6 +469,7 @@ const state = {
   currentCanManage: true,
   ownerOnly: false,
   blocks: [],
+  lastBlockId: 0,
   selectedBlockIndex: -1,
   screen_style: { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' },
   saveInProgress: false,
@@ -677,8 +688,37 @@ function setInspectorVisible(visible) {
 }
 function ensureBlockKey(block, index) {
   if (!block.block_key || String(block.block_key).trim() === '') {
-    block.block_key = `block_${index + 1}`;
+    block.block_key = allocateNextBlockKey();
   }
+}
+function parseBlockNumericIdFromKey(key) {
+  const match = String(key || '').trim().match(/^block_(\d+)$/i);
+  if (!match) return 0;
+  const value = Number(match[1] || 0);
+  return Number.isInteger(value) && value > 0 ? value : 0;
+}
+function calcMaxBlockNumericId(blocks) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  let maxId = 0;
+  list.forEach((block) => {
+    const keyId = parseBlockNumericIdFromKey(block && block.block_key ? block.block_key : '');
+    if (keyId > maxId) maxId = keyId;
+  });
+  return maxId;
+}
+function syncLastBlockIdFromBlocks() {
+  const maxFromKeys = calcMaxBlockNumericId(state.blocks);
+  state.lastBlockId = Math.max(0, maxFromKeys, Number(state.blocks.length || 0));
+}
+function allocateNextBlockKey() {
+  const currentMax = calcMaxBlockNumericId(state.blocks);
+  let nextId = Math.max(0, Number(state.lastBlockId || 0), currentMax, Number(state.blocks.length || 0)) + 1;
+  const used = new Set((state.blocks || []).map((block) => String((block && block.block_key) || '').trim().toLowerCase()));
+  while (used.has(`block_${nextId}`)) {
+    nextId += 1;
+  }
+  state.lastBlockId = nextId;
+  return `block_${nextId}`;
 }
 function labelContentType(v) {
   const map = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П', schedule: 'Р' };
@@ -686,11 +726,31 @@ function labelContentType(v) {
 }
 function normalizeTextData(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
+  const normalizeBool = (value, fallback = false) => {
+    if (value === true || value === 1 || value === '1') return true;
+    if (value === false || value === 0 || value === '0') return false;
+    return !!fallback;
+  };
+  const allowedFamilies = [
+    'Tahoma, sans-serif',
+    'Arial, sans-serif',
+    'Verdana, sans-serif',
+    '"Trebuchet MS", sans-serif',
+    '"Segoe UI", sans-serif',
+    'Georgia, serif',
+    '"Times New Roman", serif',
+    '"Courier New", monospace'
+  ];
+  const rawFamily = String(src.font_family || '').trim();
+  const fallbackBold = ['700', '800'].includes(String(src.font_weight || '700'));
   return {
     font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
     color: String(src.color || '#ffffff').trim() || '#ffffff',
     align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
-    font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+    font_weight: normalizeBool(src.font_style_bold, fallbackBold) ? '700' : '400',
+    font_family: allowedFamilies.includes(rawFamily) ? rawFamily : 'Tahoma, sans-serif',
+    font_style_italic: normalizeBool(src.font_style_italic, false),
+    font_style_underline: normalizeBool(src.font_style_underline, false),
     line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
     padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
   };
@@ -710,6 +770,9 @@ function createTextRenderNode(text, rawData, scale = 1) {
   node.style.color = p.color;
   node.style.textAlign = p.align;
   node.style.fontWeight = p.font_weight;
+  node.style.fontFamily = p.font_family;
+  node.style.fontStyle = p.font_style_italic ? 'italic' : 'normal';
+  node.style.textDecoration = p.font_style_underline ? 'underline' : 'none';
   node.style.lineHeight = String(p.line_height);
   node.style.padding = (p.padding_px * safeScale) + 'px';
   return node;
@@ -1924,6 +1987,7 @@ async function loadTemplate(templateId) {
         delay_off_ms: style.delay_off_ms
       };
     });
+    syncLastBlockIdFromBlocks();
     setStageEditorVisible(true);
     setInspectorVisible(true);
     updateTemplatePermissions();
@@ -1956,6 +2020,7 @@ function newTemplate() {
     delay_on_ms: 0,
     delay_off_ms: 0
   }];
+  syncLastBlockIdFromBlocks();
   setStageEditorVisible(true);
   setInspectorVisible(true);
   updateTemplatePermissions();
@@ -1966,6 +2031,7 @@ function resetTemplateEditor() {
   state.currentTemplateId = null;
   state.currentOwnerId = 0;
   state.blocks = [];
+  state.lastBlockId = 0;
   state.globalShowContentPreview = false;
   state.disablePreviewAnimation = false;
   state.showSelectedOnly = false;
@@ -2040,6 +2106,33 @@ function closeDuplicateTemplateModal() {
   const modal = document.getElementById('duplicateTemplateModal');
   if (modal) modal.classList.remove('open');
 }
+function removeSelectedBlock() {
+  if (state.selectedBlockIndex < 0) return;
+  state.blocks.splice(state.selectedBlockIndex, 1);
+  state.selectedBlockIndex = Math.min(state.selectedBlockIndex, state.blocks.length - 1);
+  fillBlockEditor();
+  renderCanvas();
+}
+function openDeleteBlockModal() {
+  const modal = document.getElementById('deleteBlockModal');
+  const text = document.getElementById('deleteBlockText');
+  const block = currentBlock();
+  const blockKey = String(block && block.block_key ? block.block_key : '');
+  const contentId = Number(block && block.content_id ? block.content_id : 0);
+  const contentTitle = findContentTitle(contentId);
+  if (text) {
+    if (contentTitle) {
+      text.textContent = `Удалить блок "${blockKey}" с контентом "${contentTitle}" (ID ${contentId})?`;
+    } else {
+      text.textContent = `Удалить блок "${blockKey}" с привязанным контентом (ID ${contentId})?`;
+    }
+  }
+  if (modal) modal.classList.add('open');
+}
+function closeDeleteBlockModal() {
+  const modal = document.getElementById('deleteBlockModal');
+  if (modal) modal.classList.remove('open');
+}
 async function confirmDuplicateTemplate() {
   const id = Number(state.currentTemplateId || 0);
   if (id <= 0) { closeDuplicateTemplateModal(); setStatus('Сначала выберите шаблон', true); return; }
@@ -2082,8 +2175,9 @@ document.getElementById('deleteTemplateBtn').onclick = () => {
 };
 document.getElementById('addBlockBtn').onclick = () => {
   const i = state.blocks.length + 1;
+  const nextBlockKey = allocateNextBlockKey();
   state.blocks.push({
-    block_key: 'block_' + i,
+    block_key: nextBlockKey,
     x_pct: 10,
     y_pct: 10,
     w_pct: 30,
@@ -2107,9 +2201,13 @@ document.getElementById('addBlockBtn').onclick = () => {
 };
 document.getElementById('removeBlockBtn').onclick = () => {
   if (state.selectedBlockIndex < 0) return;
-  state.blocks.splice(state.selectedBlockIndex, 1);
-  state.selectedBlockIndex = Math.min(state.selectedBlockIndex, state.blocks.length - 1);
-  fillBlockEditor(); renderCanvas();
+  const block = currentBlock();
+  const hasLinkedContent = Number(block && block.content_id ? block.content_id : 0) > 0;
+  if (hasLinkedContent) {
+    openDeleteBlockModal();
+    return;
+  }
+  removeSelectedBlock();
 };
 if (el.stageBlockSelect) {
   el.stageBlockSelect.addEventListener('change', () => {
@@ -2119,6 +2217,11 @@ if (el.stageBlockSelect) {
 }
 document.getElementById('saveTemplateBtn').onclick = saveTemplate;
 document.getElementById('deleteCancelBtn').onclick = () => { document.getElementById('deleteModal').classList.remove('open'); };
+document.getElementById('deleteBlockCancelBtn').onclick = closeDeleteBlockModal;
+document.getElementById('deleteBlockConfirmBtn').onclick = () => {
+  closeDeleteBlockModal();
+  removeSelectedBlock();
+};
 document.getElementById('duplicateTemplateCancelBtn').onclick = closeDuplicateTemplateModal;
 document.getElementById('duplicateTemplateConfirmBtn').onclick = confirmDuplicateTemplate;
 document.getElementById('deleteConfirmBtn').onclick = async () => {
@@ -2226,6 +2329,12 @@ const duplicateTemplateModal = document.getElementById('duplicateTemplateModal')
 if (duplicateTemplateModal) {
   duplicateTemplateModal.onclick = (event) => {
     if (event.target && event.target.id === 'duplicateTemplateModal') closeDuplicateTemplateModal();
+  };
+}
+const deleteBlockModal = document.getElementById('deleteBlockModal');
+if (deleteBlockModal) {
+  deleteBlockModal.onclick = (event) => {
+    if (event.target && event.target.id === 'deleteBlockModal') closeDeleteBlockModal();
   };
 }
 const deleteImageModal = document.getElementById('deleteImageModal');

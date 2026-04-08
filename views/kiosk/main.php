@@ -498,11 +498,31 @@ function normalizeBlock(raw) {
 }
 function normalizeTextData(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
+    const normalizeBool = (value, fallback = false) => {
+        if (value === true || value === 1 || value === '1') return true;
+        if (value === false || value === 0 || value === '0') return false;
+        return !!fallback;
+    };
+    const allowedFamilies = [
+        'Tahoma, sans-serif',
+        'Arial, sans-serif',
+        'Verdana, sans-serif',
+        '"Trebuchet MS", sans-serif',
+        '"Segoe UI", sans-serif',
+        'Georgia, serif',
+        '"Times New Roman", serif',
+        '"Courier New", monospace'
+    ];
+    const rawFamily = String(src.font_family || '').trim();
+    const fallbackBold = ['700', '800'].includes(String(src.font_weight || '700'));
     return {
         font_size_px: Math.max(8, Math.min(400, Number(src.font_size_px || 64))),
         color: String(src.color || '#ffffff').trim() || '#ffffff',
         align: ['left', 'center', 'right'].includes(String(src.align || '')) ? String(src.align || 'left') : 'left',
-        font_weight: ['400', '500', '600', '700', '800'].includes(String(src.font_weight || '')) ? String(src.font_weight || '700') : '700',
+        font_weight: normalizeBool(src.font_style_bold, fallbackBold) ? '700' : '400',
+        font_family: allowedFamilies.includes(rawFamily) ? rawFamily : 'Tahoma, sans-serif',
+        font_style_italic: normalizeBool(src.font_style_italic, false),
+        font_style_underline: normalizeBool(src.font_style_underline, false),
         line_height: Math.max(0.8, Math.min(3, Number(src.line_height || 1.1))),
         padding_px: Math.max(0, Math.min(300, Number(src.padding_px || 0)))
     };
@@ -527,6 +547,9 @@ function createTextRenderNode(text, rawData) {
     node.style.color = p.color;
     node.style.textAlign = p.align;
     node.style.fontWeight = p.font_weight;
+    node.style.fontFamily = p.font_family;
+    node.style.fontStyle = p.font_style_italic ? 'italic' : 'normal';
+    node.style.textDecoration = p.font_style_underline ? 'underline' : 'none';
     node.style.lineHeight = String(p.line_height);
     node.style.padding = (p.padding_px * scale) + 'px';
     return node;

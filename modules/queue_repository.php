@@ -326,3 +326,34 @@ function queueGenerateName(PDO $pdo): string
     }
     return 'Очередь ' . ($max + 1);
 }
+
+function queueDelete(PDO $pdo, int $queueId): int
+{
+    queueEnsureSchema($pdo);
+
+    $queue = queueGetById($pdo, $queueId);
+    if ($queue === null) {
+        throw new RuntimeException('queue_not_found');
+    }
+
+    $queueType = queueNormalizeType((string)($queue['queue_type'] ?? 'archive'));
+    if ($queueType === 'active') {
+        throw new RuntimeException('queue_active_delete_forbidden');
+    }
+    if ($queueType === 'test') {
+        $testCountStmt = $pdo->query("SELECT COUNT(*) FROM display_queues WHERE queue_type = 'test'");
+        $testCount = (int)($testCountStmt ? $testCountStmt->fetchColumn() : 0);
+        if ($testCount <= 1) {
+            throw new RuntimeException('queue_last_test_delete_forbidden');
+        }
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM display_queues WHERE id = :id");
+    $stmt->execute([':id' => $queueId]);
+    if ($stmt->rowCount() <= 0) {
+        throw new RuntimeException('queue_not_found');
+    }
+
+    $nextQueue = queueGetDefault($pdo);
+    return (int)($nextQueue['id'] ?? 0);
+}
