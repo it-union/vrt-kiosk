@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/user_repository.php';
+require_once __DIR__ . '/folder_repository.php';
 
 function contentEnsureOwnershipSchema(PDO $pdo): void
 {
     userEnsureSchema($pdo);
+    folderEnsureSchema($pdo);
 
     $columns = [];
     $stmt = $pdo->query("SHOW COLUMNS FROM content_items");
@@ -25,6 +27,11 @@ function contentEnsureOwnershipSchema(PDO $pdo): void
         $pdo->exec("ALTER TABLE content_items ADD KEY fk_content_updated_by (updated_by)");
         $pdo->exec("ALTER TABLE content_items ADD CONSTRAINT fk_content_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE");
     }
+    if (!in_array('folder_id', $columns, true)) {
+        $pdo->exec("ALTER TABLE content_items ADD COLUMN folder_id BIGINT(20) UNSIGNED DEFAULT NULL AFTER title");
+        $pdo->exec("ALTER TABLE content_items ADD KEY idx_content_folder_id (folder_id)");
+        $pdo->exec("ALTER TABLE content_items ADD CONSTRAINT fk_content_folder_id FOREIGN KEY (folder_id) REFERENCES content_folders (id) ON DELETE SET NULL ON UPDATE CASCADE");
+    }
 
     $adminUserId = userFindFirstAdministratorId($pdo);
     if ($adminUserId !== null && $adminUserId > 0) {
@@ -39,9 +46,10 @@ function contentList(PDO $pdo, ?string $type = null, ?int $isActive = null): arr
 {
     contentEnsureOwnershipSchema($pdo);
 
-    $sql = "SELECT c.id, c.type, c.title, c.body, c.media_url, c.data_json, c.is_active, c.publish_from, c.publish_to, c.created_by, c.updated_by, c.updated_at,
+    $sql = "SELECT c.id, c.type, c.title, c.folder_id, cf.name AS folder_name, c.body, c.media_url, c.data_json, c.is_active, c.publish_from, c.publish_to, c.created_by, c.updated_by, c.updated_at,
                    cu.full_name AS creator_name, cu.login AS creator_login
             FROM content_items c
+            LEFT JOIN content_folders cf ON cf.id = c.folder_id
             LEFT JOIN users cu ON cu.id = c.created_by
             WHERE 1=1";
     $params = [];
@@ -66,9 +74,10 @@ function contentGet(PDO $pdo, int $id): ?array
 {
     contentEnsureOwnershipSchema($pdo);
     $stmt = $pdo->prepare("
-        SELECT c.id, c.type, c.title, c.body, c.media_url, c.data_json, c.is_active, c.publish_from, c.publish_to, c.created_by, c.updated_by, c.updated_at,
+        SELECT c.id, c.type, c.title, c.folder_id, cf.name AS folder_name, c.body, c.media_url, c.data_json, c.is_active, c.publish_from, c.publish_to, c.created_by, c.updated_by, c.updated_at,
                cu.full_name AS creator_name, cu.login AS creator_login
         FROM content_items c
+        LEFT JOIN content_folders cf ON cf.id = c.folder_id
         LEFT JOIN users cu ON cu.id = c.created_by
         WHERE c.id = :id
         LIMIT 1
@@ -83,9 +92,10 @@ function contentCreate(PDO $pdo, array $payload): int
     contentEnsureOwnershipSchema($pdo);
     $payload['created_by'] = isset($payload['created_by']) ? (int)$payload['created_by'] : null;
     $payload['updated_by'] = isset($payload['updated_by']) ? (int)$payload['updated_by'] : $payload['created_by'];
+    $payload['folder_id'] = isset($payload['folder_id']) && (int)$payload['folder_id'] > 0 ? (int)$payload['folder_id'] : null;
     $stmt = $pdo->prepare(
-        "INSERT INTO content_items (type, title, body, data_json, media_url, is_active, publish_from, publish_to, created_by, updated_by, created_at, updated_at)
-         VALUES (:type, :title, :body, :data_json, :media_url, :is_active, :publish_from, :publish_to, :created_by, :updated_by, NOW(), NOW())"
+        "INSERT INTO content_items (type, title, folder_id, body, data_json, media_url, is_active, publish_from, publish_to, created_by, updated_by, created_at, updated_at)
+         VALUES (:type, :title, :folder_id, :body, :data_json, :media_url, :is_active, :publish_from, :publish_to, :created_by, :updated_by, NOW(), NOW())"
     );
     $stmt->execute($payload);
     return (int)$pdo->lastInsertId();
@@ -95,10 +105,11 @@ function contentUpdate(PDO $pdo, int $id, array $payload): bool
 {
     contentEnsureOwnershipSchema($pdo);
     $payload['updated_by'] = isset($payload['updated_by']) ? (int)$payload['updated_by'] : null;
+    $payload['folder_id'] = isset($payload['folder_id']) && (int)$payload['folder_id'] > 0 ? (int)$payload['folder_id'] : null;
     $payload['id'] = $id;
     $stmt = $pdo->prepare(
         "UPDATE content_items
-         SET type=:type, title=:title, body=:body, data_json=:data_json, media_url=:media_url, is_active=:is_active,
+         SET type=:type, title=:title, folder_id=:folder_id, body=:body, data_json=:data_json, media_url=:media_url, is_active=:is_active,
              publish_from=:publish_from, publish_to=:publish_to, updated_by=:updated_by, updated_at=NOW()
          WHERE id=:id"
     );
@@ -125,7 +136,7 @@ function contentFindManyByIds(PDO $pdo, array $ids): array
     }
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $stmt = $pdo->prepare("SELECT id, type, title, body, media_url, data_json, updated_at, created_by, updated_by FROM content_items WHERE id IN ($placeholders)");
+    $stmt = $pdo->prepare("SELECT id, type, title, folder_id, body, media_url, data_json, updated_at, created_by, updated_by FROM content_items WHERE id IN ($placeholders)");
     $stmt->execute($ids);
 
     $rows = $stmt->fetchAll();

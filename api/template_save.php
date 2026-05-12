@@ -18,6 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 $id = isset($_POST['template_id']) ? (int)$_POST['template_id'] : 0;
 $name = trim((string)($_POST['name'] ?? ''));
 $description = trim((string)($_POST['description'] ?? ''));
+$folderId = isset($_POST['folder_id']) ? (int)$_POST['folder_id'] : 0;
 $status = trim((string)($_POST['status'] ?? 'draft'));
 $blocksRaw = (string)($_POST['blocks_json'] ?? '');
 $screenStyleRaw = trim((string)($_POST['screen_style_json'] ?? ''));
@@ -97,7 +98,7 @@ try {
             jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для редактирования шаблона'], 403);
         }
     }
-    $templateId = saveTemplate($pdo, $id, $name, $description, $status, $blocks, $screenStyle, $currentUserId > 0 ? $currentUserId : null);
+    $templateId = saveTemplate($pdo, $id, $name, $description, $status, $blocks, $screenStyle, $currentUserId > 0 ? $currentUserId : null, $folderId > 0 ? $folderId : null);
 
     // Логирование
     $userId = (int)($currentUser['id'] ?? 0);

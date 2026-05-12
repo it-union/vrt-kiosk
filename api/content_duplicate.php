@@ -33,6 +33,7 @@ try {
     $newId = contentCreate($pdo, [
         'type' => $srcType,
         'title' => $newTitle,
+        'folder_id' => isset($src['folder_id']) ? (int)$src['folder_id'] : null,
         'body' => ($src['body'] ?? null) !== null ? (string)$src['body'] : null,
         'data_json' => ($src['data_json'] ?? null) !== null ? (string)$src['data_json'] : null,
         'media_url' => ($src['media_url'] ?? null) !== null ? (string)$src['media_url'] : null,

@@ -4,6 +4,20 @@ declare(strict_types=1);
 $userName = (string)($currentUser['full_name'] ?? $currentUser['login'] ?? '');
 $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
 $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очередь');
+$groupedWorkTemplates = $workTemplates;
+usort($groupedWorkTemplates, static function (array $a, array $b): int {
+    $aFolder = trim((string)($a['folder_name'] ?? ''));
+    $bFolder = trim((string)($b['folder_name'] ?? ''));
+    $aEmpty = $aFolder === '';
+    $bEmpty = $bFolder === '';
+    if ($aEmpty !== $bEmpty) {
+        return $aEmpty ? -1 : 1;
+    }
+    if ($aFolder !== $bFolder) {
+        return strcasecmp($aFolder, $bFolder);
+    }
+    return strcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
+});
 ?><!doctype html>
 <html lang="ru">
 <head>
@@ -41,6 +55,12 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
         .itemTitle { margin: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .itemMeta { margin: 4px 0 0; color: #5a6472; font-size: 11px; line-height: 1.35; }
         .emptyState { padding: 12px; color: #5a6472; font-size: 13px; line-height: 1.45; }
+        .folderGroup { border-bottom: 1px solid #e2e8f0; }
+        .folderHead { padding: 7px 10px; font-size: 13px; font-weight: bold; color: #1e3a8a; background: #eaf3ff; border-bottom: 1px solid #cfe3ff; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .folderHead::after { content: '\25BE'; font-size: 11px; color: #64748b; }
+        .folderGroup.collapsed .folderHead::after { content: '\25B8'; }
+        .folderBody { display: block; }
+        .folderGroup.collapsed .folderBody { display: none; }
         .queueDropZone { min-height: 180px; }
         .queueDropZone.isOver { background: #eef5ff; }
         .inspectorEmpty { color: #5a6472; font-size: 13px; line-height: 1.45; }
@@ -97,8 +117,22 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
         <h2>Рабочие шаблоны</h2>
         <p class="panelSub">Перетащите шаблон в очередь или дважды кликните по нему.</p>
         <div id="templatePool" class="list">
-            <?php if (count($workTemplates) > 0): ?>
-                <?php foreach ($workTemplates as $templateRow): ?>
+            <?php if (count($groupedWorkTemplates) > 0): ?>
+                <?php $lastFolderName = null; ?>
+                <?php $groupOpen = false; ?>
+                <?php foreach ($groupedWorkTemplates as $templateRow): ?>
+                    <?php $folderName = trim((string)($templateRow['folder_name'] ?? '')); ?>
+                    <?php $folderLabel = $folderName !== '' ? $folderName : 'Без папки'; ?>
+                    <?php if ($folderLabel !== $lastFolderName): ?>
+                        <?php if ($groupOpen): ?>
+                            </div></div>
+                        <?php endif; ?>
+                        <div class="folderGroup" data-folder-group="1">
+                            <div class="folderHead" data-folder-head="1"><?= h($folderLabel) ?></div>
+                            <div class="folderBody">
+                        <?php $lastFolderName = $folderLabel; ?>
+                        <?php $groupOpen = true; ?>
+                    <?php endif; ?>
                     <div class="item" draggable="true"
                          data-pool-item="1"
                          data-template-id="<?= (int)($templateRow['id'] ?? 0) ?>"
@@ -112,6 +146,9 @@ $selectedQueueName = (string)($activeQueue['name'] ?? 'Основная очер
                         </p>
                     </div>
                 <?php endforeach; ?>
+                <?php if ($groupOpen): ?>
+                    </div></div>
+                <?php endif; ?>
             <?php else: ?>
                 <div class="emptyState">Нет рабочих шаблонов. Сначала переведите нужные шаблоны в статус «рабочий».</div>
             <?php endif; ?>
@@ -582,6 +619,14 @@ el.templatePool.querySelectorAll('[data-pool-item="1"]').forEach((node) => {
         node.classList.remove('dragging');
         state.drag = null;
         clearDropMarks();
+    });
+});
+
+el.templatePool.querySelectorAll('[data-folder-head="1"]').forEach((node) => {
+    node.addEventListener('click', () => {
+        const group = node.closest('[data-folder-group="1"]');
+        if (!group) return;
+        group.classList.toggle('collapsed');
     });
 });
 

@@ -67,6 +67,12 @@ declare(strict_types=1);
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .folderGroup { border-bottom: 1px solid #e2e8f0; }
+        .folderHead { padding: 7px 10px; font-size: 13px; font-weight: bold; color: #1e3a8a; background: #eaf3ff; border-bottom: 1px solid #cfe3ff; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .folderHead::after { content: '\25B8'; font-size: 11px; color: #64748b; }
+        .folderGroup.open .folderHead::after { content: '\25BE'; }
+        .folderBody { display: none; }
+        .folderGroup.open .folderBody { display: block; }
         .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .statusBadge.statusDraft { color: #92400e; background: #fef3c7; border-color: #fcd34d; }
         .statusBadge.statusWork { color: #166534; background: #dcfce7; border-color: #86efac; }
@@ -78,6 +84,14 @@ declare(strict_types=1);
         button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; }
         button.secondary { border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        .listFilter { margin-bottom: 8px; }
+        #templateFolderFilter, #tplFolder { font-size: 13px; }
+        .folderFilterRow { display: flex; align-items: center; gap: 8px; }
+        .folderFilterRow select { flex: 1; min-width: 0; }
+        .folderFilterRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .folderRow { display: flex !important; align-items: center; gap: 8px; }
+        .folderRow select { flex: 1; min-width: 0; }
+        .folderRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
         .toolbarSelect { min-width: 220px; max-width: 320px; }
         .stagePanel { position: relative; }
         .stagePanel .stageToolbar { width: min(960px, 100%); margin-left: auto; margin-right: auto; justify-content: center; align-items: center; position: relative; }
@@ -199,6 +213,13 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&#x1F5D1;</button>
             <button class="secondary" id="ownerTemplateFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
         </div>
+        <div class="listFilter">
+            <label for="templateFolderFilter">Папка шаблонов</label>
+            <div class="row folderFilterRow">
+                <select id="templateFolderFilter"></select>
+                <button type="button" id="newTplFolderBtn">+</button>
+            </div>
+        </div>
         <div id="templateList" class="list"></div>
     </section>
 
@@ -234,6 +255,9 @@ declare(strict_types=1);
             <div class="foldBody meta">
                 <label>Название <input id="tplName" type="text" value="Новый шаблон"></label>
                 <label>Описание <input id="tplDesc" type="text" value=""></label>
+                <label>Папка
+                    <select id="tplFolder"></select>
+                </label>
                 <label>Статус
                     <select id="tplStatus">
                         <option value="draft">черновик</option>
@@ -456,6 +480,17 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+<div class="modalBack" id="templateFolderModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="templateFolderTitle">
+        <h3 id="templateFolderTitle">Новая папка шаблонов</h3>
+        <label for="templateFolderNameInput">Название</label>
+        <input id="templateFolderNameInput" type="text" maxlength="150" value="">
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="templateFolderCancelBtn">Отмена</button>
+            <button type="button" id="templateFolderCreateBtn">Создать</button>
+        </div>
+    </div>
+</div>
 
 <script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)(@filemtime(__DIR__ . '/../../public/schedule_renderer.js') ?: ($projectVersion ?? '0.0.0-dev'))) ?>"></script>
 <script>
@@ -463,6 +498,7 @@ const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'r
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const state = {
   templates: [],
+  templateFolders: [],
   contents: [],
   currentTemplateId: null,
   currentOwnerId: 0,
@@ -479,7 +515,9 @@ const state = {
   bgGallery: [],
   bgGallerySelectedUrl: '',
   bgGallerySelectedName: '',
-  bgGalleryTarget: ''
+  bgGalleryTarget: '',
+  listFolderFilter: '',
+  openTemplateFolders: {}
 };
 const pointer = { mode: null, index: -1, dir: '', startClientX: 0, startClientY: 0, startX: 0, startY: 0, startW: 0, startH: 0 };
 const SNAP_PX = 8;
@@ -493,6 +531,13 @@ const el = {
   status: document.getElementById('status'),
   tplName: document.getElementById('tplName'),
   tplDesc: document.getElementById('tplDesc'),
+  tplFolder: document.getElementById('tplFolder'),
+  newTplFolderBtn: document.getElementById('newTplFolderBtn'),
+  templateFolderFilter: document.getElementById('templateFolderFilter'),
+  templateFolderModal: document.getElementById('templateFolderModal'),
+  templateFolderNameInput: document.getElementById('templateFolderNameInput'),
+  templateFolderCancelBtn: document.getElementById('templateFolderCancelBtn'),
+  templateFolderCreateBtn: document.getElementById('templateFolderCreateBtn'),
   tplStatus: document.getElementById('tplStatus'),
   screenBgMode: document.getElementById('screenBgMode'),
   screenBgColor: document.getElementById('screenBgColor'),
@@ -543,6 +588,14 @@ function setStatus(msg, isErr = false) {
   }
   el.status.textContent = text;
   el.status.className = 'status show ' + (isErr ? 'error' : 'success');
+}
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 function setSaveButtonDisabled(disabled) {
   const btn = document.getElementById('saveTemplateBtn');
@@ -1133,7 +1186,41 @@ function renderContentOptionsForBlock(block) {
 
 function renderTemplateList() {
   el.templateList.innerHTML = '';
-  for (const tpl of state.templates) {
+  const rows = state.templates.filter((tpl) => {
+    if (state.listFolderFilter === '__none__') {
+      return Number(tpl.folder_id || 0) <= 0;
+    }
+    if (state.listFolderFilter) {
+      return String(tpl.folder_id || '') === String(state.listFolderFilter);
+    }
+    return true;
+  });
+  const groups = new Map();
+  for (const tpl of rows) {
+    const folderLabel = String(tpl.folder_name || '').trim() || 'Без папки';
+    if (!groups.has(folderLabel)) groups.set(folderLabel, []);
+    groups.get(folderLabel).push(tpl);
+  }
+
+  for (const [folderLabel, items] of groups.entries()) {
+    const group = document.createElement('div');
+    group.className = 'folderGroup';
+    if (state.openTemplateFolders[folderLabel]) {
+      group.classList.add('open');
+    }
+    const head = document.createElement('div');
+    head.className = 'folderHead';
+    head.textContent = folderLabel;
+    const body = document.createElement('div');
+    body.className = 'folderBody';
+    head.onclick = () => {
+      group.classList.toggle('open');
+      state.openTemplateFolders[folderLabel] = group.classList.contains('open');
+    };
+    group.appendChild(head);
+    group.appendChild(body);
+
+    for (const tpl of items) {
     const rawStatus = String(tpl.status || '');
     const normalized = rawStatus === 'active' ? 'work' : (rawStatus === 'archived' ? 'archive' : rawStatus);
     const statusLabel = normalized === 'draft' ? 'черновик' : (normalized === 'work' ? 'рабочий' : (normalized === 'archive' ? 'архив' : normalized));
@@ -1161,8 +1248,27 @@ function renderTemplateList() {
     d.appendChild(wrap);
     d.appendChild(meta);
     d.onclick = () => loadTemplate(tpl.id);
-    el.templateList.appendChild(d);
+    body.appendChild(d);
+    }
+    el.templateList.appendChild(group);
   }
+}
+function renderTemplateFolderOptions() {
+  const listOptions = ['<option value="">Все папки</option>', '<option value="__none__">Без папки</option>'];
+  const editOptions = ['<option value="0">Без папки</option>'];
+  for (const folder of state.templateFolders) {
+    const id = Number(folder.id || 0);
+    if (id <= 0) continue;
+    const name = String(folder.name || '').trim() || ('Папка #' + id);
+    const selectedList = String(state.listFolderFilter) === String(id) ? ' selected' : '';
+    listOptions.push(`<option value="${id}"${selectedList}>${escapeHtml(name)}</option>`);
+    editOptions.push(`<option value="${id}">${escapeHtml(name)}</option>`);
+  }
+  if (state.listFolderFilter === '__none__') {
+    listOptions[1] = '<option value="__none__" selected>Без папки</option>';
+  }
+  if (el.templateFolderFilter) el.templateFolderFilter.innerHTML = listOptions.join('');
+  if (el.tplFolder) el.tplFolder.innerHTML = editOptions.join('');
 }
 function renderStageBlockSelect() {
   if (!el.stageBlockSelect) return;
@@ -1521,6 +1627,7 @@ function fillTemplateMeta(tpl) {
   const normalized = rawStatus === 'active' ? 'work' : (rawStatus === 'archived' ? 'archive' : rawStatus);
   el.tplName.value = tpl?.name || 'Новый шаблон';
   el.tplDesc.value = tpl?.description || '';
+  if (el.tplFolder) el.tplFolder.value = String(Number(tpl?.folder_id || 0));
   el.tplStatus.value = normalized;
   const layout = parseJsonObject(tpl?.layout_json);
   state.screen_style = normalizeScreenStyle(layout?.screen_style || {});
@@ -1541,7 +1648,7 @@ function fillBlockEditor() {
   const b = currentBlock();
   if (!b) {
     el.bX.value = ''; el.bY.value = ''; el.bW.value = ''; el.bH.value = ''; el.bZ.value = '';
-    el.bMode.value = 'fixed'; el.bType.value = 'image';
+    el.bMode.value = 'empty'; el.bType.value = 'image';
     const emptyBg = normalizeBlockBackground({});
     el.bBgMode.value = emptyBg.background_mode;
     el.bBgColor.value = emptyBg.background_color;
@@ -1947,6 +2054,32 @@ async function reloadTemplateList() {
   }
   catch (e) { setStatus(String(e.message || e), true); }
 }
+async function reloadTemplateFolders() {
+  const rows = await apiGet('/api/template_folder_list.php');
+  state.templateFolders = Array.isArray(rows) ? rows : [];
+  renderTemplateFolderOptions();
+}
+async function createTemplateFolder() {
+  const name = String(el.templateFolderNameInput?.value || '').trim();
+  if (!name) return;
+  const d = await apiPost('/api/template_folder_create.php', { name });
+  const folderId = Number(d.folder_id || 0);
+  await reloadTemplateFolders();
+  if (folderId > 0 && el.tplFolder) {
+    el.tplFolder.value = String(folderId);
+  }
+  closeTemplateFolderModal();
+}
+function openTemplateFolderModal() {
+  if (!el.templateFolderModal) return;
+  if (el.templateFolderNameInput) el.templateFolderNameInput.value = '';
+  el.templateFolderModal.classList.add('open');
+  if (el.templateFolderNameInput) el.templateFolderNameInput.focus();
+}
+function closeTemplateFolderModal() {
+  if (!el.templateFolderModal) return;
+  el.templateFolderModal.classList.remove('open');
+}
 async function reloadContentList() {
   try {
     state.contents = await apiGet('/api/content_list.php?active=1');
@@ -2006,7 +2139,7 @@ function newTemplate() {
     w_pct: 100,
     h_pct: 100,
     z_index: 1,
-    content_mode: 'fixed',
+    content_mode: 'empty',
     content_type: 'image',
     content_id: null,
     background_mode: 'none',
@@ -2040,6 +2173,7 @@ function resetTemplateEditor() {
   state.selectedBlockIndex = -1;
   el.tplName.value = '';
   el.tplDesc.value = '';
+  if (el.tplFolder) el.tplFolder.value = '0';
   el.tplStatus.value = 'draft';
   state.screen_style = normalizeScreenStyle({});
   el.screenBgMode.value = state.screen_style.mode;
@@ -2084,6 +2218,7 @@ async function saveTemplate() {
       template_id: state.currentTemplateId || 0,
       name: el.tplName.value || '',
       description: el.tplDesc.value || '',
+      folder_id: Number(el.tplFolder?.value || 0),
       status: el.tplStatus.value || 'draft',
       blocks_json: JSON.stringify(state.blocks),
       screen_style_json: JSON.stringify(state.screen_style)
@@ -2151,6 +2286,38 @@ async function confirmDuplicateTemplate() {
 }
 
 document.getElementById('reloadListBtn').onclick = reloadTemplateList;
+if (el.templateFolderFilter) {
+  el.templateFolderFilter.onchange = () => {
+    state.listFolderFilter = String(el.templateFolderFilter.value || '');
+    renderTemplateList();
+  };
+}
+if (el.newTplFolderBtn) {
+  el.newTplFolderBtn.onclick = () => {
+    openTemplateFolderModal();
+  };
+}
+if (el.templateFolderCancelBtn) el.templateFolderCancelBtn.onclick = closeTemplateFolderModal;
+if (el.templateFolderCreateBtn) {
+  el.templateFolderCreateBtn.onclick = async () => {
+    try {
+      await createTemplateFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  };
+}
+if (el.templateFolderNameInput) {
+  el.templateFolderNameInput.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    try {
+      await createTemplateFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  });
+}
 document.getElementById('ownerTemplateFilterBtn').onclick = async () => {
   state.ownerOnly = !state.ownerOnly;
   updateOwnerTemplateFilterButton();
@@ -2183,7 +2350,7 @@ document.getElementById('addBlockBtn').onclick = () => {
     w_pct: 30,
     h_pct: 30,
     z_index: i,
-    content_mode: 'fixed',
+    content_mode: 'empty',
     content_type: 'image',
     content_id: null,
     background_mode: 'none',
@@ -2343,6 +2510,11 @@ if (deleteImageModal) {
     if (event.target && event.target.id === 'deleteImageModal') closeDeleteImageModal();
   };
 }
+if (el.templateFolderModal) {
+  el.templateFolderModal.onclick = (event) => {
+    if (event.target && event.target.id === 'templateFolderModal') closeTemplateFolderModal();
+  };
+}
 el.bType.addEventListener('change', () => {
   const b = currentBlock();
   if (!b) return;
@@ -2363,6 +2535,7 @@ el.bType.addEventListener('change', () => {
   updateOwnerTemplateFilterButton();
   if (stageToolbar && el.status) stageToolbar.appendChild(el.status);
   await reloadContentList();
+  await reloadTemplateFolders();
   await reloadTemplateList();
   resetTemplateEditor();
 })();

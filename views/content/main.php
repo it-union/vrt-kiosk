@@ -25,6 +25,14 @@ declare(strict_types=1);
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .listFilter { margin-bottom: 8px; }
         #contentTypeFilter { font-size: 13px; }
+        #contentFolderFilter, #cFolder { font-size: 13px; }
+        .folderFilterRow { display: flex; align-items: center; gap: 8px; }
+        .folderFilterRow select { flex: 1; min-width: 0; }
+        .folderFilterRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .inspectorPanel #editorControls .folderRow { display: flex; align-items: center; gap: 8px; margin: 0; }
+        .inspectorPanel #editorControls .folderRow > * { flex: 0 0 auto; }
+        .inspectorPanel #editorControls .folderRow select { flex: 1 1 auto; min-width: 0; }
+        .inspectorPanel #editorControls .folderRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
         .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 10px; }
         .item { padding: 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
         .item:hover { background: #f8fafc; }
@@ -35,6 +43,12 @@ declare(strict_types=1);
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .folderGroup { border-bottom: 1px solid #e2e8f0; }
+        .folderHead { padding: 7px 10px; font-size: 13px; font-weight: bold; color: #1e3a8a; background: #eaf3ff; border-bottom: 1px solid #cfe3ff; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .folderHead::after { content: '\25B8'; font-size: 11px; color: #64748b; }
+        .folderGroup.open .folderHead::after { content: '\25BE'; }
+        .folderBody { display: none; }
+        .folderGroup.open .folderBody { display: block; }
         .statusBadge { display: inline-flex; align-items: center; justify-content: center; min-height: 22px; padding: 0 8px; border-radius: 999px; font-size: 11px; line-height: 1; border: 1px solid transparent; white-space: nowrap; }
         .statusBadge.statusActive { color: #0f5132; background: #d1e7dd; border-color: #badbcc; }
         .statusBadge.statusInactive { color: #475569; background: #e2e8f0; border-color: #cbd5e1; }
@@ -184,6 +198,13 @@ declare(strict_types=1);
                 <option value="schedule">Расписание</option>
             </select>
         </div>
+        <div class="listFilter">
+            <label for="contentFolderFilter">Папка контента</label>
+            <div class="row folderFilterRow">
+                <select id="contentFolderFilter"></select>
+                <button type="button" id="newContentFolderBtn">+</button>
+            </div>
+        </div>
         <div id="list" class="list"></div>
     </section>
 
@@ -222,6 +243,9 @@ declare(strict_types=1);
         <div id="editorControls" style="display:none;">
             <div class="row">
                 <label>Название <input id="cTitle" type="text"></label>
+                <label>Папка
+                    <select id="cFolder"></select>
+                </label>
                 <label>Статус
                     <select id="cActive">
                         <option value="1">Активный</option>
@@ -566,6 +590,17 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+<div class="modalBack" id="contentFolderModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contentFolderTitle">
+        <h3 id="contentFolderTitle">Новая папка контента</h3>
+        <label for="contentFolderNameInput">Название</label>
+        <input id="contentFolderNameInput" type="text" maxlength="150" value="">
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="contentFolderCancelBtn">Отмена</button>
+            <button type="button" id="contentFolderCreateBtn">Создать</button>
+        </div>
+    </div>
+</div>
 
 <script type="module">
 import * as CKEDITOR from '/vendor/ckeditor5/ckeditor5.js';
@@ -578,7 +613,7 @@ window.dispatchEvent(new Event('ckeditor-local-ready'));
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const state = { list: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', ownerOnly: false, saveInProgress: false, scheduleFetchInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true };
+const state = { list: [], contentFolders: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', listFolderFilter: '', ownerOnly: false, saveInProgress: false, scheduleFetchInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true, openContentFolders: {} };
 let selectedLibraryUrl = '';
 let selectedLibraryName = '';
 let imageBaseWidth = 0;
@@ -609,6 +644,13 @@ const el = {
   editorControls: document.getElementById('editorControls'),
   cActive: document.getElementById('cActive'),
   cTitle: document.getElementById('cTitle'),
+  cFolder: document.getElementById('cFolder'),
+  newContentFolderBtn: document.getElementById('newContentFolderBtn'),
+  contentFolderFilter: document.getElementById('contentFolderFilter'),
+  contentFolderModal: document.getElementById('contentFolderModal'),
+  contentFolderNameInput: document.getElementById('contentFolderNameInput'),
+  contentFolderCancelBtn: document.getElementById('contentFolderCancelBtn'),
+  contentFolderCreateBtn: document.getElementById('contentFolderCreateBtn'),
   cAnimation: document.getElementById('cAnimation'),
   cMediaUrl: document.getElementById('cMediaUrl'),
   cTextBody: document.getElementById('cTextBody'),
@@ -1402,6 +1444,14 @@ function escapeHtmlAttr(value) {
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 function getCkeditorApi() {
   return new Promise((resolve, reject) => {
@@ -2383,6 +2433,7 @@ function resetEditor() {
   state.currentOwnerId = 0;
   el.cActive.value = '1';
   el.cTitle.value = '';
+  if (el.cFolder) el.cFolder.value = '0';
   el.cAnimation.value = 'none';
   el.cMediaUrl.value = '';
   setHtmlValue('');
@@ -2530,7 +2581,41 @@ function setLibraryUploadState(inProgress, text = '') {
 
 function renderList() {
   el.list.innerHTML = '';
-  for (const row of state.list) {
+  const rows = state.list.filter((row) => {
+    if (state.listFolderFilter === '__none__') {
+      return Number(row.folder_id || 0) <= 0;
+    }
+    if (state.listFolderFilter) {
+      return String(row.folder_id || '') === String(state.listFolderFilter);
+    }
+    return true;
+  });
+  const groups = new Map();
+  for (const row of rows) {
+    const folderLabel = String(row.folder_name || '').trim() || 'Без папки';
+    if (!groups.has(folderLabel)) groups.set(folderLabel, []);
+    groups.get(folderLabel).push(row);
+  }
+
+  for (const [folderLabel, items] of groups.entries()) {
+    const group = document.createElement('div');
+    group.className = 'folderGroup';
+    if (state.openContentFolders[folderLabel]) {
+      group.classList.add('open');
+    }
+    const head = document.createElement('div');
+    head.className = 'folderHead';
+    head.textContent = folderLabel;
+    const body = document.createElement('div');
+    body.className = 'folderBody';
+    head.onclick = () => {
+      group.classList.toggle('open');
+      state.openContentFolders[folderLabel] = group.classList.contains('open');
+    };
+    group.appendChild(head);
+    group.appendChild(body);
+
+    for (const row of items) {
     const d = document.createElement('div');
     const isActive = Number(row.is_active || 0) === 1;
     const foreignOwned = isForeignOwned(row);
@@ -2557,7 +2642,9 @@ function renderList() {
     d.appendChild(wrap);
     d.appendChild(meta);
     d.onclick = () => loadById(row.id);
-    el.list.appendChild(d);
+    body.appendChild(d);
+    }
+    el.list.appendChild(group);
   }
 }
 
@@ -2571,6 +2658,47 @@ async function reloadList() {
   } catch (e) {
     setStatus(String(e.message || e), true);
   }
+}
+function renderContentFolderOptions() {
+  const listOptions = ['<option value="">Все папки</option>', '<option value="__none__">Без папки</option>'];
+  const editOptions = ['<option value="0">Без папки</option>'];
+  for (const folder of state.contentFolders) {
+    const id = Number(folder.id || 0);
+    if (id <= 0) continue;
+    const name = String(folder.name || '').trim() || ('Папка #' + id);
+    const selectedList = String(state.listFolderFilter) === String(id) ? ' selected' : '';
+    listOptions.push(`<option value="${id}"${selectedList}>${escapeHtml(name)}</option>`);
+    editOptions.push(`<option value="${id}">${escapeHtml(name)}</option>`);
+  }
+  if (state.listFolderFilter === '__none__') {
+    listOptions[1] = '<option value="__none__" selected>Без папки</option>';
+  }
+  if (el.contentFolderFilter) el.contentFolderFilter.innerHTML = listOptions.join('');
+  if (el.cFolder) el.cFolder.innerHTML = editOptions.join('');
+}
+async function reloadContentFolders() {
+  const rows = await apiGet('/api/content_folder_list.php');
+  state.contentFolders = Array.isArray(rows) ? rows : [];
+  renderContentFolderOptions();
+}
+async function createContentFolder() {
+  const name = String(el.contentFolderNameInput?.value || '').trim();
+  if (!name) return;
+  const d = await apiPost('/api/content_folder_create.php', { name });
+  const folderId = Number(d.folder_id || 0);
+  await reloadContentFolders();
+  if (folderId > 0 && el.cFolder) el.cFolder.value = String(folderId);
+  closeContentFolderModal();
+}
+function openContentFolderModal() {
+  if (!el.contentFolderModal) return;
+  if (el.contentFolderNameInput) el.contentFolderNameInput.value = '';
+  el.contentFolderModal.classList.add('open');
+  if (el.contentFolderNameInput) el.contentFolderNameInput.focus();
+}
+function closeContentFolderModal() {
+  if (!el.contentFolderModal) return;
+  el.contentFolderModal.classList.remove('open');
 }
 async function reloadLibrary() {
   try {
@@ -2596,6 +2724,7 @@ async function loadById(id) {
     state.currentType = String(row.type || 'image');
     el.cActive.value = String(Number(row.is_active || 0));
     el.cTitle.value = row.title || '';
+    if (el.cFolder) el.cFolder.value = String(Number(row.folder_id || 0));
     el.cMediaUrl.value = row.media_url || '';
     setTextValue(String(row.body || ''));
     setHtmlValue(String(row.body || ''));
@@ -2780,6 +2909,7 @@ async function saveCurrent() {
       content_id: state.currentId || 0,
       type: state.currentType,
       title: el.cTitle.value || '',
+      folder_id: Number(el.cFolder?.value || 0),
       body: state.currentType === 'text' ? getTextValue() : (state.currentType === 'html' ? getHtmlValue() : (state.currentType === 'schedule' ? 'schedule' : '')),
       media_url: (state.currentType === 'image' || state.currentType === 'video' || state.currentType === 'ppt') ? (el.cMediaUrl.value || '') : '',
       data_json: syncDataJson(),
@@ -2884,6 +3014,38 @@ document.getElementById('contentTypeFilter').onchange = async (event) => {
   state.listFilterType = String(event.target && event.target.value ? event.target.value : '');
   await reloadList();
 };
+if (el.contentFolderFilter) {
+  el.contentFolderFilter.onchange = () => {
+    state.listFolderFilter = String(el.contentFolderFilter.value || '');
+    renderList();
+  };
+}
+if (el.newContentFolderBtn) {
+  el.newContentFolderBtn.onclick = () => {
+    openContentFolderModal();
+  };
+}
+if (el.contentFolderCancelBtn) el.contentFolderCancelBtn.onclick = closeContentFolderModal;
+if (el.contentFolderCreateBtn) {
+  el.contentFolderCreateBtn.onclick = async () => {
+    try {
+      await createContentFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  };
+}
+if (el.contentFolderNameInput) {
+  el.contentFolderNameInput.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    try {
+      await createContentFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  });
+}
 document.getElementById('reloadLibraryBtn').onclick = reloadLibrary;
 document.getElementById('saveBtn').onclick = saveCurrent;
 document.getElementById('deleteBtn').onclick = deleteCurrent;
@@ -2941,6 +3103,11 @@ document.getElementById('deleteContentModal').onclick = (event) => {
 document.getElementById('duplicateContentModal').onclick = (event) => {
   if (event.target && event.target.id === 'duplicateContentModal') closeDuplicateContentModal();
 };
+if (el.contentFolderModal) {
+  el.contentFolderModal.onclick = (event) => {
+    if (event.target && event.target.id === 'contentFolderModal') closeContentFolderModal();
+  };
+}
 document.getElementById('newTypeCancelBtn').onclick = closeNewTypeModal;
 document.getElementById('newTypeCreateBtn').onclick = () => {
   const run = async () => {
@@ -3062,6 +3229,7 @@ if (el.cTextBody) {
   removeLegacyContentMotionControls();
   populateScheduleThemeOptions();
   await reloadDoctors();
+  await reloadContentFolders();
   normalizeInspectorTexts();
   updateOwnerFilterButton();
   resetEditor();

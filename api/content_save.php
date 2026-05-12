@@ -19,6 +19,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 $id = isset($_POST['content_id']) ? (int)$_POST['content_id'] : 0;
 $type = trim((string)($_POST['type'] ?? 'image'));
 $title = trim((string)($_POST['title'] ?? ''));
+$folderId = isset($_POST['folder_id']) ? (int)$_POST['folder_id'] : 0;
 $body = trim((string)($_POST['body'] ?? ''));
 $mediaUrl = trim((string)($_POST['media_url'] ?? ''));
 $dataJson = trim((string)($_POST['data_json'] ?? ''));
@@ -141,6 +142,7 @@ $toSqlDateTime = static function (string $v): ?string {
 $payload = [
     'type' => $type,
     'title' => $title,
+    'folder_id' => $folderId > 0 ? $folderId : null,
     'body' => $body !== '' ? $body : null,
     'data_json' => $dataJsonValue,
     'media_url' => $mediaUrl !== '' ? $mediaUrl : null,

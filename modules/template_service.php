@@ -222,7 +222,7 @@ function buildLayoutJson(array $blocks, ?array $screenStyle): string
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
-function saveTemplate(PDO $pdo, int $id, string $name, string $description, string $status, array $blocks, ?array $screenStyle = null, ?int $actorUserId = null): int
+function saveTemplate(PDO $pdo, int $id, string $name, string $description, string $status, array $blocks, ?array $screenStyle = null, ?int $actorUserId = null, ?int $folderId = null): int
 {
     $normalizedBlocks = normalizeTemplateBlocks($blocks);
     $layoutJson = buildLayoutJson($normalizedBlocks, $screenStyle);
@@ -230,13 +230,13 @@ function saveTemplate(PDO $pdo, int $id, string $name, string $description, stri
     $pdo->beginTransaction();
     try {
         if ($id > 0) {
-            $ok = templateUpdate($pdo, $id, $name, $description, $layoutJson, $status, $actorUserId);
+            $ok = templateUpdate($pdo, $id, $name, $description, $layoutJson, $status, $actorUserId, $folderId);
             if (!$ok) {
                 throw new RuntimeException('template_not_found');
             }
             $templateId = $id;
         } else {
-            $templateId = templateCreate($pdo, $name, $description, $layoutJson, $status, $actorUserId);
+            $templateId = templateCreate($pdo, $name, $description, $layoutJson, $status, $actorUserId, $folderId);
         }
 
         templateDeleteBlocks($pdo, $templateId);
@@ -322,5 +322,6 @@ function duplicateTemplate(PDO $pdo, int $templateId, ?int $actorUserId = null):
         ? $layout['screen_style']
         : null;
 
-    return saveTemplate($pdo, 0, $newName, $description, 'draft', $blocks, $screenStyle, $actorUserId);
+    $folderId = isset($source['folder_id']) ? (int)$source['folder_id'] : 0;
+    return saveTemplate($pdo, 0, $newName, $description, 'draft', $blocks, $screenStyle, $actorUserId, $folderId > 0 ? $folderId : null);
 }
