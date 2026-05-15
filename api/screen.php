@@ -21,6 +21,7 @@ try {
     $payload = getScreenPayload($pdo, $screenId);
     $kioskDisplaySettings = appSettingsGetKioskDisplay($pdo);
     $payload['client_media_cache_enabled'] = (int)($kioskDisplaySettings['client_media_cache_enabled'] ?? 1) === 1 ? 1 : 0;
+    $payload['show_resolution_overlay'] = (int)($kioskDisplaySettings['show_resolution_overlay'] ?? 0) === 1 ? 1 : 0;
     $payload['device_key'] = $deviceKey;
     jsonResponse(['ok' => true, 'data' => $payload]);
 } catch (Throwable $e) {
@@ -31,6 +32,7 @@ try {
             'device_key' => $deviceKey,
             'source' => 'fallback',
             'client_media_cache_enabled' => 1,
+            'show_resolution_overlay' => 0,
             'kiosk_status' => [
                 'last_seen_at' => null,
                 'age_sec' => null,

@@ -355,15 +355,15 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                 <div class="settingsGrid">
                     <label>
                         Ширина, px
-                        <input id="kioskWidthPx" type="number" min="640" max="7680" step="1" value="<?= (int)($kioskDisplaySettings['kiosk_width_px'] ?? 1920) ?>">
+                        <input id="kioskWidthPx" type="number" min="640" max="7680" step="1" value="<?= (int)($kioskDisplaySettings['kiosk_width_px'] ?? 1920) ?>" disabled>
                     </label>
                     <label>
                         Высота, px
-                        <input id="kioskHeightPx" type="number" min="360" max="4320" step="1" value="<?= (int)($kioskDisplaySettings['kiosk_height_px'] ?? 1080) ?>">
+                        <input id="kioskHeightPx" type="number" min="360" max="4320" step="1" value="<?= (int)($kioskDisplaySettings['kiosk_height_px'] ?? 1080) ?>" disabled>
                     </label>
                     <label>
                         HTML tune, %
-                        <input id="htmlTemplatePreviewTunePct" type="number" min="25" max="400" step="1" value="<?= (int)($kioskDisplaySettings['html_template_preview_tune_pct'] ?? 100) ?>">
+                        <input id="htmlTemplatePreviewTunePct" type="number" min="25" max="400" step="1" value="<?= (int)($kioskDisplaySettings['html_template_preview_tune_pct'] ?? 100) ?>" disabled>
                     </label>
                     <label>
                         Кеширование на стороне клиента
@@ -372,11 +372,19 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                             <option value="0" <?= ((int)($kioskDisplaySettings['client_media_cache_enabled'] ?? 1) === 0) ? 'selected' : '' ?>>Выкл</option>
                         </select>
                     </label>
+                    <label>
+                        Оверлей: разрешение экрана
+                        <select id="showResolutionOverlay">
+                            <option value="1" <?= ((int)($kioskDisplaySettings['show_resolution_overlay'] ?? 0) === 1) ? 'selected' : '' ?>>Вкл</option>
+                            <option value="0" <?= ((int)($kioskDisplaySettings['show_resolution_overlay'] ?? 0) === 0) ? 'selected' : '' ?>>Выкл</option>
+                        </select>
+                    </label>
                 </div>
                 <div class="settingsActions">
                     <button id="saveKioskSettingsBtn" class="btnGhost" type="button">Сохранить</button>
                     <div id="kioskSettingsStatus" class="statusText"></div>
                 </div>
+                <div class="statusText" style="margin-top:10px;font-size:11px;">Примечание: ширина/высота экрана и HTML tune пока не используются в рендере.</div>
             </div>
 
             <div id="tabDoctors" class="tabPane">
@@ -393,8 +401,8 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
                     <label>
                         Статус
                         <select id="doctorIsActive">
-                            <option value="1">Активный</option>
-                            <option value="0">Неактивный</option>
+                            <option value="1">Вкл</option>
+                            <option value="0">Выкл</option>
                         </select>
                     </label>
                 </div>
@@ -445,6 +453,7 @@ const kioskWidthPxInput = document.getElementById('kioskWidthPx');
 const kioskHeightPxInput = document.getElementById('kioskHeightPx');
 const htmlTemplatePreviewTunePctInput = document.getElementById('htmlTemplatePreviewTunePct');
 const clientMediaCacheEnabledInput = document.getElementById('clientMediaCacheEnabled');
+const showResolutionOverlayInput = document.getElementById('showResolutionOverlay');
 const saveKioskSettingsBtn = document.getElementById('saveKioskSettingsBtn');
 const kioskSettingsStatus = document.getElementById('kioskSettingsStatus');
 
@@ -488,6 +497,7 @@ function applyKioskSettingsInputs(settings) {
     if (kioskHeightPxInput) kioskHeightPxInput.value = String(settings.kiosk_height_px || 1080);
     if (htmlTemplatePreviewTunePctInput) htmlTemplatePreviewTunePctInput.value = String(settings.html_template_preview_tune_pct || 100);
     if (clientMediaCacheEnabledInput) clientMediaCacheEnabledInput.value = String(Number(settings.client_media_cache_enabled || 0) === 1 ? 1 : 0);
+    if (showResolutionOverlayInput) showResolutionOverlayInput.value = String(Number(settings.show_resolution_overlay || 0) === 1 ? 1 : 0);
 }
 
 function doctorResetForm() {
@@ -542,7 +552,7 @@ async function fetchJson(url, options) {
 }
 
 async function saveKioskSettings() {
-    if (!kioskWidthPxInput || !kioskHeightPxInput || !htmlTemplatePreviewTunePctInput || !clientMediaCacheEnabledInput || !saveKioskSettingsBtn) return;
+    if (!kioskWidthPxInput || !kioskHeightPxInput || !htmlTemplatePreviewTunePctInput || !clientMediaCacheEnabledInput || !showResolutionOverlayInput || !saveKioskSettingsBtn) return;
     saveKioskSettingsBtn.disabled = true;
     setKioskSettingsStatus('Сохранение...', false);
     try {
@@ -551,6 +561,7 @@ async function saveKioskSettings() {
         body.set('kiosk_height_px', String(kioskHeightPxInput.value || '1080'));
         body.set('html_template_preview_tune_pct', String(htmlTemplatePreviewTunePctInput.value || '100'));
         body.set('client_media_cache_enabled', String(clientMediaCacheEnabledInput.value === '0' ? '0' : '1'));
+        body.set('show_resolution_overlay', String(showResolutionOverlayInput.value === '1' ? '1' : '0'));
         const data = await fetchJson('/api/app_settings_save.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

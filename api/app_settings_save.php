@@ -18,6 +18,7 @@ try {
         'kiosk_height_px' => (int)($_POST['kiosk_height_px'] ?? 1080),
         'html_template_preview_tune_pct' => (int)($_POST['html_template_preview_tune_pct'] ?? 100),
         'client_media_cache_enabled' => (int)($_POST['client_media_cache_enabled'] ?? 1),
+        'show_resolution_overlay' => (int)($_POST['show_resolution_overlay'] ?? 0),
     ]);
     jsonResponse(['ok' => true, 'data' => $settings]);
 } catch (Throwable $e) {

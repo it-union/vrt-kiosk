@@ -7,7 +7,7 @@ declare(strict_types=1);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($pageTitle) ?></title>
     <style>
-        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #ffffff; color: #1a1a1a; }
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Tahoma, sans-serif; background: #ffffff; color: #1a1a1a; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
         #stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
         .screenLayer { position: absolute; inset: 0; }
         .block { position: absolute; box-sizing: border-box; overflow: hidden; padding: 0; }
@@ -66,6 +66,7 @@ const mediaResolveCache = new Map();
 const mediaWarmCacheTasks = new Map();
 const activeObjectUrls = [];
 let clientMediaCacheEnabled = true;
+let showResolutionOverlay = false;
 let screenTransitionClipCounter = 0;
 let heartbeatTimer = null;
 let heartbeatSource = '';
@@ -74,6 +75,41 @@ const IS_PREVIEW_MODE = new URL(window.location.href).searchParams.get('preview'
 const PREVIEW_TEXT_BASE_WIDTH_PX = 1920;
 const previewVideoPositions = new Map();
 const PREVIEW_VIDEO_STORAGE_KEY = 'kiosk_preview_video_positions_v1';
+
+function getCurrentScreenResolutionText() {
+    const width = Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || 1));
+    const height = Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || 1));
+    return width + 'x' + height;
+}
+function removeResolutionOverlay() {
+    const node = document.getElementById('resolutionOverlay');
+    if (node) node.remove();
+}
+function updateResolutionOverlay() {
+    const node = document.getElementById('resolutionOverlay');
+    if (!node) return;
+    node.textContent = 'Разрешение: ' + getCurrentScreenResolutionText();
+}
+function renderResolutionOverlay() {
+    removeResolutionOverlay();
+    if (!showResolutionOverlay) return;
+    const node = document.createElement('div');
+    node.id = 'resolutionOverlay';
+    node.style.position = 'absolute';
+    node.style.right = '12px';
+    node.style.bottom = '12px';
+    node.style.zIndex = '99999';
+    node.style.padding = '6px 8px';
+    node.style.borderRadius = '6px';
+    node.style.background = 'rgba(15,23,42,0.72)';
+    node.style.color = '#e2e8f0';
+    node.style.fontFamily = 'Tahoma, sans-serif';
+    node.style.fontSize = '14px';
+    node.style.lineHeight = '1.2';
+    node.style.pointerEvents = 'none';
+    node.textContent = 'Разрешение: ' + getCurrentScreenResolutionText();
+    stage.appendChild(node);
+}
 
 function loadPreviewVideoPositionsFromStorage() {
     if (!IS_PREVIEW_MODE) return;
@@ -1459,6 +1495,7 @@ function renderFallbackScreen() {
         ? fallbackScreenTemplate.content.firstElementChild.cloneNode(true)
         : document.createElement('div');
     stage.appendChild(node);
+    renderResolutionOverlay();
 }
 
 async function buildScreenLayer(blocks, runtime, screenStyle) {
@@ -1480,6 +1517,7 @@ async function loadScreen() {
 
         const data = payload.data || {};
         clientMediaCacheEnabled = Number(data.client_media_cache_enabled || 0) === 1;
+        showResolutionOverlay = Number(data.show_resolution_overlay || 0) === 1;
         heartbeatSource = String(data.source || '');
         heartbeatTemplateId = Number(data?.template?.id || 0);
         const blocks = Array.isArray(data.blocks) ? data.blocks : [];
@@ -1503,11 +1541,13 @@ async function loadScreen() {
         const signature = JSON.stringify({
             source: data.source || '',
             template: data.template || null,
+            show_resolution_overlay: showResolutionOverlay ? 1 : 0,
             screen_style: screenStyle,
             blocks: blocks
         });
 
         if (signature === lastScreenSignature) {
+            renderResolutionOverlay();
             return;
         }
         lastScreenSignature = signature;
@@ -1526,6 +1566,7 @@ async function loadScreen() {
         const nextLayer = await buildScreenLayer(blocks, runtime, screenStyle);
         stage.innerHTML = '';
         stage.appendChild(nextLayer);
+        renderResolutionOverlay();
 
         if (transition.name === 'squares') {
             runSquaresTransition(nextLayer, transition.ms, screenStyle.transition_squares_px, null);
@@ -1558,6 +1599,7 @@ async function loadScreen() {
         block.appendChild(p);
 
         stage.appendChild(block);
+        renderResolutionOverlay();
     }
 }
 
@@ -1586,6 +1628,7 @@ async function sendHeartbeat() {
 loadPreviewVideoPositionsFromStorage();
 loadScreen();
 setInterval(loadScreen, 5000);
+window.addEventListener('resize', updateResolutionOverlay);
 if (!IS_PREVIEW_MODE) {
     sendHeartbeat();
     heartbeatTimer = setInterval(sendHeartbeat, 5000);

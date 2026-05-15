@@ -30,6 +30,7 @@ function normalizeKioskDisplaySettings(?array $raw): array
         'kiosk_height_px' => max(360, min(4320, (int)($src['kiosk_height_px'] ?? 1080))),
         'html_template_preview_tune_pct' => max(25, min(400, (int)($src['html_template_preview_tune_pct'] ?? 100))),
         'client_media_cache_enabled' => ((int)($src['client_media_cache_enabled'] ?? 1)) === 1 ? 1 : 0,
+        'show_resolution_overlay' => ((int)($src['show_resolution_overlay'] ?? 0)) === 1 ? 1 : 0,
     ];
 }
 
