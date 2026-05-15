@@ -39,7 +39,7 @@ declare(strict_types=1);
         .panel {
             background: rgba(255,255,255,0.88);
             border: 1px solid var(--line);
-            border-radius: 16px;
+            border-radius: 10px;
             padding: 28px;
             box-shadow: 0 18px 42px rgba(20, 32, 51, 0.10);
         }

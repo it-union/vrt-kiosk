@@ -86,7 +86,7 @@ declare(strict_types=1);
         .panel {
             background: var(--panel);
             border: 1px solid var(--line);
-            border-radius: 16px;
+            border-radius: 10px;
             overflow: hidden;
         }
         .panelHead {
@@ -173,13 +173,21 @@ declare(strict_types=1);
             color: var(--muted);
             font-size: 13px;
         }
-        .field input,
+        .field input {
+            width: 100%;
+            min-height: 38px;
+            padding: 8px 10px;
+            border: 1px solid #b8c3cf;
+            border-radius: 0;
+            font: inherit;
+            background: #fff;
+        }
         .field select {
             width: 100%;
             min-height: 38px;
             padding: 8px 10px;
             border: 1px solid #b8c3cf;
-            border-radius: 10px;
+            border-radius: 0;
             font: inherit;
             background: #fff;
         }

@@ -74,3 +74,69 @@ function folderCreateContent(PDO $pdo, string $name): int
     $stmt->execute([':name' => $name]);
     return (int)$pdo->lastInsertId();
 }
+
+function folderDeleteTemplate(PDO $pdo, int $folderId): void
+{
+    folderEnsureSchema($pdo);
+    if ($folderId <= 0) {
+        throw new InvalidArgumentException('folder_id_required');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $exists = $pdo->prepare("SELECT id FROM template_folders WHERE id = :id LIMIT 1");
+        $exists->execute([':id' => $folderId]);
+        if (!$exists->fetch()) {
+            throw new RuntimeException('folder_not_found');
+        }
+
+        $move = $pdo->prepare("UPDATE templates SET folder_id = NULL WHERE folder_id = :folder_id");
+        $move->execute([':folder_id' => $folderId]);
+
+        $delete = $pdo->prepare("DELETE FROM template_folders WHERE id = :id");
+        $delete->execute([':id' => $folderId]);
+        if ($delete->rowCount() <= 0) {
+            throw new RuntimeException('folder_not_found');
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function folderDeleteContent(PDO $pdo, int $folderId): void
+{
+    folderEnsureSchema($pdo);
+    if ($folderId <= 0) {
+        throw new InvalidArgumentException('folder_id_required');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $exists = $pdo->prepare("SELECT id FROM content_folders WHERE id = :id LIMIT 1");
+        $exists->execute([':id' => $folderId]);
+        if (!$exists->fetch()) {
+            throw new RuntimeException('folder_not_found');
+        }
+
+        $move = $pdo->prepare("UPDATE content_items SET folder_id = NULL WHERE folder_id = :folder_id");
+        $move->execute([':folder_id' => $folderId]);
+
+        $delete = $pdo->prepare("DELETE FROM content_folders WHERE id = :id");
+        $delete->execute([':id' => $folderId]);
+        if ($delete->rowCount() <= 0) {
+            throw new RuntimeException('folder_not_found');
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}

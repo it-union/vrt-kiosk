@@ -68,7 +68,7 @@ declare(strict_types=1);
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #b9c3cf;
-            border-radius: 10px;
+            border-radius: 0;
             font: inherit;
         }
         .notice {

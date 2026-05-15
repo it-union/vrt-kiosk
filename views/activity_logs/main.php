@@ -83,7 +83,7 @@ declare(strict_types=1);
         .panel {
             background: var(--panel);
             border: 1px solid var(--line);
-            border-radius: 16px;
+            border-radius: 10px;
             padding: 18px;
             display: flex;
             flex-direction: column;
@@ -121,7 +121,7 @@ declare(strict_types=1);
         .filters input {
             padding: 8px 10px;
             border: 1px solid #b8c3cf;
-            border-radius: 10px;
+            border-radius: 0;
             font: inherit;
             background: #fff;
         }

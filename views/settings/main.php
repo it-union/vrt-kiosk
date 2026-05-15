@@ -107,7 +107,7 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
         }
         .panel {
             border: 1px solid var(--line);
-            border-radius: 16px;
+            border-radius: 10px;
             background: rgba(255,255,255,0.94);
             overflow: hidden;
             box-shadow: 0 12px 26px rgba(31, 41, 55, 0.06);
@@ -170,13 +170,20 @@ $roleName = authRoleLabel((string)($currentUser['role_code'] ?? ''));
             color: var(--muted);
             font-size: 12px;
         }
-        input,
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid #c8ced6;
+            border-radius: 0;
+            font: inherit;
+        }
         select {
             width: 100%;
             box-sizing: border-box;
             padding: 8px 10px;
             border: 1px solid #c8ced6;
-            border-radius: 10px;
+            border-radius: 0;
             font: inherit;
         }
         .settingsActions,

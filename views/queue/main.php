@@ -18,6 +18,27 @@ usort($groupedWorkTemplates, static function (array $a, array $b): int {
     }
     return strcasecmp((string)($a['name'] ?? ''), (string)($b['name'] ?? ''));
 });
+$templateFolderLabels = ['Без папки'];
+foreach (($templateFolders ?? []) as $folderRow) {
+    $folderId = (int)($folderRow['id'] ?? 0);
+    if ($folderId <= 0) {
+        continue;
+    }
+    $folderName = trim((string)($folderRow['name'] ?? ''));
+    $templateFolderLabels[] = $folderName !== '' ? $folderName : ('Папка #' . $folderId);
+}
+$templateFolderGroups = [];
+foreach ($templateFolderLabels as $folderLabel) {
+    $templateFolderGroups[$folderLabel] = [];
+}
+foreach ($groupedWorkTemplates as $templateRow) {
+    $folderName = trim((string)($templateRow['folder_name'] ?? ''));
+    $folderLabel = $folderName !== '' ? $folderName : 'Без папки';
+    if (!array_key_exists($folderLabel, $templateFolderGroups)) {
+        $templateFolderGroups[$folderLabel] = [];
+    }
+    $templateFolderGroups[$folderLabel][] = $templateRow;
+}
 ?><!doctype html>
 <html lang="ru">
 <head>
@@ -33,7 +54,7 @@ usort($groupedWorkTemplates, static function (array $a, array $b): int {
         .topbar p { margin: 0; color: #cbd5e1; font-size: 13px; }
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 12px; }
-        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
+        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; min-height: 0; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .panelSub { margin: -2px 0 10px; color: #5a6472; font-size: 12px; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
@@ -80,11 +101,15 @@ usort($groupedWorkTemplates, static function (array $a, array $b): int {
         button, a.actionLink, input, select { font: inherit; }
         button, a.actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; text-decoration: none; cursor: pointer; }
         a.actionLink { background: #1d5fbf; color: #fff; }
+        .toolbar button { background: #5f8fcf; color: #fff; border-color: #5f8fcf; border-radius: 7px; }
+        .toolbar button.danger { background: #5f8fcf; color: #fff; border-color: #5f8fcf; }
+        .toolbar button.primary { background: #5f8fcf; color: #fff; border-color: #5f8fcf; }
         button.primary { background: transparent; color: #1d5fbf; }
         button.danger { border-color: #b91c1c; color: #b91c1c; }
         button.iconBtn { width: 34px; height: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         #clearQueueBtn { display: none; }
-        input, select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
+        input { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
+        select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
         .modalBack { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 70; }
         .modalBack.open { display: flex; }
         .modal { width: min(420px, calc(100vw - 24px)); background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22); }
@@ -117,41 +142,31 @@ usort($groupedWorkTemplates, static function (array $a, array $b): int {
         <h2>Рабочие шаблоны</h2>
         <p class="panelSub">Перетащите шаблон в очередь или дважды кликните по нему.</p>
         <div id="templatePool" class="list">
-            <?php if (count($groupedWorkTemplates) > 0): ?>
-                <?php $lastFolderName = null; ?>
-                <?php $groupOpen = false; ?>
-                <?php foreach ($groupedWorkTemplates as $templateRow): ?>
-                    <?php $folderName = trim((string)($templateRow['folder_name'] ?? '')); ?>
-                    <?php $folderLabel = $folderName !== '' ? $folderName : 'Без папки'; ?>
-                    <?php if ($folderLabel !== $lastFolderName): ?>
-                        <?php if ($groupOpen): ?>
-                            </div></div>
+            <?php foreach ($templateFolderGroups as $folderLabel => $folderItems): ?>
+                <div class="folderGroup" data-folder-group="1">
+                    <div class="folderHead" data-folder-head="1"><?= h((string)$folderLabel) ?></div>
+                    <div class="folderBody">
+                        <?php if (count($folderItems) > 0): ?>
+                            <?php foreach ($folderItems as $templateRow): ?>
+                                <div class="item" draggable="true"
+                                     data-pool-item="1"
+                                     data-template-id="<?= (int)($templateRow['id'] ?? 0) ?>"
+                                     data-template-name="<?= h((string)($templateRow['name'] ?? 'Шаблон')) ?>">
+                                    <p class="itemTitle"><?= h((string)($templateRow['name'] ?? 'Шаблон')) ?></p>
+                                    <p class="itemMeta">
+                                        ID: <?= (int)($templateRow['id'] ?? 0) ?>
+                                        <?php if (trim((string)($templateRow['updated_at'] ?? '')) !== ''): ?>
+                                            • Обновлён: <?= h((string)$templateRow['updated_at']) ?>
+                                        <?php endif; ?>
+                                    </p>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="emptyState">В папке пока нет рабочих шаблонов.</div>
                         <?php endif; ?>
-                        <div class="folderGroup" data-folder-group="1">
-                            <div class="folderHead" data-folder-head="1"><?= h($folderLabel) ?></div>
-                            <div class="folderBody">
-                        <?php $lastFolderName = $folderLabel; ?>
-                        <?php $groupOpen = true; ?>
-                    <?php endif; ?>
-                    <div class="item" draggable="true"
-                         data-pool-item="1"
-                         data-template-id="<?= (int)($templateRow['id'] ?? 0) ?>"
-                         data-template-name="<?= h((string)($templateRow['name'] ?? 'Шаблон')) ?>">
-                        <p class="itemTitle"><?= h((string)($templateRow['name'] ?? 'Шаблон')) ?></p>
-                        <p class="itemMeta">
-                            ID: <?= (int)($templateRow['id'] ?? 0) ?>
-                            <?php if (trim((string)($templateRow['updated_at'] ?? '')) !== ''): ?>
-                                • Обновлён: <?= h((string)$templateRow['updated_at']) ?>
-                            <?php endif; ?>
-                        </p>
                     </div>
-                <?php endforeach; ?>
-                <?php if ($groupOpen): ?>
-                    </div></div>
-                <?php endif; ?>
-            <?php else: ?>
-                <div class="emptyState">Нет рабочих шаблонов. Сначала переведите нужные шаблоны в статус «рабочий».</div>
-            <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
         </div>
     </section>
 
@@ -159,10 +174,10 @@ usort($groupedWorkTemplates, static function (array $a, array $b): int {
         <h2>Очередь</h2>
         <div class="queueHeaderBar">
             <div class="toolbar">
-                <button id="createQueueBtn" type="button" class="iconBtn" title="Создать очередь" aria-label="Создать очередь">&#x2795;</button>
-                <button id="deleteQueueBtn" type="button" class="danger iconBtn" title="Удалить очередь" aria-label="Удалить очередь">&#x1F5D1;</button>
-                <button id="saveQueueBtn" type="button" class="primary iconBtn" title="Сохранить очередь" aria-label="Сохранить очередь">&#x1F4BE;</button>
-                <button id="clearQueueBtn" type="button" class="danger iconBtn" title="Очистить очередь" aria-label="Очистить очередь">&#x1F5D1;</button>
+                <button id="createQueueBtn" type="button" class="iconBtn" title="Создать очередь" aria-label="Создать очередь">+</button>
+                <button id="deleteQueueBtn" type="button" class="danger iconBtn" title="Удалить очередь" aria-label="Удалить очередь">&times;</button>
+                <button id="saveQueueBtn" type="button" class="primary iconBtn" title="Сохранить очередь" aria-label="Сохранить очередь">&#x2B73;</button>
+                <button id="clearQueueBtn" type="button" class="danger iconBtn" title="Очистить очередь" aria-label="Очистить очередь">&times;</button>
             </div>
             <div class="queueHeaderBarRight">
                 <select id="queueSelect">

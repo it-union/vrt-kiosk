@@ -16,7 +16,7 @@ declare(strict_types=1);
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d5fbf; background: #1d5fbf; color: #fff; text-decoration: none; cursor: pointer; }
         .wrap { flex: 1; display: grid; grid-template-columns: 280px 1fr 380px; gap: 12px; min-height: 0; }
-        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; }
+        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 10px; padding: 10px; }
         .wrap .panel { display: flex; flex-direction: column; min-height: 0; }
         .editor { overflow: hidden; }
         #inspectorControls { flex: 1; min-height: 0; overflow: auto; }
@@ -41,19 +41,32 @@ declare(strict_types=1);
         .libraryBtn { min-width: 38px; width: 38px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
         .libraryUploadBtn { width: 140px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
         .libraryDeleteBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; border-color: #b91c1c; color: #b91c1c; }
-        .librarySelectBtn { width: 120px; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 10px; }
         .libraryCloseBtn { margin-left: auto; min-width: 34px; width: 34px; height: 30px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
         .uploadProgressWrap { display: none; align-items: center; gap: 8px; margin: 0 0 8px; }
         .uploadProgressTrack { flex: 1; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
         .uploadProgressBar { width: 0%; height: 100%; background: #1d5fbf; transition: width .15s linear; }
         .uploadProgressText { min-width: 44px; text-align: right; font-size: 12px; color: #334155; }
         .libraryGrid { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 8px; max-height: 58vh; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; align-content: start; align-items: start; }
-        .libraryItem { border: 1px solid #d8dee8; border-radius: 10px; padding: 6px; cursor: pointer; background: #f8fafc; align-self: start; }
+        .libraryItem { border: 1px solid #d8dee8; border-radius: 10px; padding: 6px; cursor: pointer; background: #f8fafc; align-self: start; position: relative; }
         .libraryItem.active { border-color: #1d5fbf; box-shadow: 0 0 0 1px #1d5fbf inset; background: #eef5ff; }
         .libraryItem img { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; display: block; background: #e8edf5; }
+        .libraryItem .itemActions { position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s ease; }
+        .libraryItem:hover .itemActions { opacity: 1; }
+        .libraryItem .itemActionBtn { width: 26px; height: 26px; min-width: 26px; min-height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #c8ced6; background: rgba(255,255,255,0.95); color: #334155; cursor: pointer; font-size: 14px; line-height: 1; }
+        .libraryItem .itemActionBtn:hover { background: #eef5ff; border-color: #1d5fbf; }
+        .libraryItem .itemActionBtn.deleteBtn { color: #b91c1c; border-color: #fca5a5; }
+        .libraryItem .itemActionBtn.deleteBtn:hover { background: #fef2f2; }
+        .libraryItem .itemActionBtn.selectBtn { color: #1d5fbf; border-color: #93c5fd; }
+        .libraryItem .itemActionBtn.selectBtn:hover { background: #eff6ff; }
         .libraryName { margin-top: 4px; font-size: 11px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #imageLibraryModal .modal { width: 80vw; height: 80vh; max-width: 80vw; max-height: 80vh; display: flex; flex-direction: column; min-height: 0; }
         #imageLibraryModal .libraryGrid { flex: 1; min-height: 0; max-height: none; overflow: auto; }
+        #bgLibraryViewModal .modal { width: 90vw; height: 90vh; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; min-height: 0; }
+        #bgLibraryViewModal .viewContent { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; background: #0f172a; border-radius: 8px; margin-bottom: 10px; }
+        #bgLibraryViewModal img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; background: #fff; }
+        #bgLibraryViewModal .viewHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        #bgLibraryViewModal .viewTitle { flex: 1; font-size: 14px; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #bgLibraryViewModal .viewCloseBtn { min-width: 34px; width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: auto; }
         .panel h2 { margin: 0 0 10px 0; font-size: 16px; }
         .list { flex: 1; min-height: 0; overflow: auto; border: 1px solid #e0e3e8; border-radius: 10px; }
         .item { padding: 7px 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
@@ -64,6 +77,7 @@ declare(strict_types=1);
         .item.itemArchive { border-left: 4px solid #64748b; opacity: 0.78; }
         .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
         .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
+        .emptyState { padding: 12px; color: #5a6472; font-size: 13px; line-height: 1.45; }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -80,15 +94,20 @@ declare(strict_types=1);
         .hiddenFile { display: none !important; }
         .meta label, .editor label { margin: 6px 0; font-size: 13px; }
         input, select, textarea, button { font: inherit; }
-        input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
+        select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
         button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; }
         button.secondary { border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        .toolbar button { background: #5f8fcf; color: #fff; border-color: #5f8fcf; border-radius: 7px; }
         .listFilter { margin-bottom: 8px; }
+        .listFilter > label { font-size: 13px; }
         #templateFolderFilter, #tplFolder { font-size: 13px; }
         .folderFilterRow { display: flex; align-items: center; gap: 8px; }
-        .folderFilterRow select { flex: 1; min-width: 0; }
-        .folderFilterRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .row.folderFilterRow > * { min-width: 0; }
+        .row.folderFilterRow > select { flex: 4 1 0; width: auto; }
+        .row.folderFilterRow > button { flex: 1 1 0; width: auto; height: 34px; min-height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .row.folderFilterRow > button { background: #5f8fcf; color: #fff; border-color: #5f8fcf; border-radius: 7px; }
         .folderRow { display: flex !important; align-items: center; gap: 8px; }
         .folderRow select { flex: 1; min-width: 0; }
         .folderRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -136,7 +155,7 @@ declare(strict_types=1);
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .row { display: flex; gap: 8px; }
         .row > * { flex: 1; }
-        .canvasWrap { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16/9; border: 2px dashed #b7c1cf; border-radius: 16px; background: #fff; overflow: hidden; user-select: none; }
+        .canvasWrap { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16/9; border: 2px dashed #b7c1cf; border-radius: 4px; background: #fff; overflow: hidden; user-select: none; }
         .block { position: absolute; border: 1px solid #2672d6; box-sizing: border-box; padding: 4px; cursor: move; user-select: none; }
         .block.selected { border-color: #1d5fbf; box-shadow: 0 0 0 2px rgba(29,95,191,0.35) inset; }
         .block .title { font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.75); display: inline-block; padding: 2px 4px; border-radius: 4px; position: relative; z-index: 2; }
@@ -207,10 +226,10 @@ declare(strict_types=1);
         <h2>Список шаблонов</h2>
         <div class="toolbar">
             <button class="iconBtn secondary" id="reloadListBtn" type="button" title="Обновить список" aria-label="Обновить список">&#x21bb;</button>
-            <button class="iconBtn" id="newTemplateBtn" type="button" title="Новый шаблон" aria-label="Новый шаблон">&#x2795;</button>
+            <button class="iconBtn" id="newTemplateBtn" type="button" title="Новый шаблон" aria-label="Новый шаблон">+</button>
             <button class="iconBtn secondary" id="duplicateTemplateBtn" type="button" title="Дублировать шаблон" aria-label="Дублировать шаблон">&#x29C9;</button>
-            <button class="iconBtn secondary" id="previewTemplateBtn" type="button" title="Предпросмотр шаблона" aria-label="Предпросмотр шаблона">&#x1F441;</button>
-            <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&#x1F5D1;</button>
+            <button class="iconBtn secondary" id="previewTemplateBtn" type="button" title="Предпросмотр шаблона" aria-label="Предпросмотр шаблона">&#x25A3;</button>
+            <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&times;</button>
             <button class="secondary" id="ownerTemplateFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
         </div>
         <div class="listFilter">
@@ -218,6 +237,7 @@ declare(strict_types=1);
             <div class="row folderFilterRow">
                 <select id="templateFolderFilter"></select>
                 <button type="button" id="newTplFolderBtn">+</button>
+                <button type="button" id="deleteTplFolderBtn" title="Удалить выбранную папку">&times;</button>
             </div>
         </div>
         <div id="templateList" class="list"></div>
@@ -226,9 +246,9 @@ declare(strict_types=1);
     <section class="panel">
         <h2>Шаблон</h2>
         <div class="toolbar" id="stageToolbar" style="display:none;">
-            <button class="iconBtn" id="addBlockBtn" type="button" title="Добавить блок" aria-label="Добавить блок">&#x2795;</button>
-            <button class="iconBtn secondary" id="removeBlockBtn" type="button" title="Удалить блок" aria-label="Удалить блок">&#x2796;</button>
-            <button class="iconBtn" id="saveTemplateBtn" type="button" title="Сохранить шаблон" aria-label="Сохранить шаблон">&#x1F4BE;</button>
+            <button class="iconBtn" id="addBlockBtn" type="button" title="Добавить блок" aria-label="Добавить блок">+</button>
+            <button class="iconBtn secondary" id="removeBlockBtn" type="button" title="Удалить блок" aria-label="Удалить блок">−</button>
+            <button class="iconBtn" id="saveTemplateBtn" type="button" title="Сохранить шаблон" aria-label="Сохранить шаблон">&#x2B73;</button>
             <select id="stageBlockSelect" class="toolbarSelect" aria-label="Выбор блока"></select>
         </div>
         <div id="canvas" class="canvasWrap"></div>
@@ -459,8 +479,6 @@ declare(strict_types=1);
         <div class="libraryHead">
             <button type="button" id="reloadLibraryBtn" class="libraryBtn" title="Обновить библиотеку">&#x21bb;</button>
             <button type="button" id="libraryUploadBtn" class="libraryUploadBtn" title="Загрузить файл">Загрузка</button>
-            <button type="button" id="libraryDeleteBtn" class="libraryDeleteBtn" title="Удалить файл">Удалить</button>
-            <button type="button" id="librarySelectBtn" class="librarySelectBtn" title="Выбрать изображение">Выбрать</button>
             <button type="button" id="closeLibraryBtn" class="libraryCloseBtn" title="Закрыть" aria-label="Закрыть">&times;</button>
         </div>
         <div id="libraryUploadProgressWrap" class="uploadProgressWrap">
@@ -480,6 +498,15 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+<div class="modalBack" id="bgLibraryViewModal">
+    <div class="modal" role="dialog" aria-modal="true">
+        <div class="viewHead">
+            <span class="viewTitle" id="bgLibraryViewTitle">Просмотр</span>
+            <button type="button" id="bgLibraryViewCloseBtn" class="viewCloseBtn" title="Закрыть" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="viewContent" id="bgLibraryViewContent"></div>
+    </div>
+</div>
 <div class="modalBack" id="templateFolderModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="templateFolderTitle">
         <h3 id="templateFolderTitle">Новая папка шаблонов</h3>
@@ -488,6 +515,16 @@ declare(strict_types=1);
         <div class="row" style="margin-top:12px;">
             <button type="button" id="templateFolderCancelBtn">Отмена</button>
             <button type="button" id="templateFolderCreateBtn">Создать</button>
+        </div>
+    </div>
+</div>
+<div class="modalBack" id="templateFolderDeleteModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="templateFolderDeleteTitle">
+        <h3 id="templateFolderDeleteTitle">Удаление папки шаблонов</h3>
+        <p id="templateFolderDeleteText">Удалить выбранную папку? Все вложения будут перемещены в «Без папки».</p>
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="templateFolderDeleteCancelBtn">Отмена</button>
+            <button type="button" id="templateFolderDeleteConfirmBtn">Удалить</button>
         </div>
     </div>
 </div>
@@ -533,11 +570,16 @@ const el = {
   tplDesc: document.getElementById('tplDesc'),
   tplFolder: document.getElementById('tplFolder'),
   newTplFolderBtn: document.getElementById('newTplFolderBtn'),
+  deleteTplFolderBtn: document.getElementById('deleteTplFolderBtn'),
   templateFolderFilter: document.getElementById('templateFolderFilter'),
   templateFolderModal: document.getElementById('templateFolderModal'),
   templateFolderNameInput: document.getElementById('templateFolderNameInput'),
   templateFolderCancelBtn: document.getElementById('templateFolderCancelBtn'),
   templateFolderCreateBtn: document.getElementById('templateFolderCreateBtn'),
+  templateFolderDeleteModal: document.getElementById('templateFolderDeleteModal'),
+  templateFolderDeleteText: document.getElementById('templateFolderDeleteText'),
+  templateFolderDeleteCancelBtn: document.getElementById('templateFolderDeleteCancelBtn'),
+  templateFolderDeleteConfirmBtn: document.getElementById('templateFolderDeleteConfirmBtn'),
   tplStatus: document.getElementById('tplStatus'),
   screenBgMode: document.getElementById('screenBgMode'),
   screenBgColor: document.getElementById('screenBgColor'),
@@ -573,7 +615,6 @@ const el = {
   bDelayOnMs: document.getElementById('bDelayOnMs'),
   bDelayOffMs: document.getElementById('bDelayOffMs'),
   libraryUploadBtn: document.getElementById('libraryUploadBtn'),
-  libraryDeleteBtn: document.getElementById('libraryDeleteBtn'),
   libraryUploadFile: document.getElementById('libraryUploadFile'),
   imageLibraryModal: document.getElementById('imageLibraryModal'),
   imageLibrary: document.getElementById('imageLibrary')
@@ -1196,8 +1237,32 @@ function renderTemplateList() {
     return true;
   });
   const groups = new Map();
+  const folderNameById = new Map();
+  for (const folder of state.templateFolders) {
+    const id = Number(folder.id || 0);
+    if (id <= 0) continue;
+    const name = String(folder.name || '').trim() || ('Папка #' + id);
+    folderNameById.set(String(id), name);
+  }
+  if (state.listFolderFilter === '__none__') {
+    groups.set('Без папки', []);
+  } else if (state.listFolderFilter) {
+    const selectedLabel = folderNameById.get(String(state.listFolderFilter)) || ('Папка #' + String(state.listFolderFilter));
+    groups.set(selectedLabel, []);
+  } else {
+    groups.set('Без папки', []);
+    for (const folder of state.templateFolders) {
+      const id = Number(folder.id || 0);
+      if (id <= 0) continue;
+      const name = String(folder.name || '').trim() || ('Папка #' + id);
+      if (!groups.has(name)) groups.set(name, []);
+    }
+  }
   for (const tpl of rows) {
-    const folderLabel = String(tpl.folder_name || '').trim() || 'Без папки';
+    const folderId = Number(tpl.folder_id || 0);
+    const folderLabel = folderId > 0
+      ? (folderNameById.get(String(folderId)) || (String(tpl.folder_name || '').trim() || ('Папка #' + folderId)))
+      : 'Без папки';
     if (!groups.has(folderLabel)) groups.set(folderLabel, []);
     groups.get(folderLabel).push(tpl);
   }
@@ -1219,6 +1284,15 @@ function renderTemplateList() {
     };
     group.appendChild(head);
     group.appendChild(body);
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'emptyState';
+      empty.textContent = 'В папке нет шаблонов';
+      body.appendChild(empty);
+      el.templateList.appendChild(group);
+      continue;
+    }
 
     for (const tpl of items) {
     const rawStatus = String(tpl.status || '');
@@ -1432,9 +1506,9 @@ function ensureTimelineMounted() {
   toggleBtn.title = 'Циклограмма';
   toggleBtn.setAttribute('aria-label', 'Циклограмма');
   toggleBtn.textContent = 'Циклограмма';
-  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x23F2;</span><span>Циклограмма</span>';
+  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x25F7;</span><span>Циклограмма</span>';
   stageToolbar.appendChild(toggleBtn);
-  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x231A;</span>';
+  toggleBtn.innerHTML = '<span class="timelineToggleIcon">&#x25F7;</span>';
 
   const overlay = document.createElement('div');
   overlay.id = 'templateTimelineOverlay';
@@ -1901,6 +1975,28 @@ function openBgGalleryModal(targetInputId) {
 function closeBgGalleryModal() {
   if (el.imageLibraryModal) el.imageLibraryModal.classList.remove('open');
 }
+function openBgLibraryViewModal(item) {
+  const modal = document.getElementById('bgLibraryViewModal');
+  const title = document.getElementById('bgLibraryViewTitle');
+  const content = document.getElementById('bgLibraryViewContent');
+  if (!modal || !content) return;
+  const name = String(item && item.name ? item.name : '').trim();
+  const url = String(item && item.url ? item.url : '').trim();
+  if (!url) return;
+  if (title) title.textContent = name ? ('Просмотр: ' + name) : 'Просмотр файла';
+  content.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = url;
+  img.alt = name || 'Фон';
+  content.appendChild(img);
+  modal.classList.add('open');
+}
+function closeBgLibraryViewModal() {
+  const modal = document.getElementById('bgLibraryViewModal');
+  const content = document.getElementById('bgLibraryViewContent');
+  if (modal) modal.classList.remove('open');
+  if (content) content.innerHTML = '';
+}
 function renderBgGallery() {
   if (!el.imageLibrary) return;
   el.imageLibrary.innerHTML = '';
@@ -1914,10 +2010,59 @@ function renderBgGallery() {
       state.bgGallerySelectedName = name;
       renderBgGallery();
     };
+    const actions = document.createElement('div');
+    actions.className = 'itemActions';
+
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button';
+    viewBtn.className = 'itemActionBtn';
+    viewBtn.title = 'Просмотр';
+    viewBtn.setAttribute('aria-label', 'Просмотр');
+    viewBtn.textContent = '👁';
+    viewBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.bgGallerySelectedUrl = url;
+      state.bgGallerySelectedName = name;
+      renderBgGallery();
+      openBgLibraryViewModal(item);
+    });
+    actions.appendChild(viewBtn);
+
+    const selectBtn = document.createElement('button');
+    selectBtn.type = 'button';
+    selectBtn.className = 'itemActionBtn selectBtn';
+    selectBtn.title = 'Выбрать';
+    selectBtn.setAttribute('aria-label', 'Выбрать');
+    selectBtn.textContent = '✓';
+    selectBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.bgGallerySelectedUrl = url;
+      state.bgGallerySelectedName = name;
+      renderBgGallery();
+      applyBgGallerySelection();
+    });
+    actions.appendChild(selectBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'itemActionBtn deleteBtn';
+    deleteBtn.title = 'Удалить';
+    deleteBtn.setAttribute('aria-label', 'Удалить');
+    deleteBtn.textContent = '✕';
+    deleteBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.bgGallerySelectedUrl = url;
+      state.bgGallerySelectedName = name;
+      renderBgGallery();
+      openDeleteImageModal();
+    });
+    actions.appendChild(deleteBtn);
+
     const img = document.createElement('img');
     img.src = url;
     img.alt = name;
     card.appendChild(img);
+    card.appendChild(actions);
     const meta = document.createElement('div');
     meta.className = 'libraryName';
     meta.textContent = name;
@@ -2079,6 +2224,34 @@ function openTemplateFolderModal() {
 function closeTemplateFolderModal() {
   if (!el.templateFolderModal) return;
   el.templateFolderModal.classList.remove('open');
+}
+function openTemplateFolderDeleteModal() {
+  const folderId = Number(el.templateFolderFilter?.value || 0);
+  if (!Number.isFinite(folderId) || folderId <= 0) {
+    setStatus('Выберите папку для удаления', true);
+    return;
+  }
+  const folder = state.templateFolders.find((row) => Number(row.id || 0) === folderId);
+  const folderName = String(folder?.name || '').trim() || ('Папка #' + folderId);
+  if (el.templateFolderDeleteText) {
+    el.templateFolderDeleteText.textContent = 'Удалить папку «' + folderName + '»? Все вложения будут перемещены в «Без папки».';
+  }
+  if (el.templateFolderDeleteModal) el.templateFolderDeleteModal.classList.add('open');
+}
+function closeTemplateFolderDeleteModal() {
+  if (el.templateFolderDeleteModal) el.templateFolderDeleteModal.classList.remove('open');
+}
+async function deleteTemplateFolder() {
+  const folderId = Number(el.templateFolderFilter?.value || 0);
+  if (!Number.isFinite(folderId) || folderId <= 0) return;
+  await apiPost('/api/template_folder_delete.php', { folder_id: folderId });
+  if (state.listFolderFilter && String(state.listFolderFilter) === String(folderId)) {
+    state.listFolderFilter = '';
+  }
+  await reloadTemplateFolders();
+  await reloadTemplateList();
+  closeTemplateFolderDeleteModal();
+  setStatus('Папка шаблонов удалена');
 }
 async function reloadContentList() {
   try {
@@ -2297,11 +2470,26 @@ if (el.newTplFolderBtn) {
     openTemplateFolderModal();
   };
 }
+if (el.deleteTplFolderBtn) {
+  el.deleteTplFolderBtn.onclick = () => {
+    openTemplateFolderDeleteModal();
+  };
+}
 if (el.templateFolderCancelBtn) el.templateFolderCancelBtn.onclick = closeTemplateFolderModal;
 if (el.templateFolderCreateBtn) {
   el.templateFolderCreateBtn.onclick = async () => {
     try {
       await createTemplateFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  };
+}
+if (el.templateFolderDeleteCancelBtn) el.templateFolderDeleteCancelBtn.onclick = closeTemplateFolderDeleteModal;
+if (el.templateFolderDeleteConfirmBtn) {
+  el.templateFolderDeleteConfirmBtn.onclick = async () => {
+    try {
+      await deleteTemplateFolder();
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -2465,17 +2653,7 @@ if (el.screenBgPickBtn) el.screenBgPickBtn.onclick = () => { loadBgGalleryAndOpe
 if (el.bBgPickBtn) el.bBgPickBtn.onclick = () => { loadBgGalleryAndOpen('bBgImage'); };
 document.getElementById('closeLibraryBtn').onclick = closeBgGalleryModal;
 document.getElementById('reloadLibraryBtn').onclick = reloadBgGalleryOnly;
-document.getElementById('librarySelectBtn').onclick = applyBgGallerySelection;
 if (el.libraryUploadBtn) el.libraryUploadBtn.onclick = () => { if (bgLibraryUploadInProgress) return; if (el.libraryUploadFile) el.libraryUploadFile.click(); };
-if (el.libraryDeleteBtn) {
-  el.libraryDeleteBtn.onclick = () => {
-    if (!state.bgGallerySelectedUrl) {
-      setStatus('Сначала выберите изображение', true);
-      return;
-    }
-    openDeleteImageModal();
-  };
-}
 if (el.libraryUploadFile) {
   el.libraryUploadFile.addEventListener('change', async () => {
     if (el.libraryUploadFile.files && el.libraryUploadFile.files.length > 0) {
@@ -2490,6 +2668,14 @@ if (deleteImageConfirmBtn) deleteImageConfirmBtn.onclick = deleteLibraryImage;
 if (el.imageLibraryModal) {
   el.imageLibraryModal.onclick = (event) => {
     if (event.target && event.target.id === 'imageLibraryModal') closeBgGalleryModal();
+  };
+}
+const bgLibraryViewCloseBtn = document.getElementById('bgLibraryViewCloseBtn');
+if (bgLibraryViewCloseBtn) bgLibraryViewCloseBtn.onclick = closeBgLibraryViewModal;
+const bgLibraryViewModal = document.getElementById('bgLibraryViewModal');
+if (bgLibraryViewModal) {
+  bgLibraryViewModal.onclick = (event) => {
+    if (event.target && event.target.id === 'bgLibraryViewModal') closeBgLibraryViewModal();
   };
 }
 const duplicateTemplateModal = document.getElementById('duplicateTemplateModal');
@@ -2513,6 +2699,11 @@ if (deleteImageModal) {
 if (el.templateFolderModal) {
   el.templateFolderModal.onclick = (event) => {
     if (event.target && event.target.id === 'templateFolderModal') closeTemplateFolderModal();
+  };
+}
+if (el.templateFolderDeleteModal) {
+  el.templateFolderDeleteModal.onclick = (event) => {
+    if (event.target && event.target.id === 'templateFolderDeleteModal') closeTemplateFolderDeleteModal();
   };
 }
 el.bType.addEventListener('change', () => {

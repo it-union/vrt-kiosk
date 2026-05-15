@@ -17,18 +17,21 @@ declare(strict_types=1);
         .topbarActions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .actionLink { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid #1d5fbf; background: #1d5fbf; color: #fff; text-decoration: none; cursor: pointer; }
         .wrap { flex: 1; display: grid; grid-template-columns: 320px 1fr 360px; gap: 12px; min-height: 0; }
-        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 16px; padding: 10px; }
+        .panel { background: #fff; border: 1px solid #d7dbe0; border-radius: 10px; padding: 10px; }
         .wrap .panel { display: flex; flex-direction: column; min-height: 0; }
         .inspectorPanel { min-height: 0; overflow: hidden; }
         .panel h2 { margin: 0 0 10px; font-size: 16px; }
         .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+        .toolbar button { background: #5f8fcf; color: #fff; border-color: #5f8fcf; border-radius: 7px; }
         .iconBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; }
         .listFilter { margin-bottom: 8px; }
         #contentTypeFilter { font-size: 13px; }
         #contentFolderFilter, #cFolder { font-size: 13px; }
         .folderFilterRow { display: flex; align-items: center; gap: 8px; }
-        .folderFilterRow select { flex: 1; min-width: 0; }
-        .folderFilterRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .row.folderFilterRow > * { min-width: 0; }
+        .row.folderFilterRow > select { flex: 4 1 0; width: auto; }
+        .row.folderFilterRow > button { flex: 1 1 0; width: auto; height: 34px; min-height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+        .row.folderFilterRow > button { background: #5f8fcf; color: #fff; border-color: #5f8fcf; border-radius: 7px; }
         .inspectorPanel #editorControls .folderRow { display: flex; align-items: center; gap: 8px; margin: 0; }
         .inspectorPanel #editorControls .folderRow > * { flex: 0 0 auto; }
         .inspectorPanel #editorControls .folderRow select { flex: 1 1 auto; min-width: 0; }
@@ -40,6 +43,7 @@ declare(strict_types=1);
         .item.itemInactive { opacity: 0.72; }
         .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
         .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
+        .emptyState { padding: 12px; color: #5a6472; font-size: 13px; line-height: 1.45; }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -90,9 +94,10 @@ declare(strict_types=1);
         #openPptLibraryBtn { width: 100%; height: 36px; min-height: 36px; max-height: 36px; box-sizing: border-box; margin: 0; padding: 0 12px; font-size: 13px; font-weight: 400; line-height: 1; display: inline-flex; align-items: center; justify-content: center; align-self: end; white-space: nowrap; }
         label { display: block; margin: 6px 0; font-size: 13px; }
         input, select, textarea, button { font: inherit; }
-        input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 10px; }
+        input, textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
+        select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #c8ced6; border-radius: 0; }
         button { padding: 7px 10px; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; }
-        .preview { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 10px; height: 220px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; }
+        .preview { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 4px; height: 220px; display: flex; align-items: center; justify-content: center; background: #f8fafc; overflow: hidden; }
         .preview img, .preview video, .preview iframe { max-width: 100%; max-height: 100%; display: block; }
         .previewHtml { width: 100%; height: 100%; overflow: auto; padding: 12px; box-sizing: border-box; color: #1a1a1a; }
         .textRenderContent { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-family: Tahoma, sans-serif; }
@@ -180,10 +185,10 @@ declare(strict_types=1);
     <section class="panel">
         <h2>Контент</h2>
         <div class="toolbar">
-            <button class="iconBtn" id="newBtn" type="button" title="Новое изображение" aria-label="Новое изображение">&#x2795;</button>
+            <button class="iconBtn" id="newBtn" type="button" title="Добавить контент" aria-label="Добавить контент">+</button>
             <button class="iconBtn secondary" id="duplicateBtn" type="button" title="Дублировать" aria-label="Дублировать">&#x29C9;</button>
             <button class="iconBtn secondary" id="reloadBtn" type="button" title="Обновить список" aria-label="Обновить список">&#x21bb;</button>
-            <button class="iconBtn secondary" id="deleteBtn" type="button" title="Удалить" aria-label="Удалить">&#x1F5D1;</button>
+            <button class="iconBtn secondary" id="deleteBtn" type="button" title="Удалить" aria-label="Удалить">&times;</button>
             <button class="secondary" id="ownerFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
         </div>
         <div class="listFilter">
@@ -203,6 +208,7 @@ declare(strict_types=1);
             <div class="row folderFilterRow">
                 <select id="contentFolderFilter"></select>
                 <button type="button" id="newContentFolderBtn">+</button>
+                <button type="button" id="deleteContentFolderBtn" title="Удалить выбранную папку">&times;</button>
             </div>
         </div>
         <div id="list" class="list"></div>
@@ -213,7 +219,7 @@ declare(strict_types=1);
         <p id="previewEmpty" style="font-size:12px;color:#5e6e82;">Выберите контент из списка или создайте новый.</p>
         <div id="previewControls" style="display:none;">
             <div class="toolbar">
-                <button class="iconBtn" id="saveBtn" type="button" title="Сохранить" aria-label="Сохранить">&#x1F4BE;</button>
+                <button class="iconBtn" id="saveBtn" type="button" title="Сохранить" aria-label="Сохранить">&#x2B73;</button>
                 <span id="status" class="status"></span>
             </div>
             <div class="preview">
@@ -601,6 +607,16 @@ declare(strict_types=1);
         </div>
     </div>
 </div>
+<div class="modalBack" id="contentFolderDeleteModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contentFolderDeleteTitle">
+        <h3 id="contentFolderDeleteTitle">Удаление папки контента</h3>
+        <p id="contentFolderDeleteText">Удалить выбранную папку? Все вложения будут перемещены в «Без папки».</p>
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="contentFolderDeleteCancelBtn">Отмена</button>
+            <button type="button" id="contentFolderDeleteConfirmBtn">Удалить</button>
+        </div>
+    </div>
+</div>
 
 <script type="module">
 import * as CKEDITOR from '/vendor/ckeditor5/ckeditor5.js';
@@ -646,11 +662,16 @@ const el = {
   cTitle: document.getElementById('cTitle'),
   cFolder: document.getElementById('cFolder'),
   newContentFolderBtn: document.getElementById('newContentFolderBtn'),
+  deleteContentFolderBtn: document.getElementById('deleteContentFolderBtn'),
   contentFolderFilter: document.getElementById('contentFolderFilter'),
   contentFolderModal: document.getElementById('contentFolderModal'),
   contentFolderNameInput: document.getElementById('contentFolderNameInput'),
   contentFolderCancelBtn: document.getElementById('contentFolderCancelBtn'),
   contentFolderCreateBtn: document.getElementById('contentFolderCreateBtn'),
+  contentFolderDeleteModal: document.getElementById('contentFolderDeleteModal'),
+  contentFolderDeleteText: document.getElementById('contentFolderDeleteText'),
+  contentFolderDeleteCancelBtn: document.getElementById('contentFolderDeleteCancelBtn'),
+  contentFolderDeleteConfirmBtn: document.getElementById('contentFolderDeleteConfirmBtn'),
   cAnimation: document.getElementById('cAnimation'),
   cMediaUrl: document.getElementById('cMediaUrl'),
   cTextBody: document.getElementById('cTextBody'),
@@ -2591,8 +2612,32 @@ function renderList() {
     return true;
   });
   const groups = new Map();
+  const folderNameById = new Map();
+  for (const folder of state.contentFolders) {
+    const id = Number(folder.id || 0);
+    if (id <= 0) continue;
+    const name = String(folder.name || '').trim() || ('Папка #' + id);
+    folderNameById.set(String(id), name);
+  }
+  if (state.listFolderFilter === '__none__') {
+    groups.set('Без папки', []);
+  } else if (state.listFolderFilter) {
+    const selectedLabel = folderNameById.get(String(state.listFolderFilter)) || ('Папка #' + String(state.listFolderFilter));
+    groups.set(selectedLabel, []);
+  } else {
+    groups.set('Без папки', []);
+    for (const folder of state.contentFolders) {
+      const id = Number(folder.id || 0);
+      if (id <= 0) continue;
+      const name = String(folder.name || '').trim() || ('Папка #' + id);
+      if (!groups.has(name)) groups.set(name, []);
+    }
+  }
   for (const row of rows) {
-    const folderLabel = String(row.folder_name || '').trim() || 'Без папки';
+    const folderId = Number(row.folder_id || 0);
+    const folderLabel = folderId > 0
+      ? (folderNameById.get(String(folderId)) || (String(row.folder_name || '').trim() || ('Папка #' + folderId)))
+      : 'Без папки';
     if (!groups.has(folderLabel)) groups.set(folderLabel, []);
     groups.get(folderLabel).push(row);
   }
@@ -2614,6 +2659,15 @@ function renderList() {
     };
     group.appendChild(head);
     group.appendChild(body);
+
+    if (items.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'emptyState';
+      empty.textContent = 'В папке нет контента';
+      body.appendChild(empty);
+      el.list.appendChild(group);
+      continue;
+    }
 
     for (const row of items) {
     const d = document.createElement('div');
@@ -2699,6 +2753,34 @@ function openContentFolderModal() {
 function closeContentFolderModal() {
   if (!el.contentFolderModal) return;
   el.contentFolderModal.classList.remove('open');
+}
+function openContentFolderDeleteModal() {
+  const folderId = Number(el.contentFolderFilter?.value || 0);
+  if (!Number.isFinite(folderId) || folderId <= 0) {
+    setStatus('Выберите папку для удаления', true);
+    return;
+  }
+  const folder = state.contentFolders.find((row) => Number(row.id || 0) === folderId);
+  const folderName = String(folder?.name || '').trim() || ('Папка #' + folderId);
+  if (el.contentFolderDeleteText) {
+    el.contentFolderDeleteText.textContent = 'Удалить папку «' + folderName + '»? Все вложения будут перемещены в «Без папки».';
+  }
+  if (el.contentFolderDeleteModal) el.contentFolderDeleteModal.classList.add('open');
+}
+function closeContentFolderDeleteModal() {
+  if (el.contentFolderDeleteModal) el.contentFolderDeleteModal.classList.remove('open');
+}
+async function deleteContentFolder() {
+  const folderId = Number(el.contentFolderFilter?.value || 0);
+  if (!Number.isFinite(folderId) || folderId <= 0) return;
+  await apiPost('/api/content_folder_delete.php', { folder_id: folderId });
+  if (state.listFolderFilter && String(state.listFolderFilter) === String(folderId)) {
+    state.listFolderFilter = '';
+  }
+  await reloadContentFolders();
+  await reloadList();
+  closeContentFolderDeleteModal();
+  setStatus('Папка контента удалена');
 }
 async function reloadLibrary() {
   try {
@@ -3025,11 +3107,26 @@ if (el.newContentFolderBtn) {
     openContentFolderModal();
   };
 }
+if (el.deleteContentFolderBtn) {
+  el.deleteContentFolderBtn.onclick = () => {
+    openContentFolderDeleteModal();
+  };
+}
 if (el.contentFolderCancelBtn) el.contentFolderCancelBtn.onclick = closeContentFolderModal;
 if (el.contentFolderCreateBtn) {
   el.contentFolderCreateBtn.onclick = async () => {
     try {
       await createContentFolder();
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+    }
+  };
+}
+if (el.contentFolderDeleteCancelBtn) el.contentFolderDeleteCancelBtn.onclick = closeContentFolderDeleteModal;
+if (el.contentFolderDeleteConfirmBtn) {
+  el.contentFolderDeleteConfirmBtn.onclick = async () => {
+    try {
+      await deleteContentFolder();
     } catch (e) {
       setStatus(String(e.message || e), true);
     }
@@ -3106,6 +3203,11 @@ document.getElementById('duplicateContentModal').onclick = (event) => {
 if (el.contentFolderModal) {
   el.contentFolderModal.onclick = (event) => {
     if (event.target && event.target.id === 'contentFolderModal') closeContentFolderModal();
+  };
+}
+if (el.contentFolderDeleteModal) {
+  el.contentFolderDeleteModal.onclick = (event) => {
+    if (event.target && event.target.id === 'contentFolderDeleteModal') closeContentFolderDeleteModal();
   };
 }
 document.getElementById('newTypeCancelBtn').onclick = closeNewTypeModal;
