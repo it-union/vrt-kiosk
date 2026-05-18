@@ -111,7 +111,7 @@ declare(strict_types=1);
         .folderRow { display: flex !important; align-items: center; gap: 8px; }
         .folderRow select { flex: 1; min-width: 0; }
         .folderRow button { width: 34px; min-width: 34px; min-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-        .toolbarSelect { min-width: 220px; max-width: 320px; }
+        .toolbarSelect { min-width: 110px; max-width: 160px; }
         .stagePanel { position: relative; }
         .stagePanel .stageToolbar { width: min(960px, 100%); margin-left: auto; margin-right: auto; justify-content: center; align-items: center; position: relative; }
         .stagePanel .canvasWrap { width: min(960px, 100%); margin-left: auto; margin-right: auto; }
@@ -125,6 +125,16 @@ declare(strict_types=1);
         .stageToolbarMenuBody { position: absolute; top: calc(100% + 6px); right: 0; min-width: 260px; padding: 10px; border: 1px solid #d7dbe0; border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16); z-index: 20; }
         .stageToolbarMenuBody label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 0; font-size: 13px; color: #334155; cursor: pointer; }
         .stageToolbarMenuBody input { width: auto; margin: 0; }
+        .blockActionsMenu { position: relative; }
+        .blockActionsMenu summary { list-style: none; }
+        .blockActionsMenu .menuBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1; border: 1px solid #1d5fbf; background: transparent; color: #1d5fbf; border-radius: 10px; cursor: pointer; box-sizing: border-box; }
+        .blockActionsMenu[open] .menuBtn { background: #eef5ff; }
+        .blockActionsMenu summary::-webkit-details-marker { display: none; }
+        .blockActionsMenuBody { position: absolute; top: calc(100% + 6px); right: 0; min-width: 220px; padding: 6px 0; border: 1px solid #d7dbe0; border-radius: 12px; background: #fff; box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16); z-index: 20; }
+        .blockActionsMenuBody .menuItem { color: #334155; padding: 7px 12px; line-height: 1.25; cursor: pointer; user-select: none; white-space: nowrap; }
+        .blockActionsMenuBody .menuItem + .menuItem { border-top: 1px solid #eef2f7; }
+        .blockActionsMenuBody .menuItem:hover,
+        .blockActionsMenuBody .menuItem:focus { background: #eef5ff; color: #1d5fbf; outline: none; }
         .timelineToggleBtn { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
         .timelineToggleBtn.active { background: #eef5ff; }
         .timelineToggleBtn .timelineToggleIcon { font-size: 16px; line-height: 1; }
@@ -158,6 +168,7 @@ declare(strict_types=1);
         .canvasWrap { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16/9; border: 2px dashed #b7c1cf; border-radius: 4px; background: #fff; overflow: hidden; user-select: none; }
         .block { position: absolute; border: 1px solid #2672d6; box-sizing: border-box; padding: 4px; cursor: move; user-select: none; }
         .block.selected { border-color: #1d5fbf; box-shadow: 0 0 0 2px rgba(29,95,191,0.35) inset; }
+        .block.pairSelected { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55) inset; }
         .block .title { font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.75); display: inline-block; padding: 2px 4px; border-radius: 4px; position: relative; z-index: 2; }
         .block .metaWrap { position: absolute; left: 4px; right: 4px; bottom: 4px; display: flex; flex-direction: column; gap: 3px; align-items: flex-start; pointer-events: none; }
         .block .metaLine { font-size: 10px; line-height: 1.2; color: #0f356a; background: rgba(255,255,255,0.75); display: inline-block; padding: 2px 4px; border-radius: 4px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -247,9 +258,39 @@ declare(strict_types=1);
         <h2>Шаблон</h2>
         <div class="toolbar" id="stageToolbar" style="display:none;">
             <button class="iconBtn" id="addBlockBtn" type="button" title="Добавить блок" aria-label="Добавить блок">+</button>
-            <button class="iconBtn secondary" id="removeBlockBtn" type="button" title="Удалить блок" aria-label="Удалить блок">−</button>
+            <button class="iconBtn secondary" id="removeBlockBtn" type="button" title="Удалить блок" aria-label="Удалить блок">-</button>
+            
             <button class="iconBtn" id="saveTemplateBtn" type="button" title="Сохранить шаблон" aria-label="Сохранить шаблон">&#x2B73;</button>
             <select id="stageBlockSelect" class="toolbarSelect" aria-label="Выбор блока"></select>
+            <details class="blockActionsMenu">
+                <summary class="menuBtn" title="позиционирование блоков" aria-label="позиционирование блоков">&#9881;</summary>
+                <div class="blockActionsMenuBody">
+                    <div class="menuItem" id="blockUpBtn" role="menuitem" tabindex="0">Слой выше</div>
+                    <div class="menuItem" id="blockDownBtn" role="menuitem" tabindex="0">Слой ниже</div>
+                    <div class="menuItem" id="alignLeftBtn" role="menuitem" tabindex="0">Выровнять: влево</div>
+                    <div class="menuItem" id="alignCenterHBtn" role="menuitem" tabindex="0">Выровнять: центр X</div>
+                    <div class="menuItem" id="alignRightBtn" role="menuitem" tabindex="0">Выровнять: вправо</div>
+                    <div class="menuItem" id="alignTopBtn" role="menuitem" tabindex="0">Выровнять: вверх</div>
+                    <div class="menuItem" id="alignCenterVBtn" role="menuitem" tabindex="0">Выровнять: центр Y</div>
+                    <div class="menuItem" id="alignBottomBtn" role="menuitem" tabindex="0">Выровнять: вниз</div>
+                    <div class="menuItem" id="expandFullBtn" role="menuitem" tabindex="0">Развернуть на весь экран</div>
+                    <div class="menuItem" id="expandLeftHalfBtn" role="menuitem" tabindex="0">От центра влево (1/2 экрана)</div>
+                    <div class="menuItem" id="expandRightHalfBtn" role="menuitem" tabindex="0">От центра вправо (1/2 экрана)</div>
+                    <div class="menuItem" id="expandTopHalfBtn" role="menuitem" tabindex="0">От центра вверх (1/2 экрана)</div>
+                    <div class="menuItem" id="expandBottomHalfBtn" role="menuitem" tabindex="0">От центра вниз (1/2 экрана)</div>
+                </div>
+            </details>
+            <details class="blockActionsMenu" id="pairActionsMenu">
+                <summary class="menuBtn" title="выравнивание блоков" aria-label="выравнивание блоков">&#8646;</summary>
+                <div class="blockActionsMenuBody">
+                    <div class="menuItem" id="pairMatchWidthBtn" role="menuitem" tabindex="0">2 блока: одинаковая ширина</div>
+                    <div class="menuItem" id="pairMatchHeightBtn" role="menuitem" tabindex="0">2 блока: одинаковая высота</div>
+                    <div class="menuItem" id="pairAlignLeftBtn" role="menuitem" tabindex="0">2 блока: выровнять слева</div>
+                    <div class="menuItem" id="pairAlignRightBtn" role="menuitem" tabindex="0">2 блока: выровнять справа</div>
+                    <div class="menuItem" id="pairAlignTopBtn" role="menuitem" tabindex="0">2 блока: выровнять сверху</div>
+                    <div class="menuItem" id="pairAlignBottomBtn" role="menuitem" tabindex="0">2 блока: выровнять снизу</div>
+                </div>
+            </details>
         </div>
         <div id="canvas" class="canvasWrap"></div>
         <label class="stageOptions" for="globalShowContentPreview">
@@ -544,6 +585,7 @@ const state = {
   blocks: [],
   lastBlockId: 0,
   selectedBlockIndex: -1,
+  pairSelection: [],
   screen_style: { mode: 'color', color: '#ffffff', image: '', size: 'cover', position: 'center center', repeat: 'no-repeat' },
   saveInProgress: false,
   globalShowContentPreview: false,
@@ -1217,8 +1259,12 @@ function renderContentOptionsForBlock(block) {
   const current = block && block.content_id ? Number(block.content_id) : 0;
   const type = block ? String(block.content_type || '') : '';
   const options = ['<option value="">Не выбрано</option>'];
-  for (const c of state.contents) {
-    if (type && String(c.type) !== type) continue;
+  const filtered = state.contents.filter((c) => {
+    if (type && String(c.type) !== type) return false;
+    return true;
+  });
+  filtered.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ru', { sensitivity: 'base' }));
+  for (const c of filtered) {
     const selected = Number(c.id) === current ? ' selected' : '';
     options.push(`<option value="${Number(c.id)}"${selected}>[${labelContentType(String(c.type))}] ${String(c.title || '')} (ID ${Number(c.id)})</option>`);
   }
@@ -1362,13 +1408,26 @@ function renderStageBlockSelect() {
   el.stageBlockSelect.innerHTML = options.join('');
   el.stageBlockSelect.disabled = false;
 }
-function selectBlockByIndex(index) {
+function selectBlockByIndex(index, append = false) {
   const nextIndex = Number(index);
   if (!Number.isInteger(nextIndex)) return;
   if (nextIndex < 0 || nextIndex >= state.blocks.length) return;
   state.selectedBlockIndex = nextIndex;
+  if (append) {
+    const filtered = state.pairSelection.filter((v) => Number.isInteger(v) && v >= 0 && v < state.blocks.length && v !== nextIndex);
+    filtered.push(nextIndex);
+    while (filtered.length > 2) filtered.shift();
+    state.pairSelection = filtered;
+  } else {
+    state.pairSelection = [nextIndex];
+  }
   fillBlockEditor();
   renderCanvas();
+}
+function getPairSelectionIndices() {
+  const list = (state.pairSelection || []).filter((v) => Number.isInteger(v) && v >= 0 && v < state.blocks.length);
+  if (list.length !== 2) return null;
+  return [list[0], list[1]];
 }
 function isMainBlock(block, index) {
   const key = String(block?.block_key || '').trim().toLowerCase();
@@ -1388,7 +1447,7 @@ function renderCanvas() {
   state.blocks.forEach((b, i) => {
     if (!shouldRenderBlock(b, i)) return;
     const div = document.createElement('div');
-    div.className = 'block' + (i === state.selectedBlockIndex ? ' selected' : '');
+    div.className = 'block' + (i === state.selectedBlockIndex ? ' selected' : '') + ((state.pairSelection || []).includes(i) ? ' pairSelected' : '');
     div.style.left = `${b.x_pct}%`;
     div.style.top = `${b.y_pct}%`;
     div.style.width = `${b.w_pct}%`;
@@ -1427,10 +1486,10 @@ function renderCanvas() {
       div.appendChild(metaWrap);
     }
 
-    div.onclick = (event) => { event.stopPropagation(); selectBlockByIndex(i); };
+    div.onclick = (event) => { event.stopPropagation(); selectBlockByIndex(i, !!event.shiftKey); };
     div.onmousedown = (event) => {
       if (event.target !== div && event.target !== t) return;
-      selectBlockByIndex(i);
+      selectBlockByIndex(i, !!event.shiftKey);
       startPointerDrag(event, i);
     };
 
@@ -1661,6 +1720,21 @@ function mountStageToolbarMenu() {
   document.addEventListener('click', (event) => {
     if (!menu.open) return;
     if (menu.contains(event.target)) return;
+    menu.open = false;
+  });
+}
+function mountBlockActionMenusCloseOnOutsideClick() {
+  const menus = Array.from(document.querySelectorAll('.blockActionsMenu'));
+  if (menus.length === 0) return;
+  document.addEventListener('click', (event) => {
+    closeBlockActionMenus(event.target);
+  });
+}
+function closeBlockActionMenus(targetNode = null) {
+  const menus = Array.from(document.querySelectorAll('.blockActionsMenu'));
+  menus.forEach((menu) => {
+    if (!menu.open) return;
+    if (targetNode && menu.contains(targetNode)) return;
     menu.open = false;
   });
 }
@@ -2414,6 +2488,129 @@ function closeDuplicateTemplateModal() {
   const modal = document.getElementById('duplicateTemplateModal');
   if (modal) modal.classList.remove('open');
 }
+function clampBlockPosition(block) {
+  block.x_pct = Math.max(0, Math.min(100 - Number(block.w_pct || 0), Number(block.x_pct || 0)));
+  block.y_pct = Math.max(0, Math.min(100 - Number(block.h_pct || 0), Number(block.y_pct || 0)));
+}
+function normalizeBlockLayers() {
+  const ordered = state.blocks
+    .map((block, index) => ({ block, index, z: Number(block.z_index || 1) }))
+    .sort((a, b) => a.z - b.z || a.index - b.index);
+  ordered.forEach((item, i) => {
+    item.block.z_index = i + 1;
+  });
+}
+function moveSelectedBlockLayer(direction) {
+  const selected = currentBlock();
+  if (!selected) return;
+  normalizeBlockLayers();
+  const ordered = state.blocks.slice().sort((a, b) => Number(a.z_index || 1) - Number(b.z_index || 1));
+  const idx = ordered.indexOf(selected);
+  if (idx < 0) return;
+  const targetIdx = direction === 'up' ? idx + 1 : idx - 1;
+  if (targetIdx < 0 || targetIdx >= ordered.length) return;
+  const target = ordered[targetIdx];
+  const tmp = Number(selected.z_index || 1);
+  selected.z_index = Number(target.z_index || 1);
+  target.z_index = tmp;
+  fillBlockEditor();
+  renderCanvas();
+}
+function alignBlocksToSelected(mode) {
+  const selected = currentBlock();
+  if (!selected) return;
+
+  const sw = Number(selected.w_pct || 0);
+  const sh = Number(selected.h_pct || 0);
+  const refs = state.blocks.filter((block, index) => {
+    if (index === state.selectedBlockIndex) return false;
+    return shouldRenderBlock(block, index);
+  });
+
+  if (refs.length === 0) {
+    if (mode === 'left') selected.x_pct = 0;
+    if (mode === 'center_h') selected.x_pct = (100 - sw) / 2;
+    if (mode === 'right') selected.x_pct = 100 - sw;
+    if (mode === 'top') selected.y_pct = 0;
+    if (mode === 'center_v') selected.y_pct = (100 - sh) / 2;
+    if (mode === 'bottom') selected.y_pct = 100 - sh;
+    clampBlockPosition(selected);
+    fillBlockEditor();
+    renderCanvas();
+    return;
+  }
+
+  const minX = Math.min(...refs.map((b) => Number(b.x_pct || 0)));
+  const maxR = Math.max(...refs.map((b) => Number(b.x_pct || 0) + Number(b.w_pct || 0)));
+  const minY = Math.min(...refs.map((b) => Number(b.y_pct || 0)));
+  const maxB = Math.max(...refs.map((b) => Number(b.y_pct || 0) + Number(b.h_pct || 0)));
+
+  if (mode === 'left') selected.x_pct = minX;
+  if (mode === 'center_h') selected.x_pct = ((minX + maxR) / 2) - (sw / 2);
+  if (mode === 'right') selected.x_pct = maxR - sw;
+  if (mode === 'top') selected.y_pct = minY;
+  if (mode === 'center_v') selected.y_pct = ((minY + maxB) / 2) - (sh / 2);
+  if (mode === 'bottom') selected.y_pct = maxB - sh;
+  clampBlockPosition(selected);
+  fillBlockEditor();
+  renderCanvas();
+}
+function applySelectedBlockPreset(mode) {
+  const selected = currentBlock();
+  if (!selected) return;
+  if (mode === 'full') {
+    selected.x_pct = 0;
+    selected.y_pct = 0;
+    selected.w_pct = 100;
+    selected.h_pct = 100;
+  } else if (mode === 'left_half') {
+    selected.x_pct = 0;
+    selected.y_pct = 0;
+    selected.w_pct = 50;
+    selected.h_pct = 100;
+  } else if (mode === 'right_half') {
+    selected.x_pct = 50;
+    selected.y_pct = 0;
+    selected.w_pct = 50;
+    selected.h_pct = 100;
+  } else if (mode === 'top_half') {
+    selected.x_pct = 0;
+    selected.y_pct = 0;
+    selected.w_pct = 100;
+    selected.h_pct = 50;
+  } else if (mode === 'bottom_half') {
+    selected.x_pct = 0;
+    selected.y_pct = 50;
+    selected.w_pct = 100;
+    selected.h_pct = 50;
+  }
+  clampBlockPosition(selected);
+  fillBlockEditor();
+  renderCanvas();
+}
+
+function applyPairAction(mode) {
+  const pair = getPairSelectionIndices();
+  if (!pair) {
+    setStatus('Выберите 2 блока (Shift+клик по блокам)', true);
+    return;
+  }
+  const first = state.blocks[pair[0]];
+  const second = state.blocks[pair[1]];
+  if (!first || !second) return;
+
+  if (mode === 'match_width') second.w_pct = Number(first.w_pct || 0);
+  if (mode === 'match_height') second.h_pct = Number(first.h_pct || 0);
+  if (mode === 'align_left') second.x_pct = Number(first.x_pct || 0);
+  if (mode === 'align_right') second.x_pct = Number(first.x_pct || 0) + Number(first.w_pct || 0) - Number(second.w_pct || 0);
+  if (mode === 'align_top') second.y_pct = Number(first.y_pct || 0);
+  if (mode === 'align_bottom') second.y_pct = Number(first.y_pct || 0) + Number(first.h_pct || 0) - Number(second.h_pct || 0);
+
+  clampBlockPosition(second);
+  if (pair[1] === state.selectedBlockIndex) fillBlockEditor();
+  renderCanvas();
+}
+
 function removeSelectedBlock() {
   if (state.selectedBlockIndex < 0) return;
   state.blocks.splice(state.selectedBlockIndex, 1);
@@ -2564,6 +2761,35 @@ document.getElementById('removeBlockBtn').onclick = () => {
   }
   removeSelectedBlock();
 };
+document.getElementById('blockUpBtn').onclick = () => { moveSelectedBlockLayer('up'); };
+document.getElementById('blockDownBtn').onclick = () => { moveSelectedBlockLayer('down'); };
+document.getElementById('alignLeftBtn').onclick = () => { alignBlocksToSelected('left'); };
+document.getElementById('alignCenterHBtn').onclick = () => { alignBlocksToSelected('center_h'); };
+document.getElementById('alignRightBtn').onclick = () => { alignBlocksToSelected('right'); };
+document.getElementById('alignTopBtn').onclick = () => { alignBlocksToSelected('top'); };
+document.getElementById('alignCenterVBtn').onclick = () => { alignBlocksToSelected('center_v'); };
+document.getElementById('alignBottomBtn').onclick = () => { alignBlocksToSelected('bottom'); };
+document.getElementById('pairMatchWidthBtn').onclick = () => { applyPairAction('match_width'); };
+document.getElementById('pairMatchHeightBtn').onclick = () => { applyPairAction('match_height'); };
+document.getElementById('pairAlignLeftBtn').onclick = () => { applyPairAction('align_left'); };
+document.getElementById('pairAlignRightBtn').onclick = () => { applyPairAction('align_right'); };
+document.getElementById('pairAlignTopBtn').onclick = () => { applyPairAction('align_top'); };
+document.getElementById('pairAlignBottomBtn').onclick = () => { applyPairAction('align_bottom'); };
+
+document.getElementById('expandFullBtn').onclick = () => { applySelectedBlockPreset('full'); };
+document.getElementById('expandLeftHalfBtn').onclick = () => { applySelectedBlockPreset('left_half'); };
+document.getElementById('expandRightHalfBtn').onclick = () => { applySelectedBlockPreset('right_half'); };
+document.getElementById('expandTopHalfBtn').onclick = () => { applySelectedBlockPreset('top_half'); };
+document.getElementById('expandBottomHalfBtn').onclick = () => { applySelectedBlockPreset('bottom_half'); };
+['blockUpBtn','blockDownBtn','alignLeftBtn','alignCenterHBtn','alignRightBtn','alignTopBtn','alignCenterVBtn','alignBottomBtn','expandFullBtn','expandLeftHalfBtn','expandRightHalfBtn','expandTopHalfBtn','expandBottomHalfBtn','pairMatchWidthBtn','pairMatchHeightBtn','pairAlignLeftBtn','pairAlignRightBtn','pairAlignTopBtn','pairAlignBottomBtn'].forEach((id) => {
+  const node = document.getElementById(id);
+  if (!node) return;
+  node.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    node.click();
+  });
+});
 if (el.stageBlockSelect) {
   el.stageBlockSelect.addEventListener('change', () => {
     if (el.stageBlockSelect.value === '') return;
@@ -2723,8 +2949,14 @@ el.bType.addEventListener('change', () => {
   if (stagePanel) stagePanel.classList.add('stagePanel');
   ensureTimelineMounted();
   mountStageToolbarMenu();
+  mountBlockActionMenusCloseOnOutsideClick();
   updateOwnerTemplateFilterButton();
   if (stageToolbar && el.status) stageToolbar.appendChild(el.status);
+  if (el.canvas) {
+    el.canvas.addEventListener('mousedown', () => {
+      closeBlockActionMenus();
+    });
+  }
   await reloadContentList();
   await reloadTemplateFolders();
   await reloadTemplateList();
