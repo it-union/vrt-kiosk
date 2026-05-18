@@ -120,7 +120,7 @@
       .filter((row) => row && String(row.label || '').trim() !== '');
   }
 
-  function formatRuDateLabel(value) {
+  function formatRuDateLabel(value, showYear) {
     const raw = String(value || '').trim();
     const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
     if (!m) return raw;
@@ -131,6 +131,11 @@
       return raw;
     const dt = new Date(y, mm - 1, d);
     if (Number.isNaN(dt.getTime())) return raw;
+    if (showYear === false) {
+      const dd = String(d).padStart(2, '0');
+      const month = String(mm).padStart(2, '0');
+      return dd + '.' + month;
+    }
     return dt.toLocaleDateString('ru-RU');
   }
 
@@ -164,6 +169,8 @@
       : 'none';
     const showBusyRaw = schedule.show_busy;
     const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
+    const showYearRaw = schedule.show_year;
+    const showYear = !(showYearRaw === false || String(showYearRaw) === '0');
 
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
     const scalePx = (value) => {
@@ -205,7 +212,7 @@
       const tr = document.createElement('tr');
 
       const th = document.createElement('th');
-      th.textContent = formatRuDateLabel(String(row.label || ''));
+      th.textContent = formatRuDateLabel(String(row.label || ''), showYear);
       th.style.border = borderStyle;
       th.style.background = String(
         colors.header_bg || FALLBACK_COLORS.header_bg,

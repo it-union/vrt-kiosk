@@ -361,6 +361,12 @@ declare(strict_types=1);
                         <option value="0">Нет</option>
                     </select>
                 </label>
+                <label>Показывать год
+                    <select id="pScheduleShowYear">
+                        <option value="1">Да</option>
+                        <option value="0">Нет</option>
+                    </select>
+                </label>
                 <label>Тема
                     <select id="pScheduleThemeId"></select>
                 </label>
@@ -733,6 +739,7 @@ const el = {
   pScheduleDays: document.getElementById('pScheduleDays'),
   pSchedulePoint: document.getElementById('pSchedulePoint'),
   pScheduleShowBusy: document.getElementById('pScheduleShowBusy'),
+  pScheduleShowYear: document.getElementById('pScheduleShowYear'),
   pScheduleThemeId: document.getElementById('pScheduleThemeId'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
   htmlEditorContrastToggle: document.getElementById('htmlEditorContrastToggle'),
@@ -1358,6 +1365,8 @@ function normalizeScheduleData(raw) {
   const point = [0, 1].includes(pointRaw) ? pointRaw : 0;
   const showBusyRaw = src.show_busy;
   const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
+  const showYearRaw = src.show_year;
+  const showYear = !(showYearRaw === false || String(showYearRaw) === '0');
   const cachedPayload = src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null;
   const updatedAtRaw = String(src.cached_updated_at || '').trim();
   const updatedAt = updatedAtRaw;
@@ -1366,6 +1375,7 @@ function normalizeScheduleData(raw) {
     days,
     point,
     show_busy: showBusy,
+    show_year: showYear,
     theme_id: themeId,
     cached_payload: cachedPayload,
     cached_updated_at: updatedAt
@@ -1396,6 +1406,7 @@ function buildScheduleDataJson() {
     days: Number(el.pScheduleDays && el.pScheduleDays.value ? el.pScheduleDays.value : 7),
     point: Number(el.pSchedulePoint && el.pSchedulePoint.value ? el.pSchedulePoint.value : 0),
     show_busy: Number(el.pScheduleShowBusy && el.pScheduleShowBusy.value ? el.pScheduleShowBusy.value : 1) === 1,
+    show_year: Number(el.pScheduleShowYear && el.pScheduleShowYear.value ? el.pScheduleShowYear.value : 1) === 1,
     theme_id: String(el.pScheduleThemeId && el.pScheduleThemeId.value ? el.pScheduleThemeId.value : ''),
     cached_payload: (window.__scheduleCachedPayload && typeof window.__scheduleCachedPayload === 'object') ? window.__scheduleCachedPayload : null,
     cached_updated_at: String(window.__scheduleCachedUpdatedAt || '')
@@ -2090,6 +2101,7 @@ function nowDraft() {
   if (el.pScheduleDays) el.pScheduleDays.value = '7';
   if (el.pSchedulePoint) el.pSchedulePoint.value = '0';
   if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = '1';
+  if (el.pScheduleShowYear) el.pScheduleShowYear.value = '1';
   if (el.pScheduleThemeId && el.pScheduleThemeId.options.length > 0) {
     el.pScheduleThemeId.selectedIndex = 0;
   }
@@ -2879,6 +2891,7 @@ async function loadById(id) {
     if (el.pScheduleDays) el.pScheduleDays.value = String(schedule.days);
     if (el.pSchedulePoint) el.pSchedulePoint.value = String(schedule.point);
     if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = schedule.show_busy === false ? '0' : '1';
+    if (el.pScheduleShowYear) el.pScheduleShowYear.value = schedule.show_year === false ? '0' : '1';
     if (el.pScheduleThemeId) el.pScheduleThemeId.value = String(schedule.theme_id);
     window.__scheduleCachedPayload = schedule.cached_payload;
     window.__scheduleCachedUpdatedAt = schedule.cached_updated_at;
@@ -3292,6 +3305,7 @@ if (el.scheduleFetchBtn) el.scheduleFetchBtn.addEventListener('click', fetchSche
 if (el.pScheduleDays) el.pScheduleDays.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 if (el.pSchedulePoint) el.pSchedulePoint.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleShowBusy) el.pScheduleShowBusy.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleShowYear) el.pScheduleShowYear.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleThemeId) el.pScheduleThemeId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });

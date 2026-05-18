@@ -613,12 +613,15 @@ function normalizeScheduleData(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
     const showBusyRaw = src.show_busy;
     const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
+    const showYearRaw = src.show_year;
+    const showYear = !(showYearRaw === false || String(showYearRaw) === '0');
     const days = Math.max(1, Math.min(31, Number(src.days || 7)));
     return {
         doctor_id: Math.max(1, Number(src.doctor_id || 1)),
         days,
         theme_id: String(src.theme_id || ''),
         show_busy: showBusy,
+        show_year: showYear,
         cached_payload: src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null
     };
 }
