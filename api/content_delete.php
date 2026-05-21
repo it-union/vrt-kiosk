@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/content_repository.php';
+require_once __DIR__ . '/../modules/entity_permission_repository.php';
 
 requireTemplateApiAuth();
 
@@ -27,6 +28,7 @@ try {
         jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для удаления контента'], 403);
     }
     $ok = contentDelete($pdo, $id);
+    entityPermissionRevokeAllForEntity($pdo, 'content', $id);
     if (!$ok) {
         jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
     }

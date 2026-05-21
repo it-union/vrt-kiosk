@@ -5,6 +5,7 @@ require_once __DIR__ . '/../core/helpers.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/template_service.php';
+require_once __DIR__ . '/../modules/entity_permission_repository.php';
 
 requireTemplateApiAuth();
 
@@ -27,6 +28,7 @@ try {
         jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для удаления шаблона'], 403);
     }
     deleteTemplate($pdo, $id);
+    entityPermissionRevokeAllForEntity($pdo, 'template', $id);
     jsonResponse(['ok' => true, 'data' => ['template_id' => $id]]);
 } catch (RuntimeException $e) {
     if ($e->getMessage() === 'template_not_found') {

@@ -72,15 +72,19 @@ declare(strict_types=1);
         .item { padding: 7px 8px; border-bottom: 1px solid #eceff3; cursor: pointer; font-size: 12px; }
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
-        .item.itemDraft { border-left: 4px solid #d97706; }
-        .item.itemWork { border-left: 4px solid #15803d; }
-        .item.itemArchive { border-left: 4px solid #64748b; opacity: 0.78; }
+        .item.itemDraft { }
+        .item.itemWork { }
+        .item.itemArchive { opacity: 0.78; }
+        .item.itemAccessOwn { border-left: 4px solid #15803d; }
+        .item.itemAccessAllowed { border-left: 4px solid #15803d; }
+        .item.itemAccessOther { border-left: 4px solid #d97706; }
         .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
         .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
         .emptyState { padding: 12px; color: #5a6472; font-size: 13px; line-height: 1.45; }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: pre-line; overflow: hidden; }
+        .listItemMeta .metaWarning { color: #b45309; }
         .folderGroup { border-bottom: 1px solid #e2e8f0; }
         .folderHead { padding: 7px 10px; font-size: 13px; font-weight: bold; color: #1e3a8a; background: #eaf3ff; border-bottom: 1px solid #cfe3ff; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .folderHead::after { content: '\25B8'; font-size: 11px; color: #64748b; }
@@ -241,7 +245,8 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="duplicateTemplateBtn" type="button" title="Дублировать шаблон" aria-label="Дублировать шаблон">&#x29C9;</button>
             <button class="iconBtn secondary" id="previewTemplateBtn" type="button" title="Предпросмотр шаблона" aria-label="Предпросмотр шаблона">&#x25A3;</button>
             <button class="iconBtn secondary" id="deleteTemplateBtn" type="button" title="Удалить шаблон" aria-label="Удалить шаблон">&times;</button>
-            <button class="secondary" id="ownerTemplateFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
+            <button class="iconBtn secondary" id="templatePermsBtn" type="button" title="&#1055;&#1088;&#1072;&#1074;&#1072; &#1076;&#1086;&#1089;&#1090;&#1091;&#1087;&#1072;" aria-label="&#1055;&#1088;&#1072;&#1074;&#1072; &#1076;&#1086;&#1089;&#1090;&#1091;&#1087;&#1072;"></button>
+            <button class="iconBtn secondary" id="ownerTemplateFilterBtn" type="button" title="&#1055;&#1086;&#1082;&#1072;&#1079;&#1099;&#1074;&#1072;&#1090;&#1100; &#1090;&#1086;&#1083;&#1100;&#1082;&#1086; &#1084;&#1086;&#1080;" aria-label="&#1055;&#1086;&#1082;&#1072;&#1079;&#1099;&#1074;&#1072;&#1090;&#1100; &#1090;&#1086;&#1083;&#1100;&#1082;&#1086; &#1084;&#1086;&#1080;"></button>
         </div>
         <div class="listFilter">
             <label for="templateFolderFilter">Папка шаблонов</label>
@@ -570,6 +575,22 @@ declare(strict_types=1);
     </div>
 </div>
 
+
+<div class="modalBack" id="templatePermsModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="templatePermsTitle">
+        <h3 id="templatePermsTitle">Права на шаблон</h3>
+        <p id="templatePermsText">Выберите редакторов, которым доступно редактирование.</p>
+        <label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:0;border:0;">
+            <input id="templatePermsWithLinked" type="checkbox" style="width:auto;margin:0;">
+            <span>Применить к связанному контенту</span>
+        </label>
+        <div id="templatePermsList" style="max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:8px;"></div>
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="templatePermsCloseBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 <script src="/public/schedule_renderer.js?v=<?= rawurlencode((string)(@filemtime(__DIR__ . '/../../public/schedule_renderer.js') ?: ($projectVersion ?? '0.0.0-dev'))) ?>"></script>
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -581,6 +602,7 @@ const state = {
   currentTemplateId: null,
   currentOwnerId: 0,
   currentCanManage: true,
+  currentCanDelete: true,
   ownerOnly: false,
   blocks: [],
   lastBlockId: 0,
@@ -694,28 +716,54 @@ function setDeleteTemplateButtonDisabled(disabled) {
   btn.style.opacity = disabled ? '0.6' : '';
   btn.style.cursor = disabled ? 'not-allowed' : '';
 }
+function iconSvg(kind) {
+  const icons = {
+    user: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg>',
+    users: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 1a3 3 0 1 0-2.1-5.1M3 20a6 6 0 0 1 12 0m2.5 0a5 5 0 0 0-2.5-4.3"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M8 11V8a4 4 0 1 1 8 0v3"/></svg>',
+    unlock: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>'
+  };
+  return icons[kind] || icons.lock;
+}
+
 function updateOwnerTemplateFilterButton() {
   const btn = document.getElementById('ownerTemplateFilterBtn');
   if (!btn) return;
   btn.classList.toggle('secondary', !state.ownerOnly);
-  btn.textContent = state.ownerOnly ? 'Все' : 'Мои';
-  btn.title = state.ownerOnly ? 'Показывать все' : 'Показывать только мои';
+  btn.title = state.ownerOnly ? '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0432\u0441\u0435' : '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0442\u043e\u043b\u044c\u043a\u043e \u043c\u043e\u0438';
   btn.setAttribute('aria-label', btn.title);
+  btn.innerHTML = state.ownerOnly ? iconSvg('users') : iconSvg('user');
 }
 function buildCreatorText(row) {
   const name = String((row && (row.creator_name || row.creator_login || '')) || '').trim();
-  return name ? ('Создал: ' + name) : 'Создал: администратор';
+  const ownerPart = name ? ('Владелец: ' + name) : 'Владелец: администратор';
+  const shared = Array.isArray(row && row.shared_with) ? row.shared_with.map((v) => String(v || '').trim()).filter((v) => v !== '') : [];
+  const ownerHtml = escapeHtml(ownerPart);
+  if (shared.length <= 0) return ownerHtml;
+  return ownerHtml + '<br><span class="metaWarning">Доступ:</span> ' + escapeHtml(shared.join(', '));
 }
 function isForeignOwned(row) {
   const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  if (isAdmin) return false;
+  const canManage = Number((row && row.can_manage) || 0) === 1;
+  if (canManage) return false;
   const ownerId = Number((row && row.created_by) || 0);
-  return !isAdmin && ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+  return ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+}
+function getAccessBorderClass(row) {
+  const currentUserId = Number(CURRENT_USER.id || 0);
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  const ownerId = Number((row && row.created_by) || 0);
+  const canManage = Number((row && row.can_manage) || 0) === 1;
+  if (ownerId > 0 && ownerId === currentUserId) return 'itemAccessOwn';
+  if (!isAdmin && canManage) return 'itemAccessAllowed';
+  return 'itemAccessOther';
 }
 function updateTemplatePermissions() {
-  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
-  state.currentCanManage = !state.currentTemplateId || isAdmin || (state.currentOwnerId > 0 && Number(state.currentOwnerId) === Number(CURRENT_USER.id || 0));
+  state.currentCanManage = !state.currentTemplateId || state.currentCanManage === true;
+  state.currentCanDelete = !state.currentTemplateId || state.currentCanDelete === true;
   setSaveButtonDisabled(!state.currentCanManage);
-  setDeleteTemplateButtonDisabled(!state.currentTemplateId || !state.currentCanManage);
+  setDeleteTemplateButtonDisabled(!state.currentTemplateId || !state.currentCanDelete);
 }
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 function formatDelaySeconds(ms) {
@@ -1348,7 +1396,8 @@ function renderTemplateList() {
     const statusClass = normalized === 'work' ? 'itemWork' : (normalized === 'archive' ? 'itemArchive' : 'itemDraft');
     const badgeClass = normalized === 'work' ? 'statusWork' : (normalized === 'archive' ? 'statusArchive' : 'statusDraft');
     const foreignOwned = isForeignOwned(tpl);
-    d.className = 'item ' + statusClass + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '') + (foreignOwned ? ' itemForeign' : '');
+    const accessBorderClass = getAccessBorderClass(tpl);
+    d.className = 'item ' + statusClass + ' ' + accessBorderClass + (Number(tpl.id) === Number(state.currentTemplateId) ? ' active' : '') + (foreignOwned ? ' itemForeign' : '');
     const wrap = document.createElement('div');
     wrap.className = 'listItemRow';
     const text = document.createElement('div');
@@ -1358,7 +1407,7 @@ function renderTemplateList() {
     text.title = fullLabel;
     const meta = document.createElement('div');
     meta.className = 'listItemMeta';
-    meta.textContent = buildCreatorText(tpl);
+    meta.innerHTML = buildCreatorText(tpl);
     meta.title = meta.textContent;
     const badge = document.createElement('span');
     badge.className = 'statusBadge ' + badgeClass;
@@ -1955,6 +2004,68 @@ async function apiPost(url, params) {
   if (!p.ok) throw new Error(p.error || 'Ошибка API');
   return p.data;
 }
+function escapeHtml(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+async function loadTemplatePermissionsModalData() {
+  const id = Number(state.currentTemplateId || 0);
+  if (id <= 0) return;
+  const list = document.getElementById('templatePermsList');
+  if (!list) return;
+  list.innerHTML = '<div style="font-size:12px;color:#64748b;">Загрузка...</div>';
+  const data = await apiGet('/api/admin_entity_permissions_get.php?entity_type=template&entity_id=' + encodeURIComponent(id));
+  const rows = Array.isArray(data && data.editors) ? data.editors : [];
+  if (rows.length <= 0) {
+    list.innerHTML = '<div style="font-size:12px;color:#64748b;">Нет активных редакторов.</div>';
+    return;
+  }
+  list.innerHTML = rows.map((row) => {
+    const userId = Number(row.user_id || 0);
+    const checked = row.has_access ? ' checked' : '';
+    return '<label style="display:flex;align-items:center;gap:8px;margin:0;padding:6px 0;border:0;border-bottom:1px solid #eef2f7;">'
+      + '<input class="templatePermsToggle" data-user-id="' + userId + '" type="checkbox" style="width:auto;margin:0;"' + checked + '>'
+      + '<span>' + escapeHtml(String(row.full_name || '')) + ' (' + escapeHtml(String(row.login || '')) + ')</span>'
+      + '</label>';
+  }).join('');
+  list.querySelectorAll('.templatePermsToggle').forEach((node) => {
+    node.addEventListener('change', async () => {
+      const editorUserId = Number(node.getAttribute('data-user-id') || 0);
+      if (editorUserId <= 0) return;
+      const includeLinked = document.getElementById('templatePermsWithLinked')?.checked ? 1 : 0;
+      const action = node.checked ? 'grant' : 'revoke';
+      node.disabled = true;
+      try {
+        await apiPost('/api/admin_entity_permissions_save.php', {
+          entity_type: 'template',
+          entity_id: id,
+          editor_user_id: editorUserId,
+          action,
+          include_linked_content: includeLinked
+        });
+        await loadTemplatePermissionsModalData();
+        await reloadTemplateList();
+        setStatus(action === 'grant' ? 'Права выданы' : 'Права отозваны');
+      } catch (e) {
+        node.checked = !node.checked;
+        setStatus(String(e.message || e), true);
+      } finally {
+        node.disabled = false;
+      }
+    });
+  });
+}
+function openTemplatePermissionsModal() {
+  const id = Number(state.currentTemplateId || 0);
+  if (id <= 0) { setStatus('Сначала выберите шаблон', true); return; }
+  const modal = document.getElementById('templatePermsModal');
+  if (!modal) return;
+  modal.classList.add('open');
+  loadTemplatePermissionsModalData().catch((e) => setStatus(String(e.message || e), true));
+}
+function closeTemplatePermissionsModal() {
+  const modal = document.getElementById('templatePermsModal');
+  if (modal) modal.classList.remove('open');
+}
 function uploadWithProgress(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -2284,6 +2395,7 @@ async function createTemplateFolder() {
   const d = await apiPost('/api/template_folder_create.php', { name });
   const folderId = Number(d.folder_id || 0);
   await reloadTemplateFolders();
+  renderTemplateList();
   if (folderId > 0 && el.tplFolder) {
     el.tplFolder.value = String(folderId);
   }
@@ -2343,6 +2455,8 @@ async function loadTemplate(templateId) {
     state.screen_style = normalizeScreenStyle(layout?.screen_style || {});
     state.currentTemplateId = Number(tpl.id);
     state.currentOwnerId = Number(tpl.created_by || 0);
+    state.currentCanManage = Number(tpl.can_manage || 0) === 1;
+    state.currentCanDelete = Number(tpl.can_delete || 0) === 1;
     state.blocks = (tpl.blocks || []).map((b) => {
       const style = normalizeBlockBackground(parseJsonObject(b.style_json) || {});
       return {
@@ -2703,6 +2817,16 @@ if (el.templateFolderNameInput) {
     }
   });
 }
+const templatePermsBtn = document.getElementById('templatePermsBtn');
+if (templatePermsBtn) {
+  templatePermsBtn.innerHTML = iconSvg('lock');
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  if (!isAdmin) {
+    templatePermsBtn.style.display = 'none';
+  } else {
+    templatePermsBtn.onclick = openTemplatePermissionsModal;
+  }
+}
 document.getElementById('ownerTemplateFilterBtn').onclick = async () => {
   state.ownerOnly = !state.ownerOnly;
   updateOwnerTemplateFilterButton();
@@ -2925,6 +3049,14 @@ if (deleteImageModal) {
 if (el.templateFolderModal) {
   el.templateFolderModal.onclick = (event) => {
     if (event.target && event.target.id === 'templateFolderModal') closeTemplateFolderModal();
+  };
+}
+const templatePermsCloseBtn = document.getElementById('templatePermsCloseBtn');
+if (templatePermsCloseBtn) templatePermsCloseBtn.onclick = closeTemplatePermissionsModal;
+const templatePermsModal = document.getElementById('templatePermsModal');
+if (templatePermsModal) {
+  templatePermsModal.onclick = (event) => {
+    if (event.target && event.target.id === 'templatePermsModal') closeTemplatePermissionsModal();
   };
 }
 if (el.templateFolderDeleteModal) {

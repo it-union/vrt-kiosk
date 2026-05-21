@@ -41,12 +41,16 @@ declare(strict_types=1);
         .item:hover { background: #f8fafc; }
         .item.active { background: #e8f2ff; }
         .item.itemInactive { opacity: 0.72; }
+        .item.itemAccessOwn { border-left: 4px solid #15803d; }
+        .item.itemAccessAllowed { border-left: 4px solid #15803d; }
+        .item.itemAccessOther { border-left: 4px solid #d97706; }
         .item.itemForeign { background: linear-gradient(90deg, rgba(254, 226, 226, 0.85) 0%, rgba(255, 255, 255, 1) 34%); }
         .item.itemForeign.active { background: linear-gradient(90deg, rgba(254, 202, 202, 0.95) 0%, rgba(232, 242, 255, 1) 34%); }
         .emptyState { padding: 12px; color: #5a6472; font-size: 13px; line-height: 1.45; }
         .listItemRow { display: flex; align-items: center; gap: 8px; }
         .listItemText { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .listItemMeta { margin-top: 3px; font-size: 11px; color: #64748b; white-space: pre-line; overflow: hidden; }
+        .listItemMeta .metaWarning { color: #b45309; }
         .folderGroup { border-bottom: 1px solid #e2e8f0; }
         .folderHead { padding: 7px 10px; font-size: 13px; font-weight: bold; color: #1e3a8a; background: #eaf3ff; border-bottom: 1px solid #cfe3ff; cursor: pointer; user-select: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .folderHead::after { content: '\25B8'; font-size: 11px; color: #64748b; }
@@ -189,7 +193,8 @@ declare(strict_types=1);
             <button class="iconBtn secondary" id="duplicateBtn" type="button" title="Дублировать" aria-label="Дублировать">&#x29C9;</button>
             <button class="iconBtn secondary" id="reloadBtn" type="button" title="Обновить список" aria-label="Обновить список">&#x21bb;</button>
             <button class="iconBtn secondary" id="deleteBtn" type="button" title="Удалить" aria-label="Удалить">&times;</button>
-            <button class="secondary" id="ownerFilterBtn" type="button" title="Показывать только мои" aria-label="Показывать только мои">Мои</button>
+            <button class="iconBtn secondary" id="contentPermsBtn" type="button" title="&#1055;&#1088;&#1072;&#1074;&#1072; &#1076;&#1086;&#1089;&#1090;&#1091;&#1087;&#1072;" aria-label="&#1055;&#1088;&#1072;&#1074;&#1072; &#1076;&#1086;&#1089;&#1090;&#1091;&#1087;&#1072;"></button>
+            <button class="iconBtn secondary" id="ownerFilterBtn" type="button" title="&#1055;&#1086;&#1082;&#1072;&#1079;&#1099;&#1074;&#1072;&#1090;&#1100; &#1090;&#1086;&#1083;&#1100;&#1082;&#1086; &#1084;&#1086;&#1080;" aria-label="&#1055;&#1086;&#1082;&#1072;&#1079;&#1099;&#1074;&#1072;&#1090;&#1100; &#1090;&#1086;&#1083;&#1100;&#1082;&#1086; &#1084;&#1086;&#1080;"></button>
         </div>
         <div class="listFilter">
             <label for="contentTypeFilter">Фильтр типа контента</label>
@@ -624,6 +629,18 @@ declare(strict_types=1);
     </div>
 </div>
 
+
+<div class="modalBack" id="contentPermsModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contentPermsTitle">
+        <h3 id="contentPermsTitle">Права на контент</h3>
+        <p id="contentPermsText">Выберите редакторов, которым доступно редактирование.</p>
+        <div id="contentPermsList" style="max-height:46vh;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:8px;"></div>
+        <div class="row" style="margin-top:12px;">
+            <button type="button" id="contentPermsCloseBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 <script type="module">
 import * as CKEDITOR from '/vendor/ckeditor5/ckeditor5.js';
 import ru from '/vendor/ckeditor5/translations/ru.js';
@@ -635,7 +652,7 @@ window.dispatchEvent(new Event('ckeditor-local-ready'));
 <script>
 const CURRENT_USER = <?= json_encode(['id' => (int)($currentUser['id'] ?? 0), 'role_code' => (string)($currentUser['role_code'] ?? '')], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const SCHEDULE_THEMES = <?= json_encode(array_values($scheduleThemes ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const state = { list: [], contentFolders: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', listFolderFilter: '', ownerOnly: false, saveInProgress: false, scheduleFetchInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true, openContentFolders: {} };
+const state = { list: [], contentFolders: [], library: [], doctors: [], currentId: 0, currentType: 'image', listFilterType: '', listFolderFilter: '', ownerOnly: false, saveInProgress: false, scheduleFetchInProgress: false, libraryMode: 'image', currentOwnerId: 0, currentCanManage: true, currentCanDelete: true, openContentFolders: {} };
 let selectedLibraryUrl = '';
 let selectedLibraryName = '';
 let imageBaseWidth = 0;
@@ -904,28 +921,54 @@ function setDeleteButtonDisabled(disabled) {
   btn.style.opacity = disabled ? '0.6' : '';
   btn.style.cursor = disabled ? 'not-allowed' : '';
 }
+function iconSvg(kind) {
+  const icons = {
+    user: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0"/></svg>',
+    users: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 1a3 3 0 1 0-2.1-5.1M3 20a6 6 0 0 1 12 0m2.5 0a5 5 0 0 0-2.5-4.3"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M8 11V8a4 4 0 1 1 8 0v3"/></svg>',
+    unlock: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path fill="none" stroke="currentColor" stroke-width="2" d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>'
+  };
+  return icons[kind] || icons.lock;
+}
+
 function updateOwnerFilterButton() {
   const btn = document.getElementById('ownerFilterBtn');
   if (!btn) return;
   btn.classList.toggle('secondary', !state.ownerOnly);
-  btn.textContent = state.ownerOnly ? 'Все' : 'Мои';
-  btn.title = state.ownerOnly ? 'Показывать все' : 'Показывать только мои';
+  btn.title = state.ownerOnly ? '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0432\u0441\u0435' : '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0442\u043e\u043b\u044c\u043a\u043e \u043c\u043e\u0438';
   btn.setAttribute('aria-label', btn.title);
+  btn.innerHTML = state.ownerOnly ? iconSvg('users') : iconSvg('user');
 }
 function buildCreatorText(row) {
   const name = String((row && (row.creator_name || row.creator_login || '')) || '').trim();
-  return name ? ('Создал: ' + name) : 'Создал: администратор';
+  const ownerPart = name ? ('Владелец: ' + name) : 'Владелец: администратор';
+  const shared = Array.isArray(row && row.shared_with) ? row.shared_with.map((v) => String(v || '').trim()).filter((v) => v !== '') : [];
+  const ownerHtml = escapeHtml(ownerPart);
+  if (shared.length <= 0) return ownerHtml;
+  return ownerHtml + '<br><span class="metaWarning">Доступ:</span> ' + escapeHtml(shared.join(', '));
 }
 function isForeignOwned(row) {
   const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  if (isAdmin) return false;
+  const canManage = Number((row && row.can_manage) || 0) === 1;
+  if (canManage) return false;
   const ownerId = Number((row && row.created_by) || 0);
-  return !isAdmin && ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+  return ownerId > 0 && ownerId !== Number(CURRENT_USER.id || 0);
+}
+function getAccessBorderClass(row) {
+  const currentUserId = Number(CURRENT_USER.id || 0);
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  const ownerId = Number((row && row.created_by) || 0);
+  const canManage = Number((row && row.can_manage) || 0) === 1;
+  if (ownerId > 0 && ownerId === currentUserId) return 'itemAccessOwn';
+  if (!isAdmin && canManage) return 'itemAccessAllowed';
+  return 'itemAccessOther';
 }
 function updateCurrentPermissions() {
-  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
-  state.currentCanManage = state.currentId <= 0 || isAdmin || (state.currentOwnerId > 0 && Number(state.currentOwnerId) === Number(CURRENT_USER.id || 0));
+  state.currentCanManage = state.currentId <= 0 || state.currentCanManage === true;
+  state.currentCanDelete = state.currentId <= 0 || state.currentCanDelete === true;
   setSaveButtonDisabled(!state.currentCanManage);
-  setDeleteButtonDisabled(state.currentId <= 0 || !state.currentCanManage);
+  setDeleteButtonDisabled(state.currentId <= 0 || !state.currentCanDelete);
 }
 function setEditorVisible(visible, type = 'image') {
   const viewType = String(type || 'image');
@@ -2529,6 +2572,65 @@ async function apiPost(url, payload) {
   if (!p.ok) throw new Error(p.error || 'Ошибка API');
   return p.data;
 }
+
+async function loadContentPermissionsModalData() {
+  const id = Number(state.currentId || 0);
+  if (id <= 0) return;
+  const list = document.getElementById('contentPermsList');
+  if (!list) return;
+  list.innerHTML = '<div style="font-size:12px;color:#64748b;">Загрузка...</div>';
+  const data = await apiGet('/api/admin_entity_permissions_get.php?entity_type=content&entity_id=' + encodeURIComponent(id));
+  const rows = Array.isArray(data && data.editors) ? data.editors : [];
+  if (rows.length <= 0) {
+    list.innerHTML = '<div style="font-size:12px;color:#64748b;">Нет активных редакторов.</div>';
+    return;
+  }
+  list.innerHTML = rows.map((row) => {
+    const userId = Number(row.user_id || 0);
+    const checked = row.has_access ? ' checked' : '';
+    return '<label style="display:flex;align-items:center;gap:8px;margin:0;padding:6px 0;border:0;border-bottom:1px solid #eef2f7;">'
+      + '<input class="contentPermsToggle" data-user-id="' + userId + '" type="checkbox" style="width:auto;margin:0;"' + checked + '>'
+      + '<span>' + escapeHtml(String(row.full_name || '')) + ' (' + escapeHtml(String(row.login || '')) + ')' + '</span>'
+      + '</label>';
+  }).join('');
+  list.querySelectorAll('.contentPermsToggle').forEach((node) => {
+    node.addEventListener('change', async () => {
+      const editorUserId = Number(node.getAttribute('data-user-id') || 0);
+      if (editorUserId <= 0) return;
+      const action = node.checked ? 'grant' : 'revoke';
+      node.disabled = true;
+      try {
+        await apiPost('/api/admin_entity_permissions_save.php', {
+          entity_type: 'content',
+          entity_id: id,
+          editor_user_id: editorUserId,
+          action,
+          include_linked_content: 0
+        });
+        await loadContentPermissionsModalData();
+        await reloadList();
+        setStatus(action === 'grant' ? 'Права выданы' : 'Права отозваны');
+      } catch (e) {
+        node.checked = !node.checked;
+        setStatus(String(e.message || e), true);
+      } finally {
+        node.disabled = false;
+      }
+    });
+  });
+}
+function openContentPermissionsModal() {
+  const id = Number(state.currentId || 0);
+  if (id <= 0) { setStatus('Сначала выберите запись', true); return; }
+  const modal = document.getElementById('contentPermsModal');
+  if (!modal) return;
+  modal.classList.add('open');
+  loadContentPermissionsModalData().catch((e) => setStatus(String(e.message || e), true));
+}
+function closeContentPermissionsModal() {
+  const modal = document.getElementById('contentPermsModal');
+  if (modal) modal.classList.remove('open');
+}
 function uploadWithProgress(url, formData, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -2685,7 +2787,8 @@ function renderList() {
     const d = document.createElement('div');
     const isActive = Number(row.is_active || 0) === 1;
     const foreignOwned = isForeignOwned(row);
-    d.className = 'item' + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive') + (foreignOwned ? ' itemForeign' : '');
+    const accessBorderClass = getAccessBorderClass(row);
+    d.className = 'item ' + accessBorderClass + (Number(row.id) === Number(state.currentId) ? ' active' : '') + (isActive ? '' : ' itemInactive') + (foreignOwned ? ' itemForeign' : '');
     const t = String(row.type || 'image');
     const labelMapSafe = { text: 'Т', image: 'И', html: 'HT', video: 'В', ppt: 'П', schedule: 'Р' };
     const safeLabel = labelMapSafe[t] || 'И';
@@ -2698,7 +2801,7 @@ function renderList() {
     text.title = fullLabel;
     const meta = document.createElement('div');
     meta.className = 'listItemMeta';
-    meta.textContent = buildCreatorText(row);
+    meta.innerHTML = buildCreatorText(row);
     meta.title = meta.textContent;
     const badge = document.createElement('span');
     badge.className = 'statusBadge ' + (isActive ? 'statusActive' : 'statusInactive');
@@ -2753,6 +2856,7 @@ async function createContentFolder() {
   const d = await apiPost('/api/content_folder_create.php', { name });
   const folderId = Number(d.folder_id || 0);
   await reloadContentFolders();
+  renderList();
   if (folderId > 0 && el.cFolder) el.cFolder.value = String(folderId);
   closeContentFolderModal();
 }
@@ -2815,6 +2919,8 @@ async function loadById(id) {
     const row = await apiGet('/api/content_get.php?content_id=' + encodeURIComponent(id));
     state.currentId = Number(row.id);
     state.currentOwnerId = Number(row.created_by || 0);
+    state.currentCanManage = Number(row.can_manage || 0) === 1;
+    state.currentCanDelete = Number(row.can_delete || 0) === 1;
     state.currentType = String(row.type || 'image');
     el.cActive.value = String(Number(row.is_active || 0));
     el.cTitle.value = row.title || '';
@@ -3100,6 +3206,16 @@ async function confirmDuplicateContent() {
   }
 }
 document.getElementById('reloadBtn').onclick = reloadList;
+const contentPermsBtn = document.getElementById('contentPermsBtn');
+if (contentPermsBtn) {
+  contentPermsBtn.innerHTML = iconSvg('lock');
+  const isAdmin = String(CURRENT_USER.role_code || '') === 'administrator';
+  if (!isAdmin) {
+    contentPermsBtn.style.display = 'none';
+  } else {
+    contentPermsBtn.onclick = openContentPermissionsModal;
+  }
+}
 document.getElementById('ownerFilterBtn').onclick = async () => {
   state.ownerOnly = !state.ownerOnly;
   updateOwnerFilterButton();
@@ -3195,6 +3311,10 @@ document.getElementById('deleteContentCancelBtn').onclick = closeDeleteContentMo
 document.getElementById('deleteContentConfirmBtn').onclick = confirmDeleteCurrent;
 document.getElementById('duplicateContentCancelBtn').onclick = closeDuplicateContentModal;
 document.getElementById('duplicateContentConfirmBtn').onclick = confirmDuplicateContent;
+document.getElementById('contentPermsCloseBtn').onclick = closeContentPermissionsModal;
+document.getElementById('contentPermsModal').onclick = (event) => {
+  if (event.target && event.target.id === 'contentPermsModal') closeContentPermissionsModal();
+};
 document.getElementById('imageLibraryModal').onclick = (event) => {
   if (event.target && event.target.id === 'imageLibraryModal') closeLibraryModal();
 };

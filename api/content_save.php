@@ -7,6 +7,7 @@ require_once __DIR__ . '/../core/db_mysql.php';
 require_once __DIR__ . '/../modules/content_repository.php';
 require_once __DIR__ . '/../modules/doctor_repository.php';
 require_once __DIR__ . '/../modules/activity_log_repository.php';
+require_once __DIR__ . '/../modules/entity_permission_repository.php';
 
 requireTemplateApiAuth();
 
@@ -163,8 +164,13 @@ try {
         if ($existing === null) {
             jsonResponse(['ok' => false, 'error' => 'Контент не найден'], 404);
         }
-        if (!authCanManageOwnedEntity(isset($existing['created_by']) ? (int)$existing['created_by'] : null)) {
-            jsonResponse(['ok' => false, 'error' => 'Недостаточно прав для редактирования контента'], 403);
+        $ownerUserId = isset($existing['created_by']) ? (int)$existing['created_by'] : null;
+        $canManage = authCanManageOwnedEntity($ownerUserId);
+        if (!$canManage && $currentUserId > 0) {
+            $canManage = entityPermissionHasAny($pdo, 'content', $id, $currentUserId);
+        }
+        if (!$canManage) {
+            jsonResponse(['ok' => false, 'error' => '???????????? ???? ??? ?????????????? ????????'], 403);
         }
         $payload['updated_by'] = $currentUserId > 0 ? $currentUserId : null;
         $ok = contentUpdate($pdo, $id, $payload);
