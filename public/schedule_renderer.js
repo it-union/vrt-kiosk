@@ -120,23 +120,64 @@
       .filter((row) => row && String(row.label || '').trim() !== '');
   }
 
+  function toScheduleDate(value) {
+    const raw = String(value || '').trim();
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (iso) {
+      const y = Number(iso[1]);
+      const mm = Number(iso[2]);
+      const d = Number(iso[3]);
+      if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d)) return null;
+      const dt = new Date(y, mm - 1, d);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+    const ru = raw.match(/^(\d{2})\.(\d{2})\.(\d{2,4})(?:\s.*)?$/);
+    if (ru) {
+      const d = Number(ru[1]);
+      const mm = Number(ru[2]);
+      let y = Number(ru[3]);
+      if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d)) return null;
+      if (ru[3].length === 2) y += 2000;
+      const dt = new Date(y, mm - 1, d);
+      return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+    return null;
+  }
+
+  function formatRuWeekdayLabel(value) {
+    const dt = toScheduleDate(value);
+    if (!dt) return '';
+    return dt.toLocaleDateString('ru-RU', { weekday: 'long' });
+  }
+
   function formatRuDateLabel(value, showYear) {
     const raw = String(value || '').trim();
-    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
-    if (!m) return raw;
-    const y = Number(m[1]);
-    const mm = Number(m[2]);
-    const d = Number(m[3]);
-    if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d))
-      return raw;
-    const dt = new Date(y, mm - 1, d);
-    if (Number.isNaN(dt.getTime())) return raw;
-    if (showYear === false) {
-      const dd = String(d).padStart(2, '0');
-      const month = String(mm).padStart(2, '0');
-      return dd + '.' + month;
+    const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
+    if (iso) {
+      const y = Number(iso[1]);
+      const mm = Number(iso[2]);
+      const d = Number(iso[3]);
+      if (!Number.isFinite(y) || !Number.isFinite(mm) || !Number.isFinite(d))
+        return raw;
+      const dt = new Date(y, mm - 1, d);
+      if (Number.isNaN(dt.getTime())) return raw;
+      if (showYear === false) {
+        const dd = String(d).padStart(2, '0');
+        const month = String(mm).padStart(2, '0');
+        return dd + '.' + month;
+      }
+      return dt.toLocaleDateString('ru-RU');
     }
-    return dt.toLocaleDateString('ru-RU');
+
+    const ru = raw.match(/^(\d{2})\.(\d{2})\.(\d{2,4})(?:\s.*)?$/);
+    if (ru) {
+      if (showYear === false) {
+        return ru[1] + '.' + ru[2];
+      }
+      return raw;
+    }
+
+    return raw;
   }
 
   function limitRowsByDepth(rows, depthDays) {
@@ -171,6 +212,8 @@
     const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
     const showYearRaw = schedule.show_year;
     const showYear = !(showYearRaw === false || String(showYearRaw) === '0');
+    const showWeekdayRaw = schedule.show_weekday;
+    const showWeekday = showWeekdayRaw === true || String(showWeekdayRaw) === '1';
 
     const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
     const scalePx = (value) => {
@@ -212,7 +255,23 @@
       const tr = document.createElement('tr');
 
       const th = document.createElement('th');
-      th.textContent = formatRuDateLabel(String(row.label || ''), showYear);
+      const dateLabel = formatRuDateLabel(String(row.label || ''), showYear);
+      th.textContent = '';
+      const dateLine = document.createElement('div');
+      dateLine.textContent = dateLabel;
+      th.appendChild(dateLine);
+      if (showWeekday) {
+        const weekdayLabel = formatRuWeekdayLabel(String(row.label || ''));
+        if (weekdayLabel) {
+          const weekdayLine = document.createElement('div');
+          weekdayLine.textContent = weekdayLabel;
+          weekdayLine.style.marginTop = '2px';
+          weekdayLine.style.fontSize = '0.65em';
+          weekdayLine.style.opacity = '0.9';
+          weekdayLine.style.textTransform = 'capitalize';
+          th.appendChild(weekdayLine);
+        }
+      }
       th.style.border = borderStyle;
       th.style.background = String(
         colors.header_bg || FALLBACK_COLORS.header_bg,

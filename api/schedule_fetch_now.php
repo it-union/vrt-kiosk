@@ -18,7 +18,7 @@ if ($doctorId <= 0) {
     jsonResponse(['ok' => false, 'error' => 'Некорректный doctor_id'], 400);
 }
 $point = isset($_POST['point']) ? (int)$_POST['point'] : 0;
-if (!in_array($point, [0, 1], true)) {
+if (!in_array($point, [0, 1, 2], true)) {
     $point = 0;
 }
 $days = isset($_POST['days']) ? (int)$_POST['days'] : 7;
@@ -31,7 +31,13 @@ try {
     }
 
     $apiConfig = scheduleApiLoadConfig();
-    $payload = scheduleFetchForDoctorId($apiConfig, $doctorId, $point, $days);
+    if ($point === 2) {
+        $payloadPoint0 = scheduleFetchForDoctorId($apiConfig, $doctorId, 0, $days);
+        $payloadPoint1 = scheduleFetchForDoctorId($apiConfig, $doctorId, 1, $days);
+        $payload = scheduleMergePayloads($payloadPoint0, $payloadPoint1, $days);
+    } else {
+        $payload = scheduleFetchForDoctorId($apiConfig, $doctorId, $point, $days);
+    }
     $updatedAt = gmdate('c');
 
     jsonResponse([

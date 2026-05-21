@@ -358,6 +358,7 @@ declare(strict_types=1);
                     <select id="pSchedulePoint">
                         <option value="0">Центр ЭКО</option>
                         <option value="1">Глобус</option>
+                        <option value="2">&#1054;&#1073;&#1072; &#1092;&#1080;&#1083;&#1080;&#1072;&#1083;&#1072;</option>
                     </select>
                 </label>
                 <label>Показывать занятые
@@ -370,6 +371,12 @@ declare(strict_types=1);
                     <select id="pScheduleShowYear">
                         <option value="1">Да</option>
                         <option value="0">Нет</option>
+                    </select>
+                </label>
+                <label>&#1055;&#1086;&#1082;&#1072;&#1079;&#1099;&#1074;&#1072;&#1090;&#1100; &#1076;&#1077;&#1085;&#1100; &#1085;&#1077;&#1076;&#1077;&#1083;&#1080;
+                    <select id="pScheduleShowWeekday">
+                        <option value="1">&#1044;&#1072;</option>
+                        <option value="0" selected>&#1053;&#1077;&#1090;</option>
                     </select>
                 </label>
                 <label>Тема
@@ -757,6 +764,7 @@ const el = {
   pSchedulePoint: document.getElementById('pSchedulePoint'),
   pScheduleShowBusy: document.getElementById('pScheduleShowBusy'),
   pScheduleShowYear: document.getElementById('pScheduleShowYear'),
+  pScheduleShowWeekday: document.getElementById('pScheduleShowWeekday'),
   pScheduleThemeId: document.getElementById('pScheduleThemeId'),
   htmlEditorWrap: document.getElementById('htmlEditorWrap'),
   htmlEditorContrastToggle: document.getElementById('htmlEditorContrastToggle'),
@@ -1405,11 +1413,13 @@ function normalizeScheduleData(raw) {
   const doctorId = availableDoctorIds.includes(doctorIdRaw) ? doctorIdRaw : (availableDoctorIds[0] || 1);
   const days = Math.max(1, Math.min(31, Math.floor(Number(src.days || 7))));
   const pointRaw = Number(src.point || 0);
-  const point = [0, 1].includes(pointRaw) ? pointRaw : 0;
+  const point = [0, 1, 2].includes(pointRaw) ? pointRaw : 0;
   const showBusyRaw = src.show_busy;
   const showBusy = !(showBusyRaw === false || String(showBusyRaw) === '0');
   const showYearRaw = src.show_year;
   const showYear = !(showYearRaw === false || String(showYearRaw) === '0');
+  const showWeekdayRaw = src.show_weekday;
+  const showWeekday = showWeekdayRaw === true || String(showWeekdayRaw) === '1';
   const cachedPayload = src.cached_payload && typeof src.cached_payload === 'object' ? src.cached_payload : null;
   const updatedAtRaw = String(src.cached_updated_at || '').trim();
   const updatedAt = updatedAtRaw;
@@ -1419,6 +1429,7 @@ function normalizeScheduleData(raw) {
     point,
     show_busy: showBusy,
     show_year: showYear,
+    show_weekday: showWeekday,
     theme_id: themeId,
     cached_payload: cachedPayload,
     cached_updated_at: updatedAt
@@ -1450,6 +1461,7 @@ function buildScheduleDataJson() {
     point: Number(el.pSchedulePoint && el.pSchedulePoint.value ? el.pSchedulePoint.value : 0),
     show_busy: Number(el.pScheduleShowBusy && el.pScheduleShowBusy.value ? el.pScheduleShowBusy.value : 1) === 1,
     show_year: Number(el.pScheduleShowYear && el.pScheduleShowYear.value ? el.pScheduleShowYear.value : 1) === 1,
+    show_weekday: Number(el.pScheduleShowWeekday && el.pScheduleShowWeekday.value ? el.pScheduleShowWeekday.value : 0) === 1,
     theme_id: String(el.pScheduleThemeId && el.pScheduleThemeId.value ? el.pScheduleThemeId.value : ''),
     cached_payload: (window.__scheduleCachedPayload && typeof window.__scheduleCachedPayload === 'object') ? window.__scheduleCachedPayload : null,
     cached_updated_at: String(window.__scheduleCachedUpdatedAt || '')
@@ -2145,6 +2157,7 @@ function nowDraft() {
   if (el.pSchedulePoint) el.pSchedulePoint.value = '0';
   if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = '1';
   if (el.pScheduleShowYear) el.pScheduleShowYear.value = '1';
+  if (el.pScheduleShowWeekday) el.pScheduleShowWeekday.value = '0';
   if (el.pScheduleThemeId && el.pScheduleThemeId.options.length > 0) {
     el.pScheduleThemeId.selectedIndex = 0;
   }
@@ -2998,6 +3011,7 @@ async function loadById(id) {
     if (el.pSchedulePoint) el.pSchedulePoint.value = String(schedule.point);
     if (el.pScheduleShowBusy) el.pScheduleShowBusy.value = schedule.show_busy === false ? '0' : '1';
     if (el.pScheduleShowYear) el.pScheduleShowYear.value = schedule.show_year === false ? '0' : '1';
+    if (el.pScheduleShowWeekday) el.pScheduleShowWeekday.value = schedule.show_weekday === true ? '1' : '0';
     if (el.pScheduleThemeId) el.pScheduleThemeId.value = String(schedule.theme_id);
     window.__scheduleCachedPayload = schedule.cached_payload;
     window.__scheduleCachedUpdatedAt = schedule.cached_updated_at;
@@ -3426,6 +3440,7 @@ if (el.pScheduleDays) el.pScheduleDays.addEventListener('input', () => { syncDat
 if (el.pSchedulePoint) el.pSchedulePoint.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleShowBusy) el.pScheduleShowBusy.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleShowYear) el.pScheduleShowYear.addEventListener('change', () => { syncDataJson(); syncPreview(); });
+if (el.pScheduleShowWeekday) el.pScheduleShowWeekday.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 if (el.pScheduleThemeId) el.pScheduleThemeId.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pHtmlScale.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFluidMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });

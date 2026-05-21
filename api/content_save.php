@@ -63,7 +63,7 @@ if ($type === 'schedule') {
         jsonResponse(['ok' => false, 'error' => 'Для расписания нужен doctor_id'], 400);
     }
     $schedulePoint = (int)($scheduleNode['point'] ?? 0);
-    if (!in_array($schedulePoint, [0, 1], true)) {
+    if (!in_array($schedulePoint, [0, 1, 2], true)) {
         jsonResponse(['ok' => false, 'error' => 'Некорректное значение point'], 400);
     }
     $scheduleDays = (int)($scheduleNode['days'] ?? 7);

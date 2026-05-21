@@ -33,7 +33,7 @@ function scheduleApiLoadConfig(): array
     return [
         'endpoint' => trim((string)($cfg['endpoint'] ?? '')),
         'doctor_id_param' => trim((string)($cfg['doctor_id_param'] ?? 'doctor_id')) ?: 'doctor_id',
-        'point_default' => in_array((int)($cfg['point_default'] ?? 0), [0, 1], true) ? (int)($cfg['point_default'] ?? 0) : 0,
+        'point_default' => in_array((int)($cfg['point_default'] ?? 0), [0, 1, 2], true) ? (int)($cfg['point_default'] ?? 0) : 0,
         'days_default' => max(1, (int)($cfg['days_default'] ?? 7)),
         'timeout_sec' => max(3, min(120, (int)($cfg['timeout_sec'] ?? 15))),
         'headers' => $headers,
@@ -179,6 +179,63 @@ function scheduleLimitPayloadByDays(array $payload, int $days): array
     return $payload;
 }
 
+function scheduleMergePayloads(array $leftPayload, array $rightPayload, int $days): array
+{
+    $leftDays = is_array($leftPayload['days'] ?? null) ? $leftPayload['days'] : [];
+    $rightDays = is_array($rightPayload['days'] ?? null) ? $rightPayload['days'] : [];
+    $mergedByDay = [];
+
+    $appendRows = static function (array $rows) use (&$mergedByDay): void {
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $dayKey = trim((string)($row['day'] ?? $row['label'] ?? $row['date'] ?? ''));
+            if ($dayKey === '') {
+                continue;
+            }
+            if (!isset($mergedByDay[$dayKey])) {
+                $mergedByDay[$dayKey] = [
+                    'day' => $dayKey,
+                    'slots' => [],
+                ];
+            }
+            $slots = is_array($row['slots'] ?? null) ? $row['slots'] : [];
+            foreach ($slots as $slot) {
+                if (is_array($slot)) {
+                    $mergedByDay[$dayKey]['slots'][] = $slot;
+                }
+            }
+        }
+    };
+
+    $appendRows($leftDays);
+    $appendRows($rightDays);
+
+    $rows = array_values($mergedByDay);
+    usort($rows, static function (array $a, array $b): int {
+        $aTs = strtotime((string)($a['day'] ?? ''));
+        $bTs = strtotime((string)($b['day'] ?? ''));
+        if ($aTs !== false && $bTs !== false) {
+            return $aTs <=> $bTs;
+        }
+        return strcmp((string)($a['day'] ?? ''), (string)($b['day'] ?? ''));
+    });
+
+    foreach ($rows as &$row) {
+        $slots = is_array($row['slots'] ?? null) ? $row['slots'] : [];
+        usort($slots, static function (array $a, array $b): int {
+            $aKey = trim((string)($a['from'] ?? $a['time'] ?? ''));
+            $bKey = trim((string)($b['from'] ?? $b['time'] ?? ''));
+            return strcmp($aKey, $bKey);
+        });
+        $row['slots'] = $slots;
+    }
+    unset($row);
+
+    return scheduleLimitPayloadByDays(['days' => $rows], $days);
+}
+
 function scheduleFetchForDoctorId(array $apiConfig, int $doctorId, ?int $pointOverride = null, ?int $daysOverride = null): array
 {
     if ($doctorId <= 0) {
@@ -191,7 +248,7 @@ function scheduleFetchForDoctorId(array $apiConfig, int $doctorId, ?int $pointOv
     $headers = is_array($apiConfig['headers']) ? $apiConfig['headers'] : [];
     $headers[] = 'Content-Type: application/json; charset=utf-8';
     $point = $pointOverride !== null ? $pointOverride : (int)($apiConfig['point_default'] ?? 0);
-    if (!in_array($point, [0, 1], true)) {
+    if (!in_array($point, [0, 1, 2], true)) {
         $point = 0;
     }
     $days = $daysOverride !== null ? $daysOverride : (int)($apiConfig['days_default'] ?? 7);
@@ -287,13 +344,19 @@ function scheduleRefreshCacheForContent(PDO $pdo, array $apiConfig, array $conte
     }
 
     $point = (int)($schedule['point'] ?? ($apiConfig['point_default'] ?? 0));
-    if (!in_array($point, [0, 1], true)) {
+    if (!in_array($point, [0, 1, 2], true)) {
         $point = 0;
     }
     $days = (int)($schedule['days'] ?? ($apiConfig['days_default'] ?? 7));
     $days = max(1, min(31, $days));
 
-    $payload = scheduleFetchForDoctorId($apiConfig, $doctorId, $point, $days);
+    if ($point === 2) {
+        $payloadPoint0 = scheduleFetchForDoctorId($apiConfig, $doctorId, 0, $days);
+        $payloadPoint1 = scheduleFetchForDoctorId($apiConfig, $doctorId, 1, $days);
+        $payload = scheduleMergePayloads($payloadPoint0, $payloadPoint1, $days);
+    } else {
+        $payload = scheduleFetchForDoctorId($apiConfig, $doctorId, $point, $days);
+    }
 
     $schedule['cached_payload'] = $payload;
     $schedule['cached_updated_at'] = gmdate('c');
