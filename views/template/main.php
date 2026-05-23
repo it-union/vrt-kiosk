@@ -170,6 +170,7 @@ declare(strict_types=1);
         .row { display: flex; gap: 8px; }
         .row > * { flex: 1; }
         .canvasWrap { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16/9; border: 2px dashed #b7c1cf; border-radius: 4px; background: #fff; overflow: hidden; user-select: none; }
+        .canvasGridOverlay { position: absolute; inset: 0; pointer-events: none; z-index: 0; background-image: linear-gradient(to right, rgba(29,95,191,0.22) 1px, transparent 1px), linear-gradient(to bottom, rgba(29,95,191,0.22) 1px, transparent 1px); }
         .block { position: absolute; border: 1px solid #2672d6; box-sizing: border-box; padding: 4px; cursor: move; user-select: none; }
         .block.selected { border-color: #1d5fbf; box-shadow: 0 0 0 2px rgba(29,95,191,0.35) inset; }
         .block.pairSelected { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55) inset; }
@@ -309,6 +310,14 @@ declare(strict_types=1);
         <label class="stageOptions" for="showSelectedOnly">
             <input id="showSelectedOnly" type="checkbox">
             Виден только выбранный
+        </label>
+        <label class="stageOptions" for="showGrid">
+            <input id="showGrid" type="checkbox">
+            &#1055;&#1086;&#1082;&#1072;&#1079;&#1072;&#1090;&#1100; &#1089;&#1077;&#1090;&#1082;&#1091;
+        </label>
+        <label class="stageOptions" for="snapToGrid">
+            <input id="snapToGrid" type="checkbox">
+            &#1055;&#1088;&#1080;&#1074;&#1103;&#1079;&#1082;&#1072; &#1082; &#1089;&#1077;&#1090;&#1082;&#1077;
         </label>
     </section>
 
@@ -613,6 +622,8 @@ const state = {
   globalShowContentPreview: false,
   disablePreviewAnimation: false,
   showSelectedOnly: false,
+  showGrid: false,
+  snapToGrid: false,
   bgGallery: [],
   bgGallerySelectedUrl: '',
   bgGallerySelectedName: '',
@@ -622,6 +633,45 @@ const state = {
 };
 const pointer = { mode: null, index: -1, dir: '', startClientX: 0, startClientY: 0, startX: 0, startY: 0, startW: 0, startH: 0 };
 const SNAP_PX = 8;
+const GRID_STEP_PCT = 2;
+function getGridStepsByRect(rect) {
+  const width = Math.max(1, Number(rect && rect.width ? rect.width : 0));
+  const height = Math.max(1, Number(rect && rect.height ? rect.height : 0));
+  const stepX = Math.max(0.25, GRID_STEP_PCT);
+  const stepY = Math.max(0.25, stepX * (width / height));
+  return { stepX, stepY };
+}
+function snapValueToGrid(value, step = GRID_STEP_PCT) {
+  const safeStep = Math.max(0.1, Number(step || GRID_STEP_PCT));
+  return Math.round(Number(value || 0) / safeStep) * safeStep;
+}
+function normalizeRectToGrid(rect, dir = '', steps = null) {
+  const stepX = Math.max(0.1, Number(steps && steps.stepX ? steps.stepX : GRID_STEP_PCT));
+  const stepY = Math.max(0.1, Number(steps && steps.stepY ? steps.stepY : GRID_STEP_PCT));
+  const safe = {
+    x: Number(rect.x || 0),
+    y: Number(rect.y || 0),
+    w: Number(rect.w || 1),
+    h: Number(rect.h || 1)
+  };
+  const right = safe.x + safe.w;
+  const bottom = safe.y + safe.h;
+  if (!dir || dir.includes('w') || dir.includes('e')) {
+    safe.x = snapValueToGrid(safe.x, stepX);
+    const snappedRight = snapValueToGrid(right, stepX);
+    safe.w = Math.max(1, snappedRight - safe.x);
+  }
+  if (!dir || dir.includes('n') || dir.includes('s')) {
+    safe.y = snapValueToGrid(safe.y, stepY);
+    const snappedBottom = snapValueToGrid(bottom, stepY);
+    safe.h = Math.max(1, snappedBottom - safe.y);
+  }
+  safe.x = clamp(safe.x, 0, 100 - safe.w);
+  safe.y = clamp(safe.y, 0, 100 - safe.h);
+  safe.w = clamp(safe.w, 1, 100 - safe.x);
+  safe.h = clamp(safe.h, 1, 100 - safe.y);
+  return safe;
+}
 let bgLibraryUploadInProgress = false;
 let bgLibraryUploadProgressTimer = null;
 let bgLibraryUploadFinalizing = false;
@@ -667,6 +717,8 @@ const el = {
   globalShowContentPreview: document.getElementById('globalShowContentPreview'),
   disablePreviewAnimation: document.getElementById('disablePreviewAnimation'),
   showSelectedOnly: document.getElementById('showSelectedOnly'),
+  showGrid: document.getElementById('showGrid'),
+  snapToGrid: document.getElementById('snapToGrid'),
   bBgMode: document.getElementById('bBgMode'),
   bBgColor: document.getElementById('bBgColor'),
   bBgImage: document.getElementById('bBgImage'),
@@ -1498,6 +1550,13 @@ function shouldRenderBlock(block, index) {
 function renderCanvas() {
   applyBackgroundStyle(el.canvas, state.screen_style, '#ffffff');
   el.canvas.innerHTML = '';
+  if (state.showGrid) {
+    const grid = document.createElement('div');
+    grid.className = 'canvasGridOverlay';
+    const gridSteps = getGridStepsByRect(el.canvas.getBoundingClientRect());
+    grid.style.backgroundSize = `${gridSteps.stepX}% ${gridSteps.stepY}%`;
+    el.canvas.appendChild(grid);
+  }
   renderStageBlockSelect();
   state.blocks.forEach((b, i) => {
     if (!shouldRenderBlock(b, i)) return;
@@ -1971,12 +2030,21 @@ function onPointerMove(event) {
   const dxPct = ((event.clientX - pointer.startClientX) / rect.width) * 100;
   const dyPct = ((event.clientY - pointer.startClientY) / rect.height) * 100;
   const tX = (SNAP_PX / rect.width) * 100; const tY = (SNAP_PX / rect.height) * 100;
+  const useGridSnap = state.showGrid && state.snapToGrid;
+  const gridSteps = useGridSnap ? getGridStepsByRect(rect) : null;
 
   if (pointer.mode === 'drag') {
     const x = clamp(pointer.startX + dxPct, 0, 100 - pointer.startW);
     const y = clamp(pointer.startY + dyPct, 0, 100 - pointer.startH);
     const snapped = snapMove(x, y, pointer.startW, pointer.startH, pointer.index, tX, tY);
-    b.x_pct = roundPct(snapped.x); b.y_pct = roundPct(snapped.y);
+    if (useGridSnap) {
+      const snappedGrid = normalizeRectToGrid({ x: snapped.x, y: snapped.y, w: pointer.startW, h: pointer.startH }, '', gridSteps);
+      b.x_pct = roundPct(snappedGrid.x);
+      b.y_pct = roundPct(snappedGrid.y);
+    } else {
+      b.x_pct = roundPct(snapped.x);
+      b.y_pct = roundPct(snapped.y);
+    }
   }
 
   if (pointer.mode === 'resize') {
@@ -1985,7 +2053,10 @@ function onPointerMove(event) {
     if (dir.includes('s')) h = clamp(pointer.startH + dyPct, 1, 100 - y);
     if (dir.includes('w')) { const right = pointer.startX + pointer.startW; x = clamp(pointer.startX + dxPct, 0, right - 1); w = clamp(right - x, 1, 100 - x); }
     if (dir.includes('n')) { const bottom = pointer.startY + pointer.startH; y = clamp(pointer.startY + dyPct, 0, bottom - 1); h = clamp(bottom - y, 1, 100 - y); }
-    const snapped = snapResize({ x, y, w, h }, pointer.index, dir, tX, tY);
+    let snapped = snapResize({ x, y, w, h }, pointer.index, dir, tX, tY);
+    if (useGridSnap) {
+      snapped = normalizeRectToGrid(snapped, dir, gridSteps);
+    }
     b.x_pct = roundPct(snapped.x); b.y_pct = roundPct(snapped.y); b.w_pct = roundPct(snapped.w); b.h_pct = roundPct(snapped.h);
   }
 
@@ -2535,6 +2606,8 @@ function resetTemplateEditor() {
   state.globalShowContentPreview = false;
   state.disablePreviewAnimation = false;
   state.showSelectedOnly = false;
+  state.showGrid = false;
+  state.snapToGrid = false;
   setStageEditorVisible(false);
   setInspectorVisible(false);
   state.selectedBlockIndex = -1;
@@ -2557,6 +2630,8 @@ function resetTemplateEditor() {
   if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
   if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
   if (el.showSelectedOnly) el.showSelectedOnly.checked = false;
+  if (el.showGrid) el.showGrid.checked = false;
+  if (el.snapToGrid) el.snapToGrid.checked = false;
   fillBlockEditor();
   renderTemplateList();
   renderCanvas();
@@ -2978,6 +3053,23 @@ if (el.disablePreviewAnimation) {
 if (el.showSelectedOnly) {
   el.showSelectedOnly.addEventListener('change', () => {
     state.showSelectedOnly = !!el.showSelectedOnly.checked;
+    renderCanvas();
+  });
+}
+if (el.showGrid) {
+  el.showGrid.addEventListener('change', () => {
+    state.showGrid = !!el.showGrid.checked;
+    if (!state.showGrid) {
+      state.snapToGrid = false;
+      if (el.snapToGrid) el.snapToGrid.checked = false;
+    }
+    renderCanvas();
+  });
+}
+if (el.snapToGrid) {
+  el.snapToGrid.addEventListener('change', () => {
+    state.snapToGrid = !!el.snapToGrid.checked && !!state.showGrid;
+    if (el.snapToGrid && !state.showGrid) el.snapToGrid.checked = false;
     renderCanvas();
   });
 }

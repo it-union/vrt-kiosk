@@ -376,8 +376,21 @@ function showInspector(item) {
     el.qDurationSec.value = String(item.duration_sec);
 }
 
+function refreshTemplatePoolVisibility() {
+    const usedTemplateIds = new Set(
+        state.queue.map((item) => Number(item.template_id || 0)).filter((id) => id > 0)
+    );
+    el.templatePool.querySelectorAll('[data-pool-item="1"]').forEach((node) => {
+        const templateId = Number(node.dataset.templateId || 0);
+        const inQueue = usedTemplateIds.has(templateId);
+        node.style.display = inQueue ? 'none' : '';
+        node.draggable = !inQueue;
+    });
+}
+
 function renderQueue() {
     el.queueList.innerHTML = '';
+    refreshTemplatePoolVisibility();
 
     if (state.queue.length === 0) {
         const empty = document.createElement('div');
@@ -431,6 +444,7 @@ function renderQueue() {
         });
         node.addEventListener('drop', (event) => {
             event.preventDefault();
+            event.stopPropagation();
             const mode = node.dataset.dropMode === 'after' ? 'after' : 'before';
             moveDraggedItemTo(item.id, mode);
             clearDropMarks();
@@ -450,9 +464,15 @@ function clearDropMarks() {
 }
 
 function insertTemplateToQueue(templateId, templateName, atIndex = null) {
+    const normalizedTemplateId = Number(templateId || 0);
+    if (normalizedTemplateId <= 0) return;
+    if (state.queue.some((item) => Number(item.template_id || 0) === normalizedTemplateId)) {
+        setStatus('Шаблон уже добавлен в очередь.', true);
+        return;
+    }
     const item = {
         id: uniqueQueueId(),
-        template_id: Number(templateId),
+        template_id: normalizedTemplateId,
         template_name: String(templateName || 'Шаблон'),
         is_active: 1,
         duration_sec: DEFAULT_DURATION_SEC
@@ -676,6 +696,10 @@ el.queueList.addEventListener('dragleave', (event) => {
 
 el.queueList.addEventListener('drop', (event) => {
     event.preventDefault();
+    const queueItemNode = event.target instanceof Element ? event.target.closest('[data-queue-item="1"]') : null;
+    if (queueItemNode) {
+        return;
+    }
     clearDropMarks();
 
     if (!state.drag) return;
