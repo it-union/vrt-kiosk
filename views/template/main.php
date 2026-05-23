@@ -634,6 +634,7 @@ const state = {
 const pointer = { mode: null, index: -1, dir: '', startClientX: 0, startClientY: 0, startX: 0, startY: 0, startW: 0, startH: 0 };
 const SNAP_PX = 8;
 const GRID_STEP_PCT = 2;
+const TEMPLATE_UI_LOCAL_KEY = 'vrt_template_ui_options_v1';
 function getGridStepsByRect(rect) {
   const width = Math.max(1, Number(rect && rect.width ? rect.width : 0));
   const height = Math.max(1, Number(rect && rect.height ? rect.height : 0));
@@ -675,6 +676,7 @@ function normalizeRectToGrid(rect, dir = '', steps = null) {
 let bgLibraryUploadInProgress = false;
 let bgLibraryUploadProgressTimer = null;
 let bgLibraryUploadFinalizing = false;
+let templateUiSaveTimer = null;
 
 const el = {
   templateList: document.getElementById('templateList'),
@@ -735,6 +737,104 @@ const el = {
   imageLibraryModal: document.getElementById('imageLibraryModal'),
   imageLibrary: document.getElementById('imageLibrary')
 };
+
+function normalizeTemplateUiOptions(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const showGrid = src.show_grid === 1 || src.show_grid === true || String(src.show_grid) === '1';
+  let snapToGrid = src.snap_to_grid === 1 || src.snap_to_grid === true || String(src.snap_to_grid) === '1';
+  if (!showGrid) {
+    snapToGrid = false;
+  }
+  return {
+    show_content_preview: src.show_content_preview === 1 || src.show_content_preview === true || String(src.show_content_preview) === '1',
+    disable_preview_animation: src.disable_preview_animation === 1 || src.disable_preview_animation === true || String(src.disable_preview_animation) === '1',
+    show_grid: showGrid,
+    snap_to_grid: snapToGrid
+  };
+}
+
+function collectTemplateUiOptionsFromState() {
+  return {
+    show_content_preview: state.globalShowContentPreview ? 1 : 0,
+    disable_preview_animation: state.disablePreviewAnimation ? 1 : 0,
+    show_grid: state.showGrid ? 1 : 0,
+    snap_to_grid: state.snapToGrid ? 1 : 0
+  };
+}
+
+function syncTemplateUiCheckboxes() {
+  if (el.globalShowContentPreview) el.globalShowContentPreview.checked = !!state.globalShowContentPreview;
+  if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = !!state.disablePreviewAnimation;
+  if (el.showGrid) el.showGrid.checked = !!state.showGrid;
+  if (el.snapToGrid) el.snapToGrid.checked = !!state.snapToGrid;
+}
+
+function applyTemplateUiOptions(raw, shouldRender = true) {
+  const options = normalizeTemplateUiOptions(raw);
+  state.globalShowContentPreview = !!options.show_content_preview;
+  state.disablePreviewAnimation = !!options.disable_preview_animation;
+  state.showGrid = !!options.show_grid;
+  state.snapToGrid = !!options.snap_to_grid;
+  syncTemplateUiCheckboxes();
+  if (shouldRender) {
+    renderCanvas();
+  }
+}
+
+function saveTemplateUiOptionsLocal() {
+  try {
+    localStorage.setItem(TEMPLATE_UI_LOCAL_KEY, JSON.stringify(collectTemplateUiOptionsFromState()));
+  } catch (_e) {
+    // ignore localStorage failures
+  }
+}
+
+function loadTemplateUiOptionsLocal() {
+  try {
+    const raw = localStorage.getItem(TEMPLATE_UI_LOCAL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+async function saveTemplateUiOptionsRemote() {
+  const options = collectTemplateUiOptionsFromState();
+  try {
+    await apiPost('/api/user_template_settings_save.php', options);
+  } catch (_e) {
+    // ignore remote save failures to avoid noisy UX
+  }
+}
+
+function scheduleTemplateUiOptionsRemoteSave() {
+  if (templateUiSaveTimer !== null) {
+    window.clearTimeout(templateUiSaveTimer);
+  }
+  templateUiSaveTimer = window.setTimeout(() => {
+    templateUiSaveTimer = null;
+    saveTemplateUiOptionsRemote();
+  }, 300);
+}
+
+function persistTemplateUiOptions() {
+  saveTemplateUiOptionsLocal();
+  scheduleTemplateUiOptionsRemoteSave();
+}
+
+async function loadTemplateUiOptionsRemote() {
+  try {
+    const remote = await apiGet('/api/user_template_settings_get.php');
+    if (remote && typeof remote === 'object') {
+      applyTemplateUiOptions(remote, true);
+      saveTemplateUiOptionsLocal();
+    }
+  } catch (_e) {
+    // ignore: keep local or defaults
+  }
+}
 
 function setStatus(msg, isErr = false) {
   const text = String(msg || '').trim();
@@ -2603,11 +2703,7 @@ function resetTemplateEditor() {
   state.currentOwnerId = 0;
   state.blocks = [];
   state.lastBlockId = 0;
-  state.globalShowContentPreview = false;
-  state.disablePreviewAnimation = false;
   state.showSelectedOnly = false;
-  state.showGrid = false;
-  state.snapToGrid = false;
   setStageEditorVisible(false);
   setInspectorVisible(false);
   state.selectedBlockIndex = -1;
@@ -2627,11 +2723,8 @@ function resetTemplateEditor() {
   el.screenTransitionSquaresPx.value = String(state.screen_style.transition_squares_px);
   renderStageBlockSelect();
   syncScreenBackgroundFieldVisibility();
-  if (el.globalShowContentPreview) el.globalShowContentPreview.checked = false;
-  if (el.disablePreviewAnimation) el.disablePreviewAnimation.checked = false;
   if (el.showSelectedOnly) el.showSelectedOnly.checked = false;
-  if (el.showGrid) el.showGrid.checked = false;
-  if (el.snapToGrid) el.snapToGrid.checked = false;
+  syncTemplateUiCheckboxes();
   fillBlockEditor();
   renderTemplateList();
   renderCanvas();
@@ -3042,12 +3135,14 @@ if (el.globalShowContentPreview) {
   el.globalShowContentPreview.addEventListener('change', () => {
     state.globalShowContentPreview = !!el.globalShowContentPreview.checked;
     renderCanvas();
+    persistTemplateUiOptions();
   });
 }
 if (el.disablePreviewAnimation) {
   el.disablePreviewAnimation.addEventListener('change', () => {
     state.disablePreviewAnimation = !!el.disablePreviewAnimation.checked;
     renderCanvas();
+    persistTemplateUiOptions();
   });
 }
 if (el.showSelectedOnly) {
@@ -3064,6 +3159,7 @@ if (el.showGrid) {
       if (el.snapToGrid) el.snapToGrid.checked = false;
     }
     renderCanvas();
+    persistTemplateUiOptions();
   });
 }
 if (el.snapToGrid) {
@@ -3071,6 +3167,7 @@ if (el.snapToGrid) {
     state.snapToGrid = !!el.snapToGrid.checked && !!state.showGrid;
     if (el.snapToGrid && !state.showGrid) el.snapToGrid.checked = false;
     renderCanvas();
+    persistTemplateUiOptions();
   });
 }
 ['screenBgMode','screenBgColor','screenBgImage','screenBgSize','screenBgPosition','screenBgRepeat','screenTransitionName','screenTransitionMs','screenTransitionSquaresPx'].forEach((id) => {
@@ -3191,6 +3288,11 @@ el.bType.addEventListener('change', () => {
   await reloadTemplateFolders();
   await reloadTemplateList();
   resetTemplateEditor();
+  const localTemplateUiOptions = loadTemplateUiOptionsLocal();
+  if (localTemplateUiOptions) {
+    applyTemplateUiOptions(localTemplateUiOptions, true);
+  }
+  await loadTemplateUiOptionsRemote();
 })();
 </script>
 </body>
