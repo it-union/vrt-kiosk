@@ -2696,6 +2696,48 @@ function uploadWithProgress(url, formData, onProgress) {
     xhr.send(formData);
   });
 }
+async function uploadVideoInChunks(file, onProgress) {
+  const chunkSize = 8 * 1024 * 1024;
+  const totalSize = Number(file && file.size ? file.size : 0);
+  if (!file || totalSize <= 0) {
+    throw new Error('Сначала выберите файл');
+  }
+  const totalChunks = Math.max(1, Math.ceil(totalSize / chunkSize));
+  const uploadId = 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+  let finalPayload = null;
+
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+    const start = chunkIndex * chunkSize;
+    const end = Math.min(totalSize, start + chunkSize);
+    const blob = file.slice(start, end);
+    const fd = new FormData();
+    fd.append('chunk_upload', '1');
+    fd.append('upload_id', uploadId);
+    fd.append('chunk_index', String(chunkIndex));
+    fd.append('chunk_total', String(totalChunks));
+    fd.append('original_name', String(file.name || 'video.mp4'));
+    fd.append('total_size', String(totalSize));
+    fd.append('chunk', blob, String(file.name || 'video.mp4'));
+
+    const payload = await uploadWithProgress('/api/content_upload_video.php', fd, (chunkPct) => {
+      const normalized = Math.max(0, Math.min(100, Number(chunkPct || 0)));
+      const base = chunkIndex / totalChunks;
+      const fraction = (normalized / 100) / totalChunks;
+      const pct = Math.max(1, Math.min(99, Math.round((base + fraction) * 100)));
+      if (typeof onProgress === 'function') onProgress(pct);
+    });
+    finalPayload = payload;
+    if (typeof onProgress === 'function') {
+      const pctDone = Math.max(1, Math.min(99, Math.round(((chunkIndex + 1) / totalChunks) * 100)));
+      onProgress(pctDone);
+    }
+  }
+
+  if (!finalPayload || !finalPayload.data || String(finalPayload.data.url || '').trim() === '') {
+    throw new Error('Не удалось завершить загрузку видео');
+  }
+  return finalPayload;
+}
 function setLibraryUploadState(inProgress, text = '') {
   const uploadBtn = document.getElementById('libraryUploadBtn');
   const reloadBtn = document.getElementById('reloadLibraryBtn');
@@ -3046,11 +3088,20 @@ async function uploadFile() {
     const fd = new FormData();
     const isVideoMode = state.libraryMode === 'video';
     const isPptMode = state.libraryMode === 'ppt';
-    fd.append(isVideoMode ? 'video' : (isPptMode ? 'ppt' : 'image'), file);
     const endpoint = isVideoMode ? '/api/content_upload_video.php' : (isPptMode ? '/api/content_upload_ppt.php' : '/api/content_upload_image.php');
+    if (!isVideoMode) {
+      fd.append(isPptMode ? 'ppt' : 'image', file);
+    }
 
     setLibraryUploadState(true);
-    const payload = await uploadWithProgress(endpoint, fd, (pct) => {
+    const payload = isVideoMode
+      ? await uploadVideoInChunks(file, (pct) => {
+        const progressBar = document.getElementById('libraryUploadProgressBar');
+        const progressText = document.getElementById('libraryUploadProgressText');
+        if (progressBar) progressBar.style.width = String(pct) + '%';
+        if (progressText) progressText.textContent = String(pct) + '%';
+      })
+      : await uploadWithProgress(endpoint, fd, (pct) => {
       const progressBar = document.getElementById('libraryUploadProgressBar');
       const progressText = document.getElementById('libraryUploadProgressText');
       if (progressBar) progressBar.style.width = String(pct) + '%';
