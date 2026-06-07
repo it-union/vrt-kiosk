@@ -405,6 +405,7 @@ declare(strict_types=1);
                 <label>Яркость, % <input id="pImageBrightness" type="number" min="0" max="300" step="1" value="100"></label>
                 <label>Контраст, % <input id="pImageContrast" type="number" min="0" max="300" step="1" value="100"></label>
                 <label>Насыщенность, % <input id="pImageSaturation" type="number" min="0" max="300" step="1" value="100"></label>
+                <label>Теплота, % <input id="pImageWarmth" type="number" min="0" max="100" step="1" value="50"></label>
                 <label>Прозрачные края, % <input id="pImageFade" type="number" min="0" max="100" step="1" value="0"></label>
                 <label>Режим прозрачных краёв
                     <select id="pImageFadeMode">
@@ -728,6 +729,7 @@ const el = {
   pImageBrightness: document.getElementById('pImageBrightness'),
   pImageContrast: document.getElementById('pImageContrast'),
   pImageSaturation: document.getElementById('pImageSaturation'),
+  pImageWarmth: document.getElementById('pImageWarmth'),
   pImageFade: document.getElementById('pImageFade'),
   pImageFadeMode: document.getElementById('pImageFadeMode'),
   pImageFluidMode: document.getElementById('pImageFluidMode'),
@@ -1034,6 +1036,7 @@ function buildImageDataJson() {
   const brightnessPct = Math.max(0, Math.min(300, Number(el.pImageBrightness.value || 100)));
   const contrastPct = Math.max(0, Math.min(300, Number(el.pImageContrast.value || 100)));
   const saturationPct = Math.max(0, Math.min(300, Number(el.pImageSaturation.value || 100)));
+  const warmthPct = Math.max(0, Math.min(100, Number(el.pImageWarmth.value || 50)));
   const fadePct = Math.max(0, Math.min(100, Number(el.pImageFade.value || 0)));
   const shadow = ['none', 'soft', 'medium', 'strong'].includes(String(el.pImageShadow.value || ''))
     ? String(el.pImageShadow.value || 'none')
@@ -1054,6 +1057,7 @@ function buildImageDataJson() {
       brightness_pct: brightnessPct,
       contrast_pct: contrastPct,
       saturation_pct: saturationPct,
+      warmth_pct: warmthPct,
       fade_pct: fadePct,
       fade_mode: fadeMode,
       fluid: fluid,
@@ -1069,6 +1073,11 @@ function applyImageEffects(target, imageData) {
   const brightness = Math.max(0, Math.min(300, Number(p.brightness_pct ?? 100)));
   const contrast = Math.max(0, Math.min(300, Number(p.contrast_pct ?? 100)));
   const saturation = Math.max(0, Math.min(300, Number(p.saturation_pct ?? 100)));
+  const warmth = Math.max(0, Math.min(100, Number(p.warmth_pct ?? 50)));
+  const warmthShift = warmth - 50;
+  const warmthSepia = Math.abs(warmthShift) * 0.7;
+  const warmthHue = warmthShift >= 0 ? warmthShift * -0.18 : Math.abs(warmthShift) * 3.2;
+  const warmthSaturation = warmthShift >= 0 ? 100 + warmthShift * 0.3 : 100 + Math.abs(warmthShift) * 0.8;
   const shadow = ['none', 'soft', 'medium', 'strong'].includes(String(p.shadow || ''))
     ? String(p.shadow || 'none')
     : 'none';
@@ -1081,7 +1090,7 @@ function applyImageEffects(target, imageData) {
   target.style.opacity = String(opacity / 100);
   target.style.borderRadius = radius > 0 ? (radius + 'px') : '0';
   target.style.boxShadow = shadowMap[shadow] || 'none';
-  target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+  target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) sepia(${warmthSepia}%) hue-rotate(${warmthHue}deg) saturate(${warmthSaturation}%)`;
 }
 function removeLegacyContentMotionControls() {
   ['pHtmlAnim', 'pHtmlAnimMs', 'pHtmlDelayMs', 'pHtmlDelayOffMs', 'pImageAnim', 'pImageAnimMs', 'pImageDelayMs', 'pImageDelayOffMs'].forEach((id) => {
@@ -2171,6 +2180,7 @@ function nowDraft() {
   el.pImageBrightness.value = '100';
   el.pImageContrast.value = '100';
   el.pImageSaturation.value = '100';
+  el.pImageWarmth.value = '50';
   el.pImageFade.value = '0';
   el.pImageFadeMode.value = 'all';
   el.pHtmlScale.value = '100';
@@ -2536,6 +2546,7 @@ function resetEditor() {
   el.pImageBrightness.value = '100';
   el.pImageContrast.value = '100';
   el.pImageSaturation.value = '100';
+  el.pImageWarmth.value = '50';
   el.pImageFade.value = '0';
   el.pImageFadeMode.value = 'all';
   el.pImageFluidMode.value = 'fixed';
@@ -3017,6 +3028,7 @@ async function loadById(id) {
     el.pImageBrightness.value = String(Math.max(0, Math.min(300, Number(image.brightness_pct ?? 100))));
     el.pImageContrast.value = String(Math.max(0, Math.min(300, Number(image.contrast_pct ?? 100))));
     el.pImageSaturation.value = String(Math.max(0, Math.min(300, Number(image.saturation_pct ?? 100))));
+    el.pImageWarmth.value = String(Math.max(0, Math.min(100, Number(image.warmth_pct ?? 50))));
     el.pImageFade.value = String(Math.max(0, Math.min(100, Number(image.fade_pct ?? 0))));
     el.pImageFadeMode.value = ['all', 'horizontal', 'vertical'].includes(String(image.fade_mode || ''))
       ? String(image.fade_mode || 'all')
@@ -3474,6 +3486,7 @@ el.pImageShadow.addEventListener('change', () => { syncDataJson(); syncPreview()
 el.pImageBrightness.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageContrast.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageSaturation.addEventListener('input', () => { syncDataJson(); syncPreview(); });
+el.pImageWarmth.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFade.addEventListener('input', () => { syncDataJson(); syncPreview(); });
 el.pImageFadeMode.addEventListener('change', () => { syncDataJson(); syncPreview(); });
 el.pTextFontSize.addEventListener('input', () => { syncDataJson(); syncPreview(); });

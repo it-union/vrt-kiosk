@@ -453,6 +453,11 @@ function applyImageEffects(target, imageData) {
     const brightness = Math.max(0, Math.min(300, Number(p.brightness_pct ?? 100)));
     const contrast = Math.max(0, Math.min(300, Number(p.contrast_pct ?? 100)));
     const saturation = Math.max(0, Math.min(300, Number(p.saturation_pct ?? 100)));
+    const warmth = Math.max(0, Math.min(100, Number(p.warmth_pct ?? 50)));
+    const warmthShift = warmth - 50;
+    const warmthSepia = Math.abs(warmthShift) * 0.7;
+    const warmthHue = warmthShift >= 0 ? warmthShift * -0.18 : Math.abs(warmthShift) * 3.2;
+    const warmthSaturation = warmthShift >= 0 ? 100 + warmthShift * 0.3 : 100 + Math.abs(warmthShift) * 0.8;
     const fade = Math.max(0, Math.min(100, Number(p.fade_pct ?? 0)));
     const fadeMode = ['all', 'horizontal', 'vertical'].includes(String(p.fade_mode || ''))
         ? String(p.fade_mode || 'all')
@@ -469,7 +474,7 @@ function applyImageEffects(target, imageData) {
     target.style.opacity = String(opacity / 100);
     target.style.borderRadius = radius > 0 ? (radius + 'px') : '0';
     target.style.boxShadow = shadowMap[shadow] || 'none';
-    target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+    target.style.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) sepia(${warmthSepia}%) hue-rotate(${warmthHue}deg) saturate(${warmthSaturation}%)`;
 }
 function setImageMask(target, mode, fade) {
     if (!target) return;
