@@ -18,12 +18,15 @@ try {
     $results = scheduleRefreshCaches($pdo, $force, null);
 
     $ok = 0;
+    $skipped = 0;
     $error = 0;
 
     foreach ($results as $row) {
         $status = (string)($row['status'] ?? 'error');
         if ($status === 'ok') {
             $ok++;
+        } elseif ($status === 'skipped') {
+            $skipped++;
         } else {
             $error++;
         }
@@ -36,7 +39,7 @@ try {
         echo $line . PHP_EOL;
     }
 
-    echo sprintf('SUMMARY: ok=%d error=%d total=%d', $ok, $error, count($results)) . PHP_EOL;
+    echo sprintf('SUMMARY: ok=%d skipped=%d error=%d total=%d', $ok, $skipped, $error, count($results)) . PHP_EOL;
     exit($error > 0 ? 2 : 0);
 } catch (Throwable $e) {
     $message = trim((string)$e->getMessage());

@@ -328,6 +328,11 @@ function scheduleShouldRefresh(?string $updatedAtIso, int $ttlMin): bool
     return (time() - $updatedTs) >= ($ttlMin * 60);
 }
 
+function scheduleCacheTtlMin(array $apiConfig): int
+{
+    return max(1, min(1440, (int)($apiConfig['cache_ttl_min'] ?? 15)));
+}
+
 function scheduleRefreshCacheForContent(PDO $pdo, array $apiConfig, array $content, bool $force = false): array
 {
     $contentId = (int)($content['id'] ?? 0);
@@ -349,6 +354,12 @@ function scheduleRefreshCacheForContent(PDO $pdo, array $apiConfig, array $conte
     }
     $days = (int)($schedule['days'] ?? ($apiConfig['days_default'] ?? 7));
     $days = max(1, min(31, $days));
+
+    $cachedPayload = $schedule['cached_payload'] ?? null;
+    $cachedUpdatedAt = (string)($schedule['cached_updated_at'] ?? '');
+    if (!$force && is_array($cachedPayload) && !scheduleShouldRefresh($cachedUpdatedAt, scheduleCacheTtlMin($apiConfig))) {
+        return ['content_id' => $contentId, 'status' => 'skipped', 'message' => 'cache_fresh', 'doctor_id' => $doctorId, 'point' => $point, 'days' => $days];
+    }
 
     if ($point === 2) {
         $payloadPoint0 = scheduleFetchForDoctorId($apiConfig, $doctorId, 0, $days);
