@@ -66,6 +66,10 @@ const mediaResolveCache = new Map();
 const mediaWarmCacheTasks = new Map();
 const activeObjectUrls = [];
 let clientMediaCacheEnabled = true;
+const MEDIA_CACHE_NAME = 'vrt-kiosk-media-v1';
+const MEDIA_CACHE_CLEANUP_STORAGE_KEY = 'vrt-kiosk-media-last-cleanup-v1';
+const MEDIA_CACHE_CLEANUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+let mediaCacheCleanupTask = null;
 let showResolutionOverlay = false;
 let screenTransitionClipCounter = 0;
 let heartbeatTimer = null;
@@ -202,6 +206,55 @@ function clearResolvedObjectUrls() {
     }
     mediaResolveCache.clear();
 }
+function getMediaCacheLastCleanupTs() {
+    try {
+        const raw = localStorage.getItem(MEDIA_CACHE_CLEANUP_STORAGE_KEY);
+        const value = Number(raw || 0);
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    } catch (_) {
+        return 0;
+    }
+}
+function setMediaCacheLastCleanupTs(value) {
+    try {
+        localStorage.setItem(MEDIA_CACHE_CLEANUP_STORAGE_KEY, String(Math.max(0, Math.floor(Number(value || 0)))));
+    } catch (_) {
+        // ignore
+    }
+}
+function shouldRunMediaCacheCleanup() {
+    const lastCleanupTs = getMediaCacheLastCleanupTs();
+    if (lastCleanupTs <= 0) return true;
+    return (Date.now() - lastCleanupTs) >= MEDIA_CACHE_CLEANUP_INTERVAL_MS;
+}
+async function cleanupMediaCacheIfNeeded() {
+    if (mediaCacheCleanupTask) {
+        return mediaCacheCleanupTask;
+    }
+    mediaCacheCleanupTask = (async () => {
+        try {
+            if (typeof caches === 'undefined') return;
+            if (!shouldRunMediaCacheCleanup()) return;
+            const storage = await caches.open(MEDIA_CACHE_NAME);
+            const requests = await storage.keys();
+            for (const request of requests) {
+                try {
+                    await storage.delete(request);
+                } catch (_) {
+                    // ignore
+                }
+            }
+            setMediaCacheLastCleanupTs(Date.now());
+        } catch (_) {
+            // ignore
+        }
+    })();
+    try {
+        await mediaCacheCleanupTask;
+    } finally {
+        mediaCacheCleanupTask = null;
+    }
+}
 async function resolveMediaUrlForKioskCache(mediaType, content) {
     const sourceUrl = String(content?.media_url || '').trim();
     if (sourceUrl === '') return '';
@@ -220,7 +273,7 @@ async function resolveMediaUrlForKioskCache(mediaType, content) {
             if (typeof caches === 'undefined') {
                 return sourceUrl;
             }
-            const storage = await caches.open('vrt-kiosk-media-v1');
+            const storage = await caches.open(MEDIA_CACHE_NAME);
             const requestKey = '/__kiosk_cache__/' + encodeURIComponent(String(mediaType || 'media')) + '/' + encodeURIComponent(cacheKey);
             const matched = await storage.match(requestKey);
             if (matched) {
@@ -1528,6 +1581,7 @@ async function loadScreen() {
 
         const data = payload.data || {};
         clientMediaCacheEnabled = Number(data.client_media_cache_enabled || 0) === 1;
+        await cleanupMediaCacheIfNeeded();
         showResolutionOverlay = Number(data.show_resolution_overlay || 0) === 1;
         heartbeatSource = String(data.source || '');
         heartbeatTemplateId = Number(data?.template?.id || 0);
